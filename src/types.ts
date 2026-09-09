@@ -10,6 +10,8 @@ export interface Frame {
   uri: string;
   // base64 is kept in memory only (never persisted) for the real-AI path.
   base64?: string;
+  // image mime type of the base64 bytes (camera = jpeg, rasterised demo = png).
+  mime?: string;
 }
 
 export interface Pet {

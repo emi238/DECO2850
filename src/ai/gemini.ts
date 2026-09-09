@@ -25,7 +25,7 @@ function collectImages(session: Session): InlineImage[] {
   return session.capture.frames
     .filter((f) => !!f.base64)
     .slice(0, AI_CONFIG.MAX_FRAMES)
-    .map((f) => ({ mime_type: 'image/jpeg', data: f.base64 as string }));
+    .map((f) => ({ mime_type: f.mime ?? 'image/jpeg', data: f.base64 as string }));
 }
 
 export function hasUsableImages(session: Session): boolean {

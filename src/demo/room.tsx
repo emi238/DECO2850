@@ -6,7 +6,8 @@
 // object positions below are shared with the mock assessment so its pins land
 // exactly on the drawn hazards.
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
+import { View } from 'react-native';
 import Svg, {
   Defs,
   LinearGradient,
@@ -239,5 +240,72 @@ export function DemoFrame({
       <SceneDefs />
       <RoomScene />
     </Svg>
+  );
+}
+
+// Offscreen rasteriser: renders the 8 demo frames and turns each into a PNG
+// (base64) so the built-in demo room can be sent to the real model on the
+// Simulator, where there is no camera. Mount it, get the base64 back via onDone.
+const RASTER_W = 480;
+const RASTER_H = 640;
+
+export function DemoRasterizer({ onDone }: { onDone: (frames: Frame[]) => void }) {
+  const refs = useRef<any[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const out: string[] = new Array(FRAME_COUNT).fill('');
+    let remaining = FRAME_COUNT;
+    const finish = () => {
+      if (cancelled) return;
+      onDone(
+        DEMO_FRAMES.map((f, i) => ({
+          uri: f.uri,
+          base64: out[i] || undefined,
+          mime: 'image/png',
+        }))
+      );
+    };
+    // Let the SVGs lay out before capturing.
+    const t = setTimeout(() => {
+      for (let i = 0; i < FRAME_COUNT; i++) {
+        const svg = refs.current[i];
+        if (svg && typeof svg.toDataURL === 'function') {
+          svg.toDataURL((data: string) => {
+            // Some platforms include the data: prefix; strip it if present.
+            out[i] = data.replace(/^data:image\/\w+;base64,/, '');
+            remaining -= 1;
+            if (remaining === 0) finish();
+          });
+        } else {
+          remaining -= 1;
+          if (remaining === 0) finish();
+        }
+      }
+    }, 80);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [onDone]);
+
+  return (
+    <View style={{ position: 'absolute', width: RASTER_W, height: RASTER_H, opacity: 0 }} pointerEvents="none">
+      {Array.from({ length: FRAME_COUNT }).map((_, i) => (
+        <Svg
+          key={i}
+          ref={(r) => {
+            refs.current[i] = r;
+          }}
+          width={RASTER_W}
+          height={RASTER_H}
+          viewBox={frameViewBox(i)}
+          style={{ position: 'absolute', top: 0, left: 0 }}
+        >
+          <SceneDefs />
+          <RoomScene />
+        </Svg>
+      ))}
+    </View>
   );
 }

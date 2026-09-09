@@ -20,7 +20,8 @@ import { GlassCard } from '../components/GlassCard';
 import { FrameView } from '../components/FrameView';
 import { colors, spacing, font, radius } from '../theme';
 import { useSession } from '../store/session';
-import { DEMO_FRAMES } from '../demo/room';
+import { DEMO_FRAMES, DemoRasterizer } from '../demo/room';
+import { realAiEnabled } from '../ai/config';
 import type { Frame } from '../types';
 import type { ScreenProps } from '../navigation';
 
@@ -38,6 +39,7 @@ export default function CaptureScreen({ navigation }: ScreenProps<'Capture'>) {
   const [sweeping, setSweeping] = useState(false);
   const [captured, setCaptured] = useState<Frame[]>([]);
   const [isDemo, setIsDemo] = useState(false);
+  const [rasterizing, setRasterizing] = useState(false);
   const busy = useRef(false);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const framesRef = useRef<Frame[]>([]);
@@ -61,7 +63,7 @@ export default function CaptureScreen({ navigation }: ScreenProps<'Capture'>) {
         skipProcessing: true,
       });
       if (photo?.uri) {
-        framesRef.current = [...framesRef.current, { uri: photo.uri, base64: photo.base64 }];
+        framesRef.current = [...framesRef.current, { uri: photo.uri, base64: photo.base64, mime: 'image/jpeg' }];
         setCaptured([...framesRef.current]);
         if (framesRef.current.length >= MAX_FRAMES) stopSweep();
       }
@@ -85,10 +87,22 @@ export default function CaptureScreen({ navigation }: ScreenProps<'Capture'>) {
   const useDemoRoom = useCallback(() => {
     reset();
     setIsDemo(true);
-    framesRef.current = DEMO_FRAMES;
-    setCaptured(DEMO_FRAMES);
-    setPhase('review');
+    if (realAiEnabled()) {
+      // Real model on: rasterise the demo room to PNGs so it can be analysed.
+      setRasterizing(true);
+    } else {
+      framesRef.current = DEMO_FRAMES;
+      setCaptured(DEMO_FRAMES);
+      setPhase('review');
+    }
   }, [reset]);
+
+  const onRasterDone = useCallback((frames: Frame[]) => {
+    framesRef.current = frames;
+    setCaptured(frames);
+    setRasterizing(false);
+    setPhase('review');
+  }, []);
 
   const retake = useCallback(() => {
     framesRef.current = [];
@@ -101,6 +115,19 @@ export default function CaptureScreen({ navigation }: ScreenProps<'Capture'>) {
     setFrames(captured);
     navigation.navigate('Mode');
   }, [captured, navigation, setFrames]);
+
+  // ---------- PREPARING DEMO ROOM (rasterising for the real model) ----------
+  if (rasterizing) {
+    return (
+      <Screen step={0} title="Preparing demo room" subtitle="Rendering the room into images for the AI…">
+        <View style={styles.prep}>
+          <ActivityIndicator size="large" color={colors.accent} />
+          <Text style={styles.prepTxt}>One moment…</Text>
+        </View>
+        <DemoRasterizer onDone={onRasterDone} />
+      </Screen>
+    );
+  }
 
   // ---------- REVIEW ----------
   if (phase === 'review') {
@@ -216,6 +243,8 @@ export default function CaptureScreen({ navigation }: ScreenProps<'Capture'>) {
 }
 
 const styles = StyleSheet.create({
+  prep: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
+  prepTxt: { color: colors.textMuted, fontSize: font.body },
   cameraBody: { flex: 1, paddingHorizontal: spacing.xl },
   viewport: {
     flex: 1,

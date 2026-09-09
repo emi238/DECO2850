@@ -19,10 +19,16 @@ function withTimeout<T>(p: (signal: AbortSignal) => Promise<T>, ms: number): Pro
   return p(controller.signal).finally(() => clearTimeout(timer));
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+const MAX_ATTEMPTS = 3; // initial try + 2 retries (PRD F5.5), with backoff
+
 export async function runAssessment(session: Session): Promise<AssessResult> {
   if (realAiEnabled() && hasUsableImages(session)) {
-    // Try once, retry once (PRD F5.5), then fall back to the mock.
-    for (let attempt = 0; attempt < 2; attempt++) {
+    // Retry with a short backoff so transient free-tier 503 spikes can clear,
+    // then fall back to the mock so a demo never dead-ends.
+    let lastErr: unknown;
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
       try {
         const assessment = await withTimeout(
           (signal) => callGemini(session, signal),
@@ -30,17 +36,19 @@ export async function runAssessment(session: Session): Promise<AssessResult> {
         );
         return { assessment, source: 'ai' };
       } catch (err) {
-        if (attempt === 1) {
-          return {
-            assessment: generateMockAssessment(session),
-            source: 'mock',
-            fallbackReason:
-              'The AI call failed twice, so this shows a sample assessment instead. ' +
-              (err instanceof Error ? err.message : String(err)),
-          };
+        lastErr = err;
+        if (attempt < MAX_ATTEMPTS - 1) {
+          await sleep(1200 * (attempt + 1)); // 1.2s, then 2.4s
         }
       }
     }
+    return {
+      assessment: generateMockAssessment(session),
+      source: 'mock',
+      fallbackReason:
+        `The AI model was unreachable after ${MAX_ATTEMPTS} tries, so this shows a sample ` +
+        'assessment instead. ' + (lastErr instanceof Error ? lastErr.message : String(lastErr)),
+    };
   }
 
   if (realAiEnabled() && !hasUsableImages(session)) {
