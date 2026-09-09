@@ -58,19 +58,32 @@ npx expo start --ios
 
 Out of the box the app runs in **demo mode**: it shows a realistic, built-in sample
 assessment so the whole flow works with zero setup. To use the real Google Gemini
-model instead, edit **one file**: [`src/ai/config.ts`](src/ai/config.ts).
+model instead, put your key in a **private, git-ignored file** (never in the code):
 
 1. Get a free API key at <https://aistudio.google.com/apikey> (no credit card).
-2. In `src/ai/config.ts`, paste it into `GEMINI_API_KEY` and set `USE_MOCK` to `false`.
-3. Reload the app.
+2. Create a file called **`.env.local`** in the project root with these two lines:
 
-Real AI needs real **camera photos** (the built-in demo room is a drawing, not a
-photo), so capture a real room on a phone, then analyse. If the AI call fails or times
-out, the app automatically falls back to the sample assessment so a demo never
+   ```
+   EXPO_PUBLIC_USE_MOCK=false
+   EXPO_PUBLIC_GEMINI_API_KEY=your-key-here
+   ```
+
+3. Restart the dev server: `npx expo start --ios --clear`.
+
+`.env.local` is ignored by git (see `.gitignore`), so your key can never be committed.
+The model is `gemini-3.6-flash` by default (override with `EXPO_PUBLIC_GEMINI_MODEL`).
+
+Real AI needs real **images**: on the iOS Simulator the built-in demo room is turned
+into images automatically so it works there too; on a phone your camera sweep is used.
+If the model is busy or the free-tier quota is used up, the app retries a few times and
+then falls back to the sample assessment with a short, friendly note — a demo never
 dead-ends.
 
+**Keep the key off the phone (recommended before real users):** deploy the tiny proxy
+in [`proxy/`](proxy/README.md) and set `EXPO_PUBLIC_PROXY_URL` instead of the key.
+
 > Privacy note: on Gemini's free tier your inputs may be used to improve Google's
-> models. Demo with your own / non-sensitive rooms only.
+> models, and the free tier is rate-limited. Demo with your own / non-sensitive rooms.
 
 ---
 

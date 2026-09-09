@@ -21,6 +21,21 @@ function withTimeout<T>(p: (signal: AbortSignal) => Promise<T>, ms: number): Pro
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// Turn a raw model error into one friendly sentence for the results banner.
+function friendlyFailure(err: unknown): string {
+  const msg = (err instanceof Error ? err.message : String(err)) || '';
+  if (/429|quota|rate/i.test(msg)) {
+    return 'The free AI quota is used up for now, so this is a sample assessment. The free tier resets later today.';
+  }
+  if (/503|unavailable|overload|high demand/i.test(msg)) {
+    return 'The AI model was briefly busy, so this is a sample assessment. Tap “Start over” and try again in a moment.';
+  }
+  if (/tim-?out|abort|network|fetch/i.test(msg)) {
+    return 'The AI could not be reached (network/timeout), so this is a sample assessment.';
+  }
+  return 'The AI call did not complete, so this is a sample assessment.';
+}
+
 const MAX_ATTEMPTS = 3; // initial try + 2 retries (PRD F5.5), with backoff
 
 export async function runAssessment(session: Session): Promise<AssessResult> {
@@ -45,9 +60,7 @@ export async function runAssessment(session: Session): Promise<AssessResult> {
     return {
       assessment: generateMockAssessment(session),
       source: 'mock',
-      fallbackReason:
-        `The AI model was unreachable after ${MAX_ATTEMPTS} tries, so this shows a sample ` +
-        'assessment instead. ' + (lastErr instanceof Error ? lastErr.message : String(lastErr)),
+      fallbackReason: friendlyFailure(lastErr),
     };
   }
 

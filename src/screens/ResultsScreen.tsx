@@ -22,11 +22,15 @@ import { colors, spacing, font, radius, severityColor } from '../theme';
 import { CATEGORY_LABELS } from '../ai/categories';
 import { useSession } from '../store/session';
 import { runAssessment } from '../ai/assess';
+import { FRAME_W as DEMO_FRAME_W, STEP as DEMO_STEP } from '../demo/room';
 import type { Assessment, Hazard } from '../types';
 import type { ScreenProps } from '../navigation';
 
 const FW = 300;
 const FH = 400;
+// Overlap each frame by the demo room's true sweep step so the strip merges
+// into one seamless panorama (a slow real-camera sweep overlaps similarly).
+const ADVANCE = Math.round(FW * (DEMO_STEP / DEMO_FRAME_W));
 
 const VERDICT_LABEL: Record<string, string> = {
   well_suited: 'Well suited',
@@ -69,17 +73,12 @@ export default function ResultsScreen({ navigation }: ScreenProps<'Results'>) {
   }, [setResult]);
 
   // Object hazards get numbered pins; space hazards go to the banner/list.
-  const { objectHazards, spaceHazards, numberOf, pinsByFrame } = useMemo(() => {
+  const { objectHazards, spaceHazards, numberOf } = useMemo(() => {
     const objects = (result?.hazards ?? []).filter((h) => h.scope === 'object' && h.location);
     const spaces = (result?.hazards ?? []).filter((h) => h.scope === 'space');
     const num = new Map<string, number>();
     objects.forEach((h, i) => num.set(h.id, i + 1));
-    const byFrame = new Map<number, Hazard[]>();
-    objects.forEach((h) => {
-      const f = h.location!.frame_index;
-      byFrame.set(f, [...(byFrame.get(f) ?? []), h]);
-    });
-    return { objectHazards: objects, spaceHazards: spaces, numberOf: num, pinsByFrame: byFrame };
+    return { objectHazards: objects, spaceHazards: spaces, numberOf: num };
   }, [result]);
 
   const selected = result?.hazards.find((h) => h.id === selectedId) ?? null;
@@ -163,43 +162,47 @@ export default function ResultsScreen({ navigation }: ScreenProps<'Results'>) {
           <Text style={styles.confidence}>
             {source === 'ai' ? 'AI assessment' : 'Sample assessment (demo mode)'} · confidence: {result.confidence}
           </Text>
-          {!!fallback && <Text style={styles.fallback}>{fallback}</Text>}
+          {!!fallback && <Text style={styles.fallback} numberOfLines={3}>{fallback}</Text>}
         </GlassCard>
       </View>
 
-      {/* ---- The 2D map with pinned object hazards ---- */}
+      {/* ---- The 2D map: one continuous panorama with pinned object hazards ---- */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.map}
       >
-        {frames.map((f, i) => (
-          <View key={i} style={styles.frameBox}>
-            <FrameView frame={f} width={FW} height={FH} radius={radius.lg} />
-            {(pinsByFrame.get(i) ?? []).map((h) => {
-              const n = numberOf.get(h.id)!;
-              const isSel = h.id === selectedId;
-              return (
-                <Pressable
-                  key={h.id}
-                  onPress={() => setSelectedId(isSel ? null : h.id)}
-                  style={[
-                    styles.pin,
-                    {
-                      left: h.location!.x * FW - 15,
-                      top: h.location!.y * FH - 15,
-                      backgroundColor: severityColor(h.severity),
-                    },
-                    isSel && styles.pinSelected,
-                  ]}
-                >
-                  <Text style={styles.pinNum}>{n}</Text>
-                </Pressable>
-              );
-            })}
-            <View style={styles.frameTag}><Text style={styles.frameTagTxt}>Frame {i}</Text></View>
-          </View>
-        ))}
+        <View
+          style={[
+            styles.pano,
+            { width: ADVANCE * Math.max(0, frames.length - 1) + FW, height: FH },
+          ]}
+        >
+          {frames.map((f, i) => (
+            <View key={i} style={{ position: 'absolute', left: i * ADVANCE, top: 0 }}>
+              <FrameView frame={f} width={FW} height={FH} radius={0} />
+            </View>
+          ))}
+          {objectHazards.map((h) => {
+            const n = numberOf.get(h.id)!;
+            const isSel = h.id === selectedId;
+            const px = h.location!.frame_index * ADVANCE + h.location!.x * FW - 15;
+            const py = h.location!.y * FH - 15;
+            return (
+              <Pressable
+                key={h.id}
+                onPress={() => setSelectedId(isSel ? null : h.id)}
+                style={[
+                  styles.pin,
+                  { left: px, top: py, backgroundColor: severityColor(h.severity) },
+                  isSel && styles.pinSelected,
+                ]}
+              >
+                <Text style={styles.pinNum}>{n}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
       </ScrollView>
 
       {/* ---- Selected finding card (floats above the footer) ---- */}
@@ -298,8 +301,15 @@ const styles = StyleSheet.create({
   confidence: { color: colors.textFaint, fontSize: font.tiny, marginTop: spacing.md },
   fallback: { color: colors.sevMedium, fontSize: font.tiny, marginTop: 4, lineHeight: 15 },
 
-  map: { paddingHorizontal: spacing.lg, gap: spacing.md, paddingVertical: spacing.sm },
-  frameBox: { position: 'relative' },
+  map: { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
+  pano: {
+    position: 'relative',
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.bgElevated,
+  },
   pin: {
     position: 'absolute',
     width: 30, height: 30, borderRadius: 15,
@@ -309,8 +319,6 @@ const styles = StyleSheet.create({
   },
   pinSelected: { transform: [{ scale: 1.25 }], borderColor: colors.text },
   pinNum: { color: '#fff', fontWeight: '800', fontSize: font.small },
-  frameTag: { position: 'absolute', bottom: 8, left: 8, backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-  frameTagTxt: { color: '#fff', fontSize: font.tiny, fontWeight: '600' },
 
   selectedWrap: { position: 'absolute', left: spacing.lg, right: spacing.lg, bottom: 92 },
 
