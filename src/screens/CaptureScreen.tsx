@@ -10,6 +10,7 @@ import {
   ScrollView,
   Pressable,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
@@ -22,8 +23,11 @@ import { colors, spacing, font, radius } from '../theme';
 import { useSession } from '../store/session';
 import { DEMO_FRAMES, DemoRasterizer } from '../demo/room';
 import { realAiEnabled } from '../ai/config';
+import { pickPhotos, pickVideoFrames, type PickResult } from '../capture/upload';
 import type { Frame } from '../types';
 import type { ScreenProps } from '../navigation';
+
+type Source = 'sweep' | 'demo' | 'upload';
 
 const TARGET_FRAMES = 10;
 const MAX_FRAMES = 12;
@@ -38,8 +42,10 @@ export default function CaptureScreen({ navigation }: ScreenProps<'Capture'>) {
   const [phase, setPhase] = useState<'camera' | 'review'>('camera');
   const [sweeping, setSweeping] = useState(false);
   const [captured, setCaptured] = useState<Frame[]>([]);
-  const [isDemo, setIsDemo] = useState(false);
+  const [source, setSource] = useState<Source>('sweep');
   const [rasterizing, setRasterizing] = useState(false);
+  const [preparing, setPreparing] = useState<string | null>(null);
+  const isDemo = source === 'demo';
   const busy = useRef(false);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const framesRef = useRef<Frame[]>([]);
@@ -77,7 +83,7 @@ export default function CaptureScreen({ navigation }: ScreenProps<'Capture'>) {
   const startSweep = useCallback(() => {
     framesRef.current = [];
     setCaptured([]);
-    setIsDemo(false);
+    setSource('sweep');
     setSweeping(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     snap();
@@ -86,7 +92,7 @@ export default function CaptureScreen({ navigation }: ScreenProps<'Capture'>) {
 
   const useDemoRoom = useCallback(() => {
     reset();
-    setIsDemo(true);
+    setSource('demo');
     if (realAiEnabled()) {
       // Real model on: rasterise the demo room to PNGs so it can be analysed.
       setRasterizing(true);
@@ -107,9 +113,38 @@ export default function CaptureScreen({ navigation }: ScreenProps<'Capture'>) {
   const retake = useCallback(() => {
     framesRef.current = [];
     setCaptured([]);
-    setIsDemo(false);
+    setSource('sweep');
     setPhase('camera');
   }, []);
+
+  // Build a room from the photo library (photos or a sampled video).
+  const runUpload = useCallback(
+    async (picker: () => Promise<PickResult>, kind: 'photos' | 'video') => {
+      setPreparing(kind === 'video' ? 'Sampling frames from your video…' : 'Processing your photos…');
+      try {
+        const res = await picker();
+        if (res.status === 'denied') {
+          Alert.alert('Photo access needed', 'Allow photo library access to upload photos or a video of the room.');
+          return;
+        }
+        if (res.status === 'cancelled') return;
+        if (res.status === 'empty') {
+          Alert.alert('Nothing to use', 'No usable frames were found. Try different photos or a clearer video.');
+          return;
+        }
+        reset();
+        setSource('upload');
+        framesRef.current = res.frames;
+        setCaptured(res.frames);
+        setPhase('review');
+      } catch (e) {
+        Alert.alert('Upload failed', e instanceof Error ? e.message : 'Could not import from your library.');
+      } finally {
+        setPreparing(null);
+      }
+    },
+    [reset]
+  );
 
   const proceed = useCallback(() => {
     setFrames(captured);
@@ -129,19 +164,29 @@ export default function CaptureScreen({ navigation }: ScreenProps<'Capture'>) {
     );
   }
 
+  // ---------- PREPARING UPLOAD (importing photos / sampling a video) ----------
+  if (preparing) {
+    return (
+      <Screen step={0} title="Building your room" subtitle={preparing}>
+        <View style={styles.prep}>
+          <ActivityIndicator size="large" color={colors.accent} />
+          <Text style={styles.prepTxt}>One moment…</Text>
+        </View>
+      </Screen>
+    );
+  }
+
   // ---------- REVIEW ----------
   if (phase === 'review') {
     const enough = captured.length >= 6;
+    const reviewSubtitle =
+      source === 'demo'
+        ? 'This is the built-in demo room — a scrollable 2D map of the space.'
+        : source === 'upload'
+        ? `${captured.length} uploaded ${captured.length === 1 ? 'frame' : 'frames'} assembled into one scrollable 2D room map.`
+        : `${captured.length} frames assembled into one scrollable 2D room map.`;
     return (
-      <Screen
-        step={0}
-        title="Review your sweep"
-        subtitle={
-          isDemo
-            ? 'This is the built-in demo room — a scrollable 2D map of the space.'
-            : `${captured.length} frames assembled into one scrollable 2D room map.`
-        }
-      >
+      <Screen step={0} title="Review your room" subtitle={reviewSubtitle}>
         <View style={styles.reviewBody}>
           <GlassCard style={styles.mapCard} padded={false}>
             <ScrollView
@@ -160,8 +205,8 @@ export default function CaptureScreen({ navigation }: ScreenProps<'Capture'>) {
 
           {!enough && !isDemo && (
             <Text style={styles.warn}>
-              Only {captured.length} usable frames — aim for at least 6. Try a slower sweep, or
-              use the demo room.
+              Only {captured.length} {captured.length === 1 ? 'frame' : 'frames'} — a few more
+              angles give the AI a better read of the room.
             </Text>
           )}
 
@@ -189,7 +234,7 @@ export default function CaptureScreen({ navigation }: ScreenProps<'Capture'>) {
     <Screen
       step={0}
       title="Capture the room"
-      subtitle="Hold your phone up and sweep slowly left → right while it snaps frames."
+      subtitle="Sweep slowly left → right, or upload photos or a video of the room."
     >
       <View style={styles.cameraBody}>
         <View style={styles.viewport}>
@@ -200,8 +245,8 @@ export default function CaptureScreen({ navigation }: ScreenProps<'Capture'>) {
               <Text style={styles.noCamTitle}>Camera not available</Text>
               <Text style={styles.noCamText}>
                 {permission && !permission.granted
-                  ? 'Grant camera access to sweep a real room, or use the built-in demo room below.'
-                  : 'On the simulator there is no camera — use the built-in demo room below.'}
+                  ? 'Grant camera access to sweep a real room — or upload photos/a video, or use the demo room below.'
+                  : 'No camera here (e.g. the simulator) — upload photos or a video of a room, or use the demo room below.'}
               </Text>
               {permission && !permission.granted && permission.canAskAgain && (
                 <Button
@@ -226,16 +271,30 @@ export default function CaptureScreen({ navigation }: ScreenProps<'Capture'>) {
         </View>
 
         <View style={styles.controls}>
-          {granted ? (
-            sweeping ? (
-              <Button label="Done sweeping" onPress={stopSweep} />
-            ) : (
-              <Button label="Start sweep" onPress={startSweep} />
-            )
-          ) : null}
-          <Pressable onPress={useDemoRoom} style={styles.demoLink}>
-            <Text style={styles.demoLinkText}>Use demo room →</Text>
-          </Pressable>
+          {granted && sweeping && <Button label="Done sweeping" onPress={stopSweep} />}
+          {granted && !sweeping && <Button label="Start sweep" onPress={startSweep} />}
+
+          {!sweeping && (
+            <>
+              <View style={styles.altRow}>
+                <Button
+                  label="Upload photos"
+                  variant="secondary"
+                  onPress={() => runUpload(pickPhotos, 'photos')}
+                  style={{ flex: 1 }}
+                />
+                <Button
+                  label="Upload video"
+                  variant="secondary"
+                  onPress={() => runUpload(pickVideoFrames, 'video')}
+                  style={{ flex: 1 }}
+                />
+              </View>
+              <Pressable onPress={useDemoRoom} style={styles.demoLink}>
+                <Text style={styles.demoLinkText}>Use demo room →</Text>
+              </Pressable>
+            </>
+          )}
         </View>
       </View>
     </Screen>
@@ -288,6 +347,7 @@ const styles = StyleSheet.create({
   counterText: { color: colors.accentText, fontSize: font.h3, fontWeight: '700' },
   sweepHint: { color: '#fff', marginTop: 10, fontSize: font.body },
   controls: { paddingVertical: spacing.lg, gap: spacing.md },
+  altRow: { flexDirection: 'row', gap: spacing.md },
   demoLink: { alignItems: 'center', paddingVertical: 6 },
   demoLinkText: { color: colors.textMuted, fontSize: font.body, fontWeight: '600' },
 

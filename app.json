@@ -10,7 +10,8 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSCameraUsageDescription": "PawSpace uses the camera so you can sweep and capture the room you want to check for pet suitability."
+        "NSCameraUsageDescription": "PawSpace uses the camera so you can sweep and capture the room you want to check for pet suitability.",
+        "NSPhotoLibraryUsageDescription": "PawSpace lets you pick photos or a video of your room from your library to build the room for assessment."
       }
     },
     "android": {

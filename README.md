@@ -16,8 +16,9 @@ app and runs on a real iPhone/Android phone or in the iOS Simulator.
 **Capture → Pet mode → Questionnaire → Tag objects → Results**
 
 1. **Capture** — sweep the phone across the room and it snaps ~10 frames, assembled
-   into one scrollable 2D map. No camera (e.g. the Simulator)? Tap **"Use demo room"**
-   for a built-in illustrated room.
+   into one scrollable 2D map. You can also **Upload photos** or **Upload a video**
+   from your library instead (a video is auto-sampled into frames). No camera or
+   media (e.g. the Simulator)? Tap **"Use demo room"** for a built-in illustrated room.
 2. **Pet mode** — "I have a pet in mind" (pick species + breed) or "Explore breeds for
    my space."
 3. **Questionnaire** — dwelling, floor, outdoor access, occupants, existing pets,
