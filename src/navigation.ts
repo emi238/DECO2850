@@ -6,6 +6,7 @@ export type RootStackParamList = {
   Questionnaire: undefined;
   Tagging: undefined;
   Results: undefined;
+  Room3D: undefined;
 };
 
 export type ScreenProps<T extends keyof RootStackParamList> = NativeStackScreenProps<

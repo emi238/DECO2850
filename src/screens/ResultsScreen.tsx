@@ -218,8 +218,11 @@ export default function ResultsScreen({ navigation }: ScreenProps<'Results'>) {
 
       {/* ---- Footer ---- */}
       <View style={styles.footer}>
-        <Button label={`All findings (${result.hazards.length})`} variant="secondary" onPress={() => setListOpen(true)} style={{ flex: 1 }} />
-        <Button label="Start over" onPress={startOver} style={{ flex: 1 }} />
+        <Button label="View in 3D  ›" onPress={() => navigation.navigate('Room3D')} />
+        <View style={styles.footerRow}>
+          <Button label={`All findings (${result.hazards.length})`} variant="secondary" onPress={() => setListOpen(true)} style={{ flex: 1 }} />
+          <Button label="Start over" variant="secondary" onPress={startOver} style={{ flex: 1 }} />
+        </View>
       </View>
 
       {/* ---- Collapsible list view (mirrors the pins; PRD F6.5) ---- */}
@@ -322,7 +325,8 @@ const styles = StyleSheet.create({
 
   selectedWrap: { position: 'absolute', left: spacing.lg, right: spacing.lg, bottom: 92 },
 
-  footer: { flexDirection: 'row', gap: spacing.md, paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.md },
+  footer: { gap: spacing.sm, paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.md },
+  footerRow: { flexDirection: 'row', gap: spacing.md },
 
   backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.55)' },
   listSheet: { position: 'absolute', left: 0, right: 0, bottom: 0, top: '18%', padding: spacing.md },

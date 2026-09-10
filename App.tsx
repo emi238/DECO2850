@@ -13,6 +13,7 @@ import ModeScreen from './src/screens/ModeScreen';
 import QuestionnaireScreen from './src/screens/QuestionnaireScreen';
 import TaggingScreen from './src/screens/TaggingScreen';
 import ResultsScreen from './src/screens/ResultsScreen';
+import Room3DScreen from './src/screens/Room3DScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -40,6 +41,7 @@ export default function App() {
             <Stack.Screen name="Questionnaire" component={QuestionnaireScreen} />
             <Stack.Screen name="Tagging" component={TaggingScreen} />
             <Stack.Screen name="Results" component={ResultsScreen} />
+            <Stack.Screen name="Room3D" component={Room3DScreen} />
           </Stack.Navigator>
         </NavigationContainer>
       </SafeAreaProvider>

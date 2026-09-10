@@ -31,6 +31,15 @@ app and runs on a real iPhone/Android phone or in the iOS Simulator.
 Everything you enter is saved locally on the device, so it survives navigating back
 and forth.
 
+### 3D room view (experimental — this branch)
+
+From the Results screen, **View in 3D** opens a generated, movable 3D room: drag to
+orbit, pinch to zoom, and the hazardous objects are highlighted with numbered risk
+markers — tap one to pop up its risk card. It's rendered with three.js in a WebView
+(needs an internet connection to load three.js), so it still runs in Expo Go with no
+native code. This is a stand-in for the LiDAR/RoomPlan 3D scan the PRD describes as a
+later stage (§3) — a *generated* room, not a photoreal reconstruction of your photos.
+
 ---
 
 ## Run it
