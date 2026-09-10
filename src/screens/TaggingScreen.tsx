@@ -1,5 +1,9 @@
 // F4 — Object tagging. Tap an object on a captured frame to flag it with a
 // label + note. Tags persist and are sent to the model as HIGH-PRIORITY context.
+//
+// The taggable frame is a single, full-width, NON-scrolling image (with prev/next
+// arrows to change frame). Earlier this was a horizontal scroll strip, but on a
+// real device the scroll view swallowed the tap, so tagging rarely fired.
 
 import React, { useState } from 'react';
 import {
@@ -11,6 +15,7 @@ import {
   TextInput,
   Modal,
   GestureResponderEvent,
+  useWindowDimensions,
 } from 'react-native';
 
 import { Screen } from '../components/Screen';
@@ -21,22 +26,26 @@ import { colors, spacing, font, radius } from '../theme';
 import { useSession } from '../store/session';
 import type { ScreenProps } from '../navigation';
 
-const FW = 258;
-const FH = 344;
-
 export default function TaggingScreen({ navigation }: ScreenProps<'Tagging'>) {
   const frames = useSession((s) => s.capture.frames);
   const tags = useSession((s) => s.tags);
   const addTag = useSession((s) => s.addTag);
   const removeTag = useSession((s) => s.removeTag);
 
+  const { width: winW } = useWindowDimensions();
+  const FW = winW - spacing.xl * 2;
+  const FH = Math.round(FW * 1.2);
+
+  const [active, setActive] = useState(0);
   const [draft, setDraft] = useState<{ frame: number; x: number; y: number } | null>(null);
   const [label, setLabel] = useState('');
   const [note, setNote] = useState('');
 
-  const onFramePress = (frame: number, e: GestureResponderEvent) => {
+  const frameIndex = Math.min(active, Math.max(0, frames.length - 1));
+
+  const onFramePress = (e: GestureResponderEvent) => {
     const { locationX, locationY } = e.nativeEvent;
-    setDraft({ frame, x: clamp01(locationX / FW), y: clamp01(locationY / FH) });
+    setDraft({ frame: frameIndex, x: clamp01(locationX / FW), y: clamp01(locationY / FH) });
     setLabel('');
     setNote('');
   };
@@ -47,51 +56,63 @@ export default function TaggingScreen({ navigation }: ScreenProps<'Tagging'>) {
     setDraft(null);
   };
 
+  const activeTags = tags.filter((t) => t.frame === frameIndex && t.x != null && t.y != null);
+
   return (
     <Screen
       step={3}
       title="Flag anything important"
-      subtitle="Tap an object on the room map to mark it — e.g. a fragile vase or a door left open. Optional, but the AI treats tags as top priority."
+      subtitle="Tap the photo to mark an object — e.g. a fragile vase or a door left open. Optional, but the AI treats tags as top priority."
     >
       <View style={{ flex: 1 }}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.strip}
-        >
-          {frames.map((f, i) => (
-            <View key={i} style={styles.frameBox}>
-              <Pressable onPress={(e) => onFramePress(i, e)}>
-                <FrameView frame={f} width={FW} height={FH} radius={radius.md} />
-                {tags
-                  .filter((t) => t.frame === i && t.x != null && t.y != null)
-                  .map((t) => (
-                    <View
-                      key={t.id}
-                      pointerEvents="none"
-                      style={[styles.pin, { left: (t.x as number) * FW - 11, top: (t.y as number) * FH - 11 }]}
-                    >
-                      <Text style={styles.pinTxt}>★</Text>
-                    </View>
-                  ))}
-              </Pressable>
-              <Text style={styles.frameIdx}>Frame {i}</Text>
-            </View>
-          ))}
-        </ScrollView>
+        <View style={styles.frameWrap}>
+          <Pressable onPress={onFramePress}>
+            <FrameView frame={frames[frameIndex]} width={FW} height={FH} radius={radius.lg} />
+            {activeTags.map((t) => (
+              <View
+                key={t.id}
+                pointerEvents="none"
+                style={[styles.pin, { left: (t.x as number) * FW - 13, top: (t.y as number) * FH - 13 }]}
+              >
+                <Text style={styles.pinTxt}>★</Text>
+              </View>
+            ))}
+          </Pressable>
 
-        <ScrollView contentContainerStyle={styles.list}>
+          {/* Frame selector — plain buttons, no scroll to steal the tap */}
+          {frames.length > 1 && (
+            <View style={styles.selector}>
+              <Pressable
+                onPress={() => setActive((a) => Math.max(0, a - 1))}
+                disabled={frameIndex === 0}
+                style={[styles.arrow, frameIndex === 0 && styles.arrowOff]}
+              >
+                <Text style={styles.arrowTxt}>‹</Text>
+              </Pressable>
+              <Text style={styles.frameLabel}>Frame {frameIndex + 1} of {frames.length}</Text>
+              <Pressable
+                onPress={() => setActive((a) => Math.min(frames.length - 1, a + 1))}
+                disabled={frameIndex === frames.length - 1}
+                style={[styles.arrow, frameIndex === frames.length - 1 && styles.arrowOff]}
+              >
+                <Text style={styles.arrowTxt}>›</Text>
+              </Pressable>
+            </View>
+          )}
+        </View>
+
+        <ScrollView contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled">
           {tags.length === 0 ? (
-            <Text style={styles.empty}>No tags yet — tap an object above, or continue without tagging.</Text>
+            <Text style={styles.empty}>No tags yet — tap the photo above, or continue without tagging.</Text>
           ) : (
             tags.map((t) => (
               <GlassCard key={t.id} style={styles.tagCard}>
                 <View style={styles.tagRow}>
-                  <View style={{ flex: 1 }}>
+                  <Pressable style={{ flex: 1 }} onPress={() => setActive(t.frame)}>
                     <Text style={styles.tagLabel}>★ {t.label}</Text>
                     {!!t.note && <Text style={styles.tagNote}>{t.note}</Text>}
-                    <Text style={styles.tagMeta}>Frame {t.frame}</Text>
-                  </View>
+                    <Text style={styles.tagMeta}>Frame {t.frame + 1}</Text>
+                  </Pressable>
                   <Pressable onPress={() => removeTag(t.id)} style={styles.del}>
                     <Text style={styles.delTxt}>Remove</Text>
                   </Pressable>
@@ -112,7 +133,7 @@ export default function TaggingScreen({ navigation }: ScreenProps<'Tagging'>) {
         <View style={styles.sheet}>
           <GlassCard intensity={60} style={styles.sheetCard}>
             <Text style={styles.sheetTitle}>Flag this object</Text>
-            <Text style={styles.sheetSub}>Frame {draft?.frame}</Text>
+            <Text style={styles.sheetSub}>Frame {(draft?.frame ?? 0) + 1}</Text>
             <TextInput
               value={label}
               onChangeText={setLabel}
@@ -144,22 +165,40 @@ function clamp01(n: number): number {
 }
 
 const styles = StyleSheet.create({
-  strip: { paddingHorizontal: spacing.xl, gap: spacing.md, paddingBottom: spacing.md },
-  frameBox: { alignItems: 'center', gap: 6 },
-  frameIdx: { color: colors.textFaint, fontSize: font.tiny, fontWeight: '600' },
+  frameWrap: { alignItems: 'center', paddingHorizontal: spacing.xl },
+  selector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.lg,
+    marginTop: spacing.md,
+  },
+  arrow: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.surfaceStrong,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  arrowOff: { opacity: 0.35 },
+  arrowTxt: { color: colors.text, fontSize: 24, fontWeight: '700', lineHeight: 26 },
+  frameLabel: { color: colors.textMuted, fontSize: font.small, fontWeight: '600', minWidth: 120, textAlign: 'center' },
   pin: {
     position: 'absolute',
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
     borderColor: '#fff',
   },
-  pinTxt: { color: '#fff', fontSize: 11, fontWeight: '700' },
-  list: { paddingHorizontal: spacing.xl, paddingTop: spacing.sm, gap: spacing.sm, paddingBottom: spacing.md },
+  pinTxt: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  list: { paddingHorizontal: spacing.xl, paddingTop: spacing.lg, gap: spacing.sm, paddingBottom: spacing.md },
   empty: { color: colors.textFaint, fontSize: font.small, textAlign: 'center', paddingVertical: spacing.lg },
   tagCard: { paddingVertical: spacing.md },
   tagRow: { flexDirection: 'row', alignItems: 'center' },

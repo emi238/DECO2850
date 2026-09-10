@@ -1,22 +1,18 @@
 // Turns an AI Assessment into a simple parametric 3D room scene (PRD §3, the
 // later-stage 3D view). This is a GENERATED room — a faithful stand-in for the
 // RoomPlan / 3D-scan output described in the PRD, not a photoreal reconstruction
-// (that needs LiDAR + native code). Object-scope hazards become highlighted
-// objects with a tappable risk marker; space-scope hazards stay in the banner.
+// (that needs LiDAR + native code).
+//
+// The room is generated FROM THE FINDINGS of THIS assessment: each object-scope
+// hazard becomes one highlighted prop placed where the model located it in the
+// photos (frame index + x/y), so a different room produces a different scene.
+// Space-scope findings have no location and stay in the banner.
 
-import type { Assessment, Hazard, Severity } from '../types';
+import type { Assessment, Hazard, HazardCategory, Severity } from '../types';
 import { CATEGORY_LABELS } from '../ai/categories';
-import { FRAME_COUNT } from '../demo/room';
-
-export interface Vec3 {
-  x: number;
-  y: number;
-  z: number;
-}
 
 export interface Furniture {
   name: string;
-  kind: 'window' | 'door' | 'shelf' | 'tv' | 'cabinet' | 'sofa' | 'plant';
   pos: [number, number, number];
   size: [number, number, number];
   color: string;
@@ -49,89 +45,76 @@ export interface Scene3D {
 const ROOM = { W: 8, D: 6, H: 3 };
 const BACK = -ROOM.D / 2; // z of the back wall
 
-// Fixed furniture layout (left → right), matching the demo room story.
-const FURNITURE: Furniture[] = [
-  { name: 'Window', kind: 'window', pos: [-3.0, 1.4, BACK + 0.06], size: [1.7, 1.6, 0.12], color: '#bfe0f5', highlight: false },
-  { name: 'Plant', kind: 'plant', pos: [-2.05, 0.32, BACK + 0.5], size: [0.42, 0.6, 0.42], color: '#5aa06a', highlight: false },
-  { name: 'Bookshelf', kind: 'shelf', pos: [-0.9, 1.0, BACK + 0.28], size: [1.1, 2.0, 0.42], color: '#8c6a48', highlight: false },
-  { name: 'TV console', kind: 'tv', pos: [0.5, 0.36, BACK + 0.28], size: [1.7, 0.72, 0.42], color: '#3a3f47', highlight: false },
-  { name: 'Balcony door', kind: 'door', pos: [1.9, 1.2, BACK + 0.06], size: [1.4, 2.4, 0.1], color: '#a9d3ec', highlight: false },
-  { name: 'Cabinet', kind: 'cabinet', pos: [3.1, 0.36, BACK + 0.3], size: [1.2, 0.72, 0.46], color: '#e0dacb', highlight: false },
-  { name: 'Sofa', kind: 'sofa', pos: [2.2, 0.42, 1.5], size: [2.1, 0.85, 0.95], color: '#8a94a3', highlight: false },
-];
+// Per-category look. `mount`: 'wall' = flat panel on the back wall (windows,
+// doors); 'floor' = box on the floor (plants, cords, chemicals); 'mid' = a box
+// at the finding's own height (fragile items on shelves, etc.).
+const STYLE: Record<HazardCategory, { color: string; size: [number, number, number]; mount: 'wall' | 'floor' | 'mid' }> = {
+  A: { color: '#5aa06a', size: [0.5, 0.7, 0.5], mount: 'floor' }, // plant
+  B: { color: '#3a3f47', size: [0.7, 0.35, 0.5], mount: 'floor' }, // cords
+  C: { color: '#c9a24a', size: [0.5, 0.5, 0.5], mount: 'floor' }, // chemicals
+  D: { color: '#c0a58a', size: [0.5, 0.55, 0.45], mount: 'mid' }, // sharp/fragile
+  E: { color: '#9aa3ad', size: [0.9, 0.3, 0.6], mount: 'floor' }, // thermal/surface
+  F: { color: '#8a94a3', size: [0.9, 0.5, 0.7], mount: 'floor' }, // floors/stairs
+  G: { color: '#aad3ec', size: [1.5, 1.6, 0.1], mount: 'wall' }, // escape/fall (window/door)
+  H: { color: '#8c6a48', size: [0.5, 1.6, 0.4], mount: 'mid' }, // vertical space
+  I: { color: '#9aa3ad', size: [1.0, 0.5, 0.8], mount: 'floor' }, // floor space
+  J: { color: '#b06a8a', size: [0.7, 1.4, 0.3], mount: 'mid' }, // off-limit zone
+  K: { color: '#7d8aa0', size: [1.2, 1.2, 0.1], mount: 'wall' }, // outside stressors
+  L: { color: '#4aa3c0', size: [1.0, 0.4, 0.8], mount: 'floor' }, // amenities (pool)
+  M: { color: '#8a94a3', size: [1.6, 0.8, 0.9], mount: 'floor' }, // occupants
+  N: { color: '#8a7ac0', size: [0.6, 0.9, 0.5], mount: 'mid' }, // behavioural
+};
 
-// Where the risk marker floats for a hazard mapped to a given furniture kind.
-function markerPosFor(kind: Furniture['kind'], f: Furniture): [number, number, number] {
-  const [x, y, z] = f.pos;
-  const frontZ = z + f.size[2] / 2 + 0.22;
-  switch (kind) {
-    case 'plant':
-      return [x, 0.62, frontZ];
-    case 'tv':
-      return [x, 0.22, z + f.size[2] / 2 + 0.55]; // cords on the floor in front
-    case 'cabinet':
-      return [x, 0.22, z + f.size[2] / 2 + 0.45];
-    case 'shelf':
-      return [x, 1.05, frontZ];
-    case 'window':
-      return [x, 1.35, frontZ];
-    case 'door':
-      return [x, 1.2, frontZ];
-    case 'sofa':
-      return [x, 0.9, z - f.size[2] / 2 - 0.2];
-  }
+function clamp01(n: number): number {
+  return Math.max(0, Math.min(1, n));
 }
 
-// Choose the furniture a hazard belongs to, from its category + title.
-function kindForHazard(h: Hazard): Furniture['kind'] | null {
-  const t = (h.title + ' ' + h.category).toLowerCase();
-  switch (h.category) {
-    case 'A':
-      return 'plant';
-    case 'B':
-      return 'tv';
-    case 'C':
-      return 'cabinet';
-    case 'D':
-      return 'shelf';
-    case 'G':
-      return /balcon|door/.test(t) ? 'door' : 'window';
-    default:
-      return null;
-  }
-}
+export function buildScene(result: Assessment, frameCount: number): Scene3D {
+  const nFrames = Math.max(1, frameCount);
+  const furniture: Furniture[] = [];
+  const markers: Marker[] = [];
 
-export function buildScene(result: Assessment): Scene3D {
-  const furniture: Furniture[] = FURNITURE.map((f) => ({ ...f }));
-  const byKind = new Map<string, Furniture>(furniture.map((f) => [f.kind, f]));
+  const objectHazards = result.hazards.filter((h) => h.scope === 'object' && h.location);
 
-  const objectHazards = result.hazards.filter((h) => h.scope === 'object');
-  const markers: Marker[] = objectHazards.map((h, i) => {
-    const kind = kindForHazard(h);
-    let pos: [number, number, number];
-    if (kind && byKind.has(kind)) {
-      const f = byKind.get(kind)!;
-      f.highlight = true;
-      pos = markerPosFor(kind, f);
+  objectHazards.forEach((h, i) => {
+    const loc = h.location!;
+    const st = STYLE[h.category] ?? STYLE.I;
+
+    // Horizontal position: sweep runs left→right, so (frame + x) maps across the room.
+    const u = clamp01((loc.frame_index + clamp01(loc.x)) / nFrames);
+    const worldX = -3.4 + u * 6.8;
+    const yy = clamp01(loc.y);
+
+    let center: [number, number, number];
+    if (st.mount === 'wall') {
+      center = [worldX, (1 - yy) * 1.7 + 0.9, BACK + st.size[2] / 2 + 0.02];
+    } else if (st.mount === 'floor') {
+      center = [worldX, st.size[1] / 2 + 0.02, BACK + 0.7];
     } else {
-      // Fallback: place along the back wall from the frame index + x/y.
-      const fi = h.location?.frame_index ?? 0;
-      const u = (fi + (h.location?.x ?? 0.5)) / Math.max(1, FRAME_COUNT);
-      const yy = h.location?.y ?? 0.5;
-      pos = [-3.4 + u * 6.8, 0.3 + (1 - yy) * 2.2, BACK + 0.5];
+      center = [worldX, (1 - yy) * 1.5 + 0.55, BACK + 0.5];
     }
-    return {
+
+    furniture.push({
+      name: h.title,
+      pos: center,
+      size: st.size,
+      color: st.color,
+      highlight: true,
+    });
+
+    const topY = center[1] + st.size[1] / 2 + 0.28;
+    markers.push({
       id: h.id,
       number: i + 1,
       severity: h.severity,
-      pos,
+      pos: [center[0], topY, center[2] + 0.12],
       title: h.title,
       category: h.category,
       categoryLabel: CATEGORY_LABELS[h.category],
       risk_to: h.risk_to,
       why: h.why_it_matters,
       fix: h.recommendation,
-    };
+    });
   });
 
   return {

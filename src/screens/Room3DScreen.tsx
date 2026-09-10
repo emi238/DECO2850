@@ -15,10 +15,14 @@ import type { ScreenProps } from '../navigation';
 
 export default function Room3DScreen({ navigation }: ScreenProps<'Room3D'>) {
   const result = useSession((s) => s.result);
+  const frameCount = useSession((s) => s.capture.frames.length);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
 
-  const html = useMemo(() => (result ? buildRoomHtml(buildScene(result)) : ''), [result]);
+  const html = useMemo(
+    () => (result ? buildRoomHtml(buildScene(result, frameCount)) : ''),
+    [result, frameCount]
+  );
 
   if (!result) {
     return (
