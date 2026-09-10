@@ -5,14 +5,14 @@
 import { AI_CONFIG } from './config';
 import { SYSTEM_PROMPT } from './prompt';
 import { normaliseAssessment } from './normalise';
-import type { Assessment, Session } from '../types';
+import type { Assessment, Space } from '../types';
 
 interface InlineImage {
   mime_type: string;
   data: string; // base64, no data: prefix
 }
 
-function contextJson(session: Session): string {
+function contextJson(session: Space): string {
   return JSON.stringify({
     mode: session.mode,
     pet: session.pet,
@@ -21,14 +21,14 @@ function contextJson(session: Session): string {
   });
 }
 
-function collectImages(session: Session): InlineImage[] {
+function collectImages(session: Space): InlineImage[] {
   return session.capture.frames
     .filter((f) => !!f.base64)
     .slice(0, AI_CONFIG.MAX_FRAMES)
     .map((f) => ({ mime_type: f.mime ?? 'image/jpeg', data: f.base64 as string }));
 }
 
-export function hasUsableImages(session: Session): boolean {
+export function hasUsableImages(session: Space): boolean {
   return collectImages(session).length > 0;
 }
 
@@ -44,7 +44,7 @@ function extractJson(text: string): any {
   return JSON.parse(t);
 }
 
-export async function callGemini(session: Session, signal: AbortSignal): Promise<Assessment> {
+export async function callGemini(session: Space, signal: AbortSignal): Promise<Assessment> {
   const images = collectImages(session);
   const parts: any[] = [
     { text: SYSTEM_PROMPT },

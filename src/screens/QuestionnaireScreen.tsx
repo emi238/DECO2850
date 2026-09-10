@@ -11,26 +11,44 @@ import {
   Pressable,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 
 import { Screen } from '../components/Screen';
 import { Button } from '../components/Button';
 import { GlassCard } from '../components/GlassCard';
 import { colors, spacing, font, radius } from '../theme';
-import { useSession } from '../store/session';
+import { useSession, useCurrentSpace, defaultQuestionnaire } from '../store/session';
+import { runAssessment } from '../ai/assess';
 import type { ExistingPet, Questionnaire } from '../types';
 import type { ScreenProps } from '../navigation';
 
-export default function QuestionnaireScreen({ navigation }: ScreenProps<'Questionnaire'>) {
-  const saved = useSession((s) => s.questionnaire);
+export default function QuestionnaireScreen({ navigation, route }: ScreenProps<'Questionnaire'>) {
+  const space = useCurrentSpace();
+  const saved = space?.questionnaire ?? defaultQuestionnaire;
   const setQuestionnaire = useSession((s) => s.setQuestionnaire);
+  const setResult = useSession((s) => s.setResult);
+  const editing = !!route.params?.editing;
   const [q, setQ] = useState<Questionnaire>({ ...saved });
+  const [saving, setSaving] = useState(false);
 
   const patch = (p: Partial<Questionnaire>) => setQ((prev) => ({ ...prev, ...p }));
 
-  const proceed = () => {
+  const proceed = async () => {
     setQuestionnaire(q);
-    navigation.navigate('Tagging');
+    if (!editing) {
+      navigation.navigate('Tagging');
+      return;
+    }
+    // Edited from Home: re-analyse with the new answers, then return.
+    setSaving(true);
+    const cur = useSession.getState().current();
+    if (cur && cur.result) {
+      const r = await runAssessment(cur);
+      setResult(r.assessment, r.source, r.fallbackReason);
+    }
+    setSaving(false);
+    navigation.goBack();
   };
 
   const addPet = () =>
@@ -41,7 +59,15 @@ export default function QuestionnaireScreen({ navigation }: ScreenProps<'Questio
     patch({ existing_pets: q.existing_pets.filter((_, idx) => idx !== i) });
 
   return (
-    <Screen step={2} title="Your household" subtitle="A few quick details so the assessment fits your home.">
+    <Screen
+      step={editing ? undefined : 2}
+      title={editing ? 'Edit questionnaire' : 'Your household'}
+      subtitle={
+        editing
+          ? 'Update the household details, then save to re-analyse this space.'
+          : 'A few quick details so the assessment fits your home.'
+      }
+    >
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={40}>
         <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
           <GlassCard style={styles.card}>
@@ -167,8 +193,22 @@ export default function QuestionnaireScreen({ navigation }: ScreenProps<'Questio
       </KeyboardAvoidingView>
 
       <View style={styles.footer}>
-        <Button label="Continue" onPress={proceed} />
+        {editing ? (
+          <View style={{ flexDirection: 'row', gap: spacing.md }}>
+            <Button label="Cancel" variant="secondary" onPress={() => navigation.goBack()} style={{ flex: 1 }} />
+            <Button label="Save & re-analyse" onPress={proceed} loading={saving} style={{ flex: 1 }} />
+          </View>
+        ) : (
+          <Button label="Continue" onPress={proceed} />
+        )}
       </View>
+
+      {saving && (
+        <View style={styles.savingOverlay}>
+          <ActivityIndicator size="large" color={colors.accent} />
+          <Text style={styles.savingTxt}>Re-analysing…</Text>
+        </View>
+      )}
     </Screen>
   );
 }
@@ -324,4 +364,6 @@ const styles = StyleSheet.create({
   addBtn: { paddingVertical: 10 },
   addTxt: { color: colors.accent, fontSize: font.body, fontWeight: '600' },
   footer: { paddingHorizontal: spacing.xl, paddingTop: spacing.sm, paddingBottom: spacing.md },
+  savingOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', gap: spacing.md, backgroundColor: 'rgba(15,17,21,0.85)' },
+  savingTxt: { color: colors.text, fontSize: font.h3, fontWeight: '700' },
 });

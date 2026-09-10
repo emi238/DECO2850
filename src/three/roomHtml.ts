@@ -20,8 +20,8 @@ export function buildRoomHtml(scene: Scene3D): string {
     font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; -webkit-user-select:none; user-select:none; }
   canvas { display:block; touch-action:none; }
   .hidden { display:none !important; }
-  #banner { position:fixed; top:0; left:0; right:0; padding:104px 16px 16px;
-    background:linear-gradient(#0f1115ee 55%,#0f111500); color:#f4f5f7; z-index:5; pointer-events:none; }
+  #banner { position:fixed; top:0; left:0; right:0; padding:16px 16px 20px;
+    background:linear-gradient(#0f1115ee 60%,#0f111500); color:#f4f5f7; z-index:5; pointer-events:none; }
   .brow { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
   .pill { padding:5px 12px; border-radius:999px; font-size:13px; font-weight:700; color:#fff; }
   .score { font-size:22px; font-weight:800; color:#f4f5f7; }

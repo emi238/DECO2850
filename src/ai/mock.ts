@@ -3,7 +3,7 @@
 // entered — pet, questionnaire, and tags — and, for the seeded demo room, pins
 // every object finding onto the actual drawing via DEMO_OBJECTS coordinates.
 
-import type { Assessment, Hazard, Session, Severity } from '../types';
+import type { Assessment, Hazard, Space, Severity } from '../types';
 import { DEMO_OBJECTS, isDemoUri, sceneToFrame } from '../demo/room';
 
 let counter = 0;
@@ -42,7 +42,7 @@ function isDog(species?: string): boolean {
   return (species ?? '').toLowerCase().includes('dog');
 }
 
-export function generateMockAssessment(session: Session): Assessment {
+export function generateMockAssessment(session: Space): Assessment {
   counter = 0;
   const { mode, pet, questionnaire: q, tags, capture } = session;
   const demo = capture.frames.length > 0 && capture.frames.some((f) => isDemoUri(f.uri));
@@ -284,7 +284,7 @@ function buildImprovements(hazards: Hazard[]): string[] {
 function computeSuitability(
   hazards: Hazard[],
   petLabel: string,
-  q: Session['questionnaire']
+  q: Space['questionnaire']
 ): NonNullable<Assessment['suitability']> {
   const highs = hazards.filter((h) => h.severity === 'high').length;
   const meds = hazards.filter((h) => h.severity === 'medium').length;
@@ -301,7 +301,7 @@ function computeSuitability(
   return { verdict, score_0_100: score, rationale };
 }
 
-function recommendPets(q: Session['questionnaire']): Assessment['recommended_pets'] {
+function recommendPets(q: Space['questionnaire']): Assessment['recommended_pets'] {
   const apartment = q.dwelling === 'apartment';
   const list: Assessment['recommended_pets'] = [];
   list.push({

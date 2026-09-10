@@ -112,3 +112,24 @@ export interface Session {
   tags: Tag[];
   result: Assessment | null;
 }
+
+// A single captured space (living room, garage, …). The app manages many of
+// these; each carries its own capture, pet, questionnaire, tags and result.
+export interface Space {
+  id: string;
+  name: string;
+  created_at: string;
+  capture: {
+    frames: Frame[];
+    panorama: string | null;
+  };
+  mode: Mode | null;
+  pet: Pet | null;
+  questionnaire: Questionnaire;
+  tags: Tag[];
+  result: Assessment | null;
+  // Whether `result` came from the real model or the built-in sample, plus any
+  // fallback note — remembered so the map banner reads correctly after reload.
+  resultSource?: 'ai' | 'mock';
+  resultNote?: string;
+}

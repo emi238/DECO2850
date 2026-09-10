@@ -37,7 +37,6 @@ export default function CaptureScreen({ navigation }: ScreenProps<'Capture'>) {
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
   const setFrames = useSession((s) => s.setFrames);
-  const reset = useSession((s) => s.reset);
 
   const [phase, setPhase] = useState<'camera' | 'review'>('camera');
   const [sweeping, setSweeping] = useState(false);
@@ -91,7 +90,6 @@ export default function CaptureScreen({ navigation }: ScreenProps<'Capture'>) {
   }, [snap]);
 
   const useDemoRoom = useCallback(() => {
-    reset();
     setSource('demo');
     if (realAiEnabled()) {
       // Real model on: rasterise the demo room to PNGs so it can be analysed.
@@ -101,7 +99,7 @@ export default function CaptureScreen({ navigation }: ScreenProps<'Capture'>) {
       setCaptured(DEMO_FRAMES);
       setPhase('review');
     }
-  }, [reset]);
+  }, []);
 
   const onRasterDone = useCallback((frames: Frame[]) => {
     framesRef.current = frames;
@@ -132,7 +130,6 @@ export default function CaptureScreen({ navigation }: ScreenProps<'Capture'>) {
           Alert.alert('Nothing to use', 'No usable frames were found. Try different photos or a clearer video.');
           return;
         }
-        reset();
         setSource('upload');
         framesRef.current = res.frames;
         setCaptured(res.frames);
@@ -143,7 +140,7 @@ export default function CaptureScreen({ navigation }: ScreenProps<'Capture'>) {
         setPreparing(null);
       }
     },
-    [reset]
+    []
   );
 
   const proceed = useCallback(() => {

@@ -23,12 +23,13 @@ import { Button } from '../components/Button';
 import { GlassCard } from '../components/GlassCard';
 import { FrameView } from '../components/FrameView';
 import { colors, spacing, font, radius } from '../theme';
-import { useSession } from '../store/session';
+import { useSession, useCurrentSpace } from '../store/session';
 import type { ScreenProps } from '../navigation';
 
 export default function TaggingScreen({ navigation }: ScreenProps<'Tagging'>) {
-  const frames = useSession((s) => s.capture.frames);
-  const tags = useSession((s) => s.tags);
+  const space = useCurrentSpace();
+  const frames = space?.capture.frames ?? [];
+  const tags = space?.tags ?? [];
   const addTag = useSession((s) => s.addTag);
   const removeTag = useSession((s) => s.removeTag);
 

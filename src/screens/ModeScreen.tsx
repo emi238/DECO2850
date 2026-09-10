@@ -17,7 +17,7 @@ import { Screen } from '../components/Screen';
 import { Button } from '../components/Button';
 import { GlassCard } from '../components/GlassCard';
 import { colors, spacing, font, radius } from '../theme';
-import { useSession } from '../store/session';
+import { useSession, useCurrentSpace } from '../store/session';
 import type { Mode } from '../types';
 import type { ScreenProps } from '../navigation';
 
@@ -34,8 +34,9 @@ const BREED_HINTS: Record<string, string[]> = {
 export default function ModeScreen({ navigation }: ScreenProps<'Mode'>) {
   const setMode = useSession((s) => s.setMode);
   const setPet = useSession((s) => s.setPet);
-  const savedMode = useSession((s) => s.mode);
-  const savedPet = useSession((s) => s.pet);
+  const space = useCurrentSpace();
+  const savedMode = space?.mode ?? null;
+  const savedPet = space?.pet ?? null;
 
   const [mode, setLocalMode] = useState<Mode | null>(savedMode);
   const [species, setSpecies] = useState<string>(savedPet?.species ?? '');
