@@ -2,8 +2,9 @@
 // three internal bands (Space Adequacy, Safety, Noise Fit), the not-ready-yet
 // advisory, and the qualitative avatar + report copy. No number is ever shown.
 
+import type { ImageSourcePropType } from 'react-native';
 import type { Assessment, Pet, Questionnaire, Space, SpaceMetrics } from '../types';
-import { BREEDS, findBreed, type BreedProfile, type Energy, type Noise, type SizeClass } from './breeds';
+import { findBreed, type BreedProfile, type Energy, type Noise, type SizeClass } from './breeds';
 import { IMAGES } from '../assets';
 
 export type Band = 'poor' | 'adequate' | 'good';
@@ -33,7 +34,8 @@ export interface ResolvedDog {
   size: SizeClass;
   energy: Energy;
   noise: Noise;
-  happy: number;
+  happy: ImageSourcePropType;
+  cutout: boolean; // cartoon art that can "peek" vs. a regular photo
   breed?: BreedProfile;
 }
 
@@ -41,14 +43,17 @@ export function resolveDog(pet: Pet | null): ResolvedDog | null {
   if (!pet || !pet.breed) return null;
   const breed = findBreed(pet.breed);
   if (breed) {
-    return { name: breed.name, size: breed.size, energy: pet.energy ?? breed.energy, noise: breed.noise, happy: breed.happy, breed };
+    return { name: breed.name, size: breed.size, energy: pet.energy ?? breed.energy, noise: breed.noise, happy: breed.happy, cutout: breed.cutout, breed };
   }
+  // Not in the loaded catalogue (mixed breed, or an API breed before the list
+  // has loaded): use the traits saved on the pet when it was chosen.
   return {
     name: pet.breed,
     size: pet.size ?? 'medium',
     energy: pet.energy ?? 'moderate',
-    noise: 'moderate',
-    happy: IMAGES.labHappy,
+    noise: pet.noise ?? 'moderate',
+    happy: pet.imageUrl ? { uri: pet.imageUrl } : IMAGES.labHappy,
+    cutout: !pet.imageUrl,
   };
 }
 
@@ -201,9 +206,9 @@ const NOISE_LINE: Record<Band, string> = {
 };
 
 // §5.1a ranked breed suggestions for "Explore breeds for my space".
-export function rankBreeds(space: Space, household: Questionnaire) {
-  return BREEDS.map((b) => {
-    const e = evaluate(space, household, { name: b.name, size: b.size, energy: b.energy, noise: b.noise, happy: b.happy, breed: b })!;
+export function rankBreeds(space: Space, household: Questionnaire, breeds: BreedProfile[]) {
+  return breeds.map((b) => {
+    const e = evaluate(space, household, { name: b.name, size: b.size, energy: b.energy, noise: b.noise, happy: b.happy, cutout: b.cutout, breed: b })!;
     const score = RANK[e.tone] * 10 + RANK[e.noise] * 3 + RANK[e.space] - (e.advisory ? 20 : 0);
     const fit = { good: 'Good fit', adequate: 'Could work', poor: 'Tricky fit' }[e.tone];
     const spaceTxt = { good: 'enough floor space', adequate: 'a bit snug', poor: 'cramped for this breed' }[e.space];

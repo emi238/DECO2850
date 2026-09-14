@@ -1,14 +1,14 @@
 // The household questionnaire controls (dwelling, rental, neighbours, outdoor
 // access, existing pets). Shared by onboarding ("Getting Started") and Profile.
 
-import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, Modal, TextInput, ScrollView } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 
 import { Segmented, Chip, SectionLabel } from './kit';
 import { CloseIcon } from './icons';
+import { OptionSheet } from './OptionSheet';
 import { colors, fonts } from '../theme';
-import { BREEDS } from '../logic/breeds';
+import { useBreedCatalogue } from '../logic/breeds';
 import type { Questionnaire, ExistingPet } from '../types';
 
 const OUTDOOR: { value: Questionnaire['outdoor_access']; label: string }[] = [
@@ -19,12 +19,9 @@ const OUTDOOR: { value: Questionnaire['outdoor_access']; label: string }[] = [
   { value: 'pool', label: 'Pool' },
 ];
 
-// Dogs only (Prototype 1): existing pets are the household's current dogs.
-const PET_OPTIONS: ExistingPet[] = [
-  ...BREEDS.map((b) => ({ species: 'Dog', breed: b.name })),
-  { species: 'Dog', breed: 'Mixed breed' },
-];
-
+// Dogs only (Prototype 1): existing pets are the household's current dogs,
+// picked from the breed catalogue (The Dog API when a key is set).
+const MIXED = 'Mixed breed';
 const petLabel = (p: ExistingPet) => p.breed || 'Dog';
 
 export function HouseholdForm({
@@ -39,7 +36,7 @@ export function HouseholdForm({
   compact?: boolean; // tighter spacing inside the Profile card
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [search, setSearch] = useState('');
+  const { breeds } = useBreedCatalogue();
   const gap = compact ? 12 : 26;
   // Onboarding uses bigger, filled controls; the Profile card keeps them compact.
   const big = !compact;
@@ -47,15 +44,9 @@ export function HouseholdForm({
   const segTxt = big ? styles.segTxtBig : undefined;
   const label = big ? styles.labelBig : undefined;
 
-  const matches = useMemo(() => {
-    const t = search.trim().toLowerCase();
-    return PET_OPTIONS.filter((p) => !t || petLabel(p).toLowerCase().includes(t));
-  }, [search]);
-
-  const addPet = (p: ExistingPet) => {
-    onChange({ existing_pets: [...q.existing_pets, p] });
+  const addPet = (breed: string) => {
+    onChange({ existing_pets: [...q.existing_pets, { species: 'Dog', breed }] });
     setPickerOpen(false);
-    setSearch('');
   };
   const removePet = (i: number) => onChange({ existing_pets: q.existing_pets.filter((_, idx) => idx !== i) });
 
@@ -142,37 +133,25 @@ export function HouseholdForm({
         </Pressable>
       </View>
 
-      <Modal visible={pickerOpen} animationType="slide" transparent onRequestClose={() => setPickerOpen(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setPickerOpen(false)} />
-        <SafeAreaView edges={['bottom']} style={styles.sheet}>
-          <View style={styles.sheetHead}>
-            <Text style={styles.sheetTitle}>Add a dog</Text>
-            <Pressable onPress={() => setPickerOpen(false)} hitSlop={12}>
-              <CloseIcon size={12} />
+      <OptionSheet
+        visible={pickerOpen}
+        title="Add a dog"
+        searchable
+        searchPlaceholder="Search dog breeds"
+        options={[
+          { value: MIXED, label: 'Not sure / mixed breed' },
+          ...breeds.map((b) => ({ value: b.name, label: b.name, image: b.sitting })),
+        ]}
+        onSelect={addPet}
+        onClose={() => setPickerOpen(false)}
+        footer={(query) =>
+          query && !breeds.some((b) => b.name.toLowerCase().includes(query.toLowerCase())) ? (
+            <Pressable onPress={() => addPet(query)} style={styles.addCustom}>
+              <Text style={styles.addCustomTxt}>Add “{query}”</Text>
             </Pressable>
-          </View>
-          <TextInput
-            value={search}
-            onChangeText={setSearch}
-            placeholder="Search dog breeds"
-            placeholderTextColor={colors.textFaint}
-            style={styles.search}
-            autoFocus
-          />
-          <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 320 }}>
-            {matches.map((p) => (
-              <Pressable key={petLabel(p)} onPress={() => addPet(p)} style={styles.option}>
-                <Text style={styles.optionTxt}>{petLabel(p)}</Text>
-              </Pressable>
-            ))}
-            {matches.length === 0 && search.trim() !== '' && (
-              <Pressable onPress={() => addPet({ species: 'Dog', breed: search.trim() })} style={styles.option}>
-                <Text style={styles.optionTxt}>Add “{search.trim()}”</Text>
-              </Pressable>
-            )}
-          </ScrollView>
-        </SafeAreaView>
-      </Modal>
+          ) : null
+        }
+      />
     </View>
   );
 }
@@ -192,11 +171,6 @@ const styles = StyleSheet.create({
   addPet: { backgroundColor: colors.track, borderRadius: 8, height: 28, justifyContent: 'center', paddingHorizontal: 7, marginRight: 30 },
   addPetTxt: { fontFamily: fonts.regular, fontSize: 10, color: colors.text },
 
-  backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.35)' },
-  sheet: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: colors.bg, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 22 },
-  sheetHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  sheetTitle: { fontFamily: fonts.bold, fontSize: 18, color: colors.text },
-  search: { backgroundColor: colors.track, borderRadius: 8, height: 36, paddingHorizontal: 12, fontFamily: fonts.regular, fontSize: 14, color: colors.text, marginBottom: 8 },
-  option: { paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  optionTxt: { fontFamily: fonts.regular, fontSize: 14, color: colors.text },
+  addCustom: { paddingVertical: 12, paddingHorizontal: 10 },
+  addCustomTxt: { fontFamily: fonts.semibold, fontSize: 15, color: colors.orangeDeep },
 });

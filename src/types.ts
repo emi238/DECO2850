@@ -18,6 +18,8 @@ export interface Pet {
   breed: string; // catalogue breed name, or free text for a mixed breed
   size?: 'small' | 'medium' | 'large'; // entered for mixed breeds (spec §1.2)
   energy?: 'low' | 'moderate' | 'high'; // user-picked activity level (spec §1.3)
+  noise?: 'quiet' | 'moderate' | 'vocal'; // saved at selection so API breeds work offline
+  imageUrl?: string; // Dog API photo, for breeds without built-in art
 }
 
 // Estimated room measurements used by the Space Adequacy rule (spec §4.2).

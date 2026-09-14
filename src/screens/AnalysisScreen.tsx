@@ -394,7 +394,12 @@ function DogAvatar({ evaluation, top, onPress }: { evaluation: Evaluation; top: 
     <View style={[styles.dogWrap, { top }]} pointerEvents="box-none">
       <Pressable onPress={onPress}>
         <Animated.View style={{ transform: [{ translateY }, { rotate }] }}>
-          <Image source={dog.happy} style={[styles.dogImg, mood === 'sad' && { opacity: 0.92 }]} resizeMode="contain" />
+          {evaluation.dog.cutout ? (
+            <Image source={dog.happy} style={[styles.dogImg, mood === 'sad' && { opacity: 0.92 }]} resizeMode="contain" />
+          ) : (
+            // Dog API breeds have a photo, not cartoon art: show it as a round badge.
+            <Image source={dog.happy} style={[styles.dogPhoto, mood === 'sad' && { opacity: 0.92 }]} resizeMode="cover" />
+          )}
         </Animated.View>
       </Pressable>
     </View>
@@ -515,7 +520,8 @@ const styles = StyleSheet.create({
   disclosure: { fontFamily: fonts.regular, fontSize: 10, lineHeight: 14, color: colors.textMuted, marginTop: 14 },
 
   dogWrap: { position: 'absolute', right: 28, alignItems: 'flex-end' },
-  dogImg: { width: 140, height: 150 }, // images are cropped tight; paws overlap the card by ~34pt
+  dogImg: { width: 140, height: 150 },
+  dogPhoto: { width: 104, height: 104, borderRadius: 52, borderWidth: 4, borderColor: '#fff', marginTop: 12, marginBottom: 20, marginRight: 18, backgroundColor: colors.orangeLight }, // images are cropped tight; paws overlap the card by ~34pt
   bubble: { position: 'absolute', left: 16, top: 38, maxWidth: 170, backgroundColor: colors.bg, borderRadius: 12, borderTopRightRadius: 2, paddingHorizontal: 10, paddingVertical: 6, zIndex: 3, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
   bubbleTxt: { fontFamily: fonts.medium, fontSize: 11, color: colors.text },
 
