@@ -3,10 +3,10 @@
 // swipes/taps down to hide again. Home shows it open by default.
 
 import React, { useRef, useState } from 'react';
-import { View, StyleSheet, Pressable, Animated, PanResponder } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Animated, PanResponder } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { colors } from '../theme';
+import { colors, fonts } from '../theme';
 import { DoorIcon, UploadIcon, HelpIcon } from './icons';
 
 export function SwipeUpNav({
@@ -41,7 +41,7 @@ export function SwipeUpNav({
     })
   ).current;
 
-  const translateY = anim.interpolate({ inputRange: [0, 1], outputRange: [80, 0] });
+  const translateY = anim.interpolate({ inputRange: [0, 1], outputRange: [100, 0] });
   const act = (fn?: () => void) => () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     fn?.();
@@ -54,14 +54,23 @@ export function SwipeUpNav({
         style={[styles.bar, { bottom, transform: [{ translateY }], opacity: anim }]}
         pointerEvents={open ? 'auto' : 'none'}
       >
-        <Pressable style={[styles.btn, styles.btnSide]} onPress={act(onSpaces)}>
-          <DoorIcon size={26} />
+        <Pressable style={styles.item} onPress={act(onSpaces)} accessibilityLabel="Home">
+          <View style={[styles.btn, styles.btnSide]}>
+            <DoorIcon size={26} />
+          </View>
+          <Text style={styles.label}>Home</Text>
         </Pressable>
-        <Pressable style={[styles.btn, styles.btnMain]} onPress={act(onCapture)}>
-          <UploadIcon size={30} />
+        <Pressable style={[styles.item, styles.itemMain]} onPress={act(onCapture)} accessibilityLabel="Upload">
+          <View style={[styles.btn, styles.btnMain]}>
+            <UploadIcon size={30} />
+          </View>
+          <Text style={styles.label}>Upload</Text>
         </Pressable>
-        <Pressable style={[styles.btn, styles.btnSide]} onPress={act(onHelp)}>
-          <HelpIcon size={28} />
+        <Pressable style={styles.item} onPress={act(onHelp)} accessibilityLabel="Help">
+          <View style={[styles.btn, styles.btnSide]}>
+            <HelpIcon size={28} />
+          </View>
+          <Text style={styles.label}>Help</Text>
         </Pressable>
       </Animated.View>
 
@@ -75,10 +84,15 @@ export function SwipeUpNav({
 }
 
 const styles = StyleSheet.create({
-  wrap: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 110, alignItems: 'center' },
+  wrap: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 130, alignItems: 'center' },
   handleHit: { position: 'absolute', paddingVertical: 10, paddingHorizontal: 20 },
   handle: { width: 156, height: 6, borderRadius: 3, backgroundColor: colors.orange },
   bar: { position: 'absolute', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   btn: { width: 54, height: 54, borderRadius: 27, alignItems: 'center', justifyContent: 'center' },
   btnSide: { backgroundColor: colors.track },
-  btnMain: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.orange, marginHorizontal: -6, zIndex: 2 },});
+  btnMain: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.orange },
+  item: { alignItems: 'center', width: 60 },
+  itemMain: { marginHorizontal: -6, zIndex: 2 },
+  // Light pill behind each name so it stays readable over room photos.
+  label: { fontFamily: fonts.semibold, fontSize: 12, color: colors.text, marginTop: 4, backgroundColor: 'rgba(255,255,255,0.9)', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 1, overflow: 'hidden' },
+});
