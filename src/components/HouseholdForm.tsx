@@ -19,17 +19,13 @@ const OUTDOOR: { value: Questionnaire['outdoor_access']; label: string }[] = [
   { value: 'pool', label: 'Pool' },
 ];
 
+// Dogs only (Prototype 1): existing pets are the household's current dogs.
 const PET_OPTIONS: ExistingPet[] = [
   ...BREEDS.map((b) => ({ species: 'Dog', breed: b.name })),
   { species: 'Dog', breed: 'Mixed breed' },
-  { species: 'Cat', breed: '' },
-  { species: 'Rabbit', breed: '' },
-  { species: 'Bird', breed: '' },
-  { species: 'Fish', breed: '' },
-  { species: 'Other', breed: '' },
 ];
 
-const petLabel = (p: ExistingPet) => (p.breed ? `${p.species} · ${p.breed}` : p.species);
+const petLabel = (p: ExistingPet) => p.breed || 'Dog';
 
 export function HouseholdForm({
   value: q,
@@ -45,6 +41,11 @@ export function HouseholdForm({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [search, setSearch] = useState('');
   const gap = compact ? 12 : 26;
+  // Onboarding uses bigger, filled controls; the Profile card keeps them compact.
+  const big = !compact;
+  const segH = big ? 44 : undefined;
+  const segTxt = big ? styles.segTxtBig : undefined;
+  const label = big ? styles.labelBig : undefined;
 
   const matches = useMemo(() => {
     const t = search.trim().toLowerCase();
@@ -61,30 +62,33 @@ export function HouseholdForm({
   return (
     <View style={disabled && { opacity: 0.85 }}>
       <View style={{ marginBottom: gap }}>
-        <SectionLabel>Dwelling Type</SectionLabel>
+        <SectionLabel style={label}>Dwelling Type</SectionLabel>
         <Segmented
           disabled={disabled}
           value={q.dwelling}
           onChange={(v) => onChange({ dwelling: v })}
           options={[{ value: 'apartment', label: 'Apartment' }, { value: 'house', label: 'House' }]}
-          style={styles.seg}
+          style={big ? styles.segBig : styles.seg}
+          height={segH}
+          textStyle={segTxt}
         />
       </View>
 
       <View style={{ marginBottom: gap }}>
-        <SectionLabel>Is this a rental?</SectionLabel>
+        <SectionLabel style={label}>Is this a rental?</SectionLabel>
         <Segmented
           disabled={disabled}
           value={q.rental ? 'yes' : 'no'}
           onChange={(v) => onChange({ rental: v === 'yes' })}
           options={[{ value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }]}
-          style={styles.seg}
-          height={22}
+          style={big ? styles.segBig : styles.seg}
+          height={segH ?? 22}
+          textStyle={segTxt}
         />
       </View>
 
       <View style={{ marginBottom: gap }}>
-        <SectionLabel>How close are your nearest neighbours?</SectionLabel>
+        <SectionLabel style={label}>How close are your nearest neighbours?</SectionLabel>
         <Segmented
           disabled={disabled}
           value={q.neighbours}
@@ -94,13 +98,14 @@ export function HouseholdForm({
             { value: 'close_separate', label: 'Close, but a\nseparate building' },
             { value: 'not_close', label: 'Not close by' },
           ]}
-          style={styles.seg}
-          height={31}
+          style={big ? styles.segBig : styles.seg}
+          height={big ? 52 : 31}
+          textStyle={segTxt}
         />
       </View>
 
       <View style={{ marginBottom: gap }}>
-        <SectionLabel>Outdoor Access</SectionLabel>
+        <SectionLabel style={label}>Outdoor Access</SectionLabel>
         <View style={styles.chips}>
           {OUTDOOR.map((o) => (
             <Chip
@@ -109,29 +114,31 @@ export function HouseholdForm({
               label={o.label}
               selected={q.outdoor_access === o.value}
               onPress={() => onChange({ outdoor_access: o.value })}
+              style={big && styles.chipBig}
+              textStyle={big && styles.chipTxtBig}
             />
           ))}
         </View>
       </View>
 
       <View>
-        <SectionLabel>Existing Pets</SectionLabel>
+        <SectionLabel style={label}>Existing Dogs</SectionLabel>
         {q.existing_pets.length > 0 && (
           <View style={[styles.chips, { marginBottom: 8 }]}>
-            {q.existing_pets.map((p, i) => (
-              <View key={i} style={styles.petChip}>
-                <Text style={styles.petChipTxt}>{petLabel(p)}</Text>
+            {q.existing_pets.map((p, i) => (p.species.toLowerCase() !== 'dog' ? null : (
+              <View key={i} style={[styles.petChip, big && styles.chipBig]}>
+                <Text style={[styles.petChipTxt, big && styles.chipTxtBig]}>{petLabel(p)}</Text>
                 {!disabled && (
                   <Pressable onPress={() => removePet(i)} hitSlop={8}>
-                    <CloseIcon size={8} />
+                    <CloseIcon size={big ? 10 : 8} />
                   </Pressable>
                 )}
               </View>
-            ))}
+            )))}
           </View>
         )}
-        <Pressable disabled={disabled} onPress={() => setPickerOpen(true)} style={styles.addPet}>
-          <Text style={styles.addPetTxt}>+ Add a pet (dropdown search)</Text>
+        <Pressable disabled={disabled} onPress={() => setPickerOpen(true)} style={[styles.addPet, big && styles.addPetBig]}>
+          <Text style={[styles.addPetTxt, big && styles.addPetTxtBig]}>+ Add a dog (dropdown search)</Text>
         </Pressable>
       </View>
 
@@ -139,7 +146,7 @@ export function HouseholdForm({
         <Pressable style={styles.backdrop} onPress={() => setPickerOpen(false)} />
         <SafeAreaView edges={['bottom']} style={styles.sheet}>
           <View style={styles.sheetHead}>
-            <Text style={styles.sheetTitle}>Add a pet</Text>
+            <Text style={styles.sheetTitle}>Add a dog</Text>
             <Pressable onPress={() => setPickerOpen(false)} hitSlop={12}>
               <CloseIcon size={12} />
             </Pressable>
@@ -147,7 +154,7 @@ export function HouseholdForm({
           <TextInput
             value={search}
             onChangeText={setSearch}
-            placeholder="Search pets or dog breeds"
+            placeholder="Search dog breeds"
             placeholderTextColor={colors.textFaint}
             style={styles.search}
             autoFocus
@@ -159,7 +166,7 @@ export function HouseholdForm({
               </Pressable>
             ))}
             {matches.length === 0 && search.trim() !== '' && (
-              <Pressable onPress={() => addPet({ species: search.trim(), breed: '' })} style={styles.option}>
+              <Pressable onPress={() => addPet({ species: 'Dog', breed: search.trim() })} style={styles.option}>
                 <Text style={styles.optionTxt}>Add “{search.trim()}”</Text>
               </Pressable>
             )}
@@ -172,7 +179,14 @@ export function HouseholdForm({
 
 const styles = StyleSheet.create({
   seg: { marginRight: 14 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 10, rowGap: 6 },
+  segBig: { borderRadius: 12 },
+  labelBig: { fontFamily: fonts.semibold, fontSize: 15, marginBottom: 10 },
+  segTxtBig: { fontFamily: fonts.medium, fontSize: 13.5, lineHeight: 17 },
+  chipBig: { height: 40, minWidth: 96, borderRadius: 12, paddingHorizontal: 14 },
+  chipTxtBig: { fontFamily: fonts.medium, fontSize: 14 },
+  addPetBig: { height: 44, borderRadius: 12, paddingHorizontal: 14, marginRight: 0 },
+  addPetTxtBig: { fontFamily: fonts.medium, fontSize: 14 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 10, rowGap: 10 },
   petChip: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.orangeLight, borderRadius: 10, height: 22, paddingHorizontal: 10 },
   petChipTxt: { fontFamily: fonts.regular, fontSize: 10, color: colors.text },
   addPet: { backgroundColor: colors.track, borderRadius: 8, height: 28, justifyContent: 'center', paddingHorizontal: 7, marginRight: 30 },
