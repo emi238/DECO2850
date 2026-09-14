@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
 
 export const authStyles = StyleSheet.create({
   field: { marginBottom: 14 },
-  submit: { height: 31, borderRadius: 10, marginTop: 14 },
+  submit: { marginTop: 18 },
   submitTxt: { fontFamily: fonts.semibold, color: colors.bg, fontSize: 15 },
   note: { fontFamily: fonts.regular, fontSize: 12, color: '#8A8580', textAlign: 'center', marginTop: 16 },
   avatar: { width: 58, height: 58, alignSelf: 'center', marginBottom: 30 },

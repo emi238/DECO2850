@@ -539,6 +539,6 @@ const styles = StyleSheet.create({
   bandChip: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 1 },
   bandTxt: { fontFamily: fonts.semibold, fontSize: 10.5 },
   reportLine: { fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 18, color: colors.text },
-  reportBtn: { backgroundColor: colors.orange, borderRadius: 10, height: 36, alignItems: 'center', justifyContent: 'center', marginTop: 14 },
-  reportBtnTxt: { fontFamily: fonts.semibold, fontSize: 14, color: colors.text },
+  reportBtn: { backgroundColor: colors.orange, borderRadius: 12, height: 48, alignItems: 'center', justifyContent: 'center', marginTop: 14 },
+  reportBtnTxt: { fontFamily: fonts.semibold, fontSize: 15, color: colors.text },
 });

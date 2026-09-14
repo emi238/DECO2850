@@ -80,7 +80,6 @@ export default function ProfileScreen({ navigation }: ScreenProps<'Profile'>) {
               left={{ label: 'Delete All Data', onPress: deleteAll }}
               right={{ label: 'Log Out', onPress: logout }}
               leftBg={colors.danger}
-              height={40}
               style={styles.controls}
             />
           </ScrollView>

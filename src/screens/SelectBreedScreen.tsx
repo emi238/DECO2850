@@ -145,7 +145,6 @@ export default function SelectBreedScreen({ navigation }: ScreenProps<'SelectBre
                 onPress={confirmInMind}
                 disabled={!breedId || (mixed && !size)}
                 style={styles.selectBtn}
-                textStyle={{ fontSize: 12.5 }}
               />
             </ScrollView>
           ) : (
@@ -279,7 +278,7 @@ const styles = StyleSheet.create({
   dropdown: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.track, borderRadius: 12, height: 34, paddingHorizontal: 14 },
   dropdownValue: { flex: 1, fontFamily: fonts.regular, fontSize: 12, color: colors.text },
   dropdownTag: { fontFamily: fonts.regular, fontSize: 11, color: colors.text, marginLeft: 8 },
-  selectBtn: { alignSelf: 'flex-end', height: 25, borderRadius: 12, marginTop: 11, paddingHorizontal: 16 },
+  selectBtn: { marginTop: 18 },
 
   thinking: { fontFamily: fonts.semibold, fontSize: 10, color: colors.text, textAlign: 'center', marginTop: 50 },
   compat: { fontFamily: fonts.medium, fontSize: 15, color: colors.text, marginTop: 18, marginLeft: 6 },

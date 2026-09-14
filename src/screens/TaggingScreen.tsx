@@ -115,7 +115,7 @@ export default function TaggingScreen({ navigation }: ScreenProps<'Tagging'>) {
               disabled={frameIndex === 0}
               style={[styles.arrow, frameIndex > 0 && styles.arrowOn]}
             >
-              <ChevronIcon size={11} dir="left" weight={1.6} />
+              <ChevronIcon size={13} dir="left" weight={1.8} />
             </Pressable>
             <Text style={styles.frameLabel}>Frame {frameIndex + 1} of {frames.length}</Text>
             <Pressable
@@ -123,7 +123,7 @@ export default function TaggingScreen({ navigation }: ScreenProps<'Tagging'>) {
               disabled={frameIndex === frames.length - 1}
               style={[styles.arrow, frameIndex < frames.length - 1 && styles.arrowOn]}
             >
-              <ChevronIcon size={11} dir="right" weight={1.6} />
+              <ChevronIcon size={13} dir="right" weight={1.8} />
             </Pressable>
           </View>
 
@@ -148,7 +148,6 @@ export default function TaggingScreen({ navigation }: ScreenProps<'Tagging'>) {
           <PrimaryButton
             label="Save Space!"
             onPress={() => navigation.navigate('SpaceSaved')}
-            style={styles.save}
           />
         </ScrollView>
       </SafeAreaView>
@@ -173,15 +172,14 @@ export default function TaggingScreen({ navigation }: ScreenProps<'Tagging'>) {
               value={kind}
               onChange={setKind}
               options={[{ value: 'Valuable', label: 'Valuable' }, { value: 'Fragile', label: 'Fragile' }]}
-              height={32}
-              textStyle={{ fontSize: 13 }}
+              height={48}
+              textStyle={{ fontFamily: fonts.semibold, fontSize: 15 }}
               style={{ marginTop: 12 }}
             />
             <JoinedButtons
               left={{ label: 'Cancel', onPress: () => setDraft(null) }}
               right={{ label: 'Save tag', onPress: saveTag, disabled: !label.trim() }}
               leftBg={colors.track}
-              height={40}
               style={{ marginTop: 18 }}
             />
           </View>
@@ -196,8 +194,8 @@ const styles = StyleSheet.create({
   center: { alignItems: 'center', justifyContent: 'center' },
   topBar: { paddingHorizontal: 22, paddingTop: 6 },
   body: { paddingHorizontal: 22, paddingBottom: 40 },
-  h1: { fontFamily: fonts.bold, color: colors.text, fontSize: 20, marginTop: -2 },
-  sub: { fontFamily: fonts.regular, color: colors.text, fontSize: 12.5, lineHeight: 17, marginTop: 4 },
+  h1: { fontFamily: fonts.bold, color: colors.text, fontSize: 20, marginTop: 14 },
+  sub: { fontFamily: fonts.regular, color: colors.text, fontSize: 15, lineHeight: 21, marginTop: 6 },
 
   card: { backgroundColor: colors.bg, borderRadius: 20, paddingTop: 13, paddingBottom: 22, marginTop: 16 },
   frames: { flexDirection: 'row', paddingHorizontal: 12, gap: 18, overflow: 'hidden' },
@@ -216,21 +214,20 @@ const styles = StyleSheet.create({
   pinTxt: { color: '#fff', fontSize: 10 },
 
   selector: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 9 },
-  arrow: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, borderColor: '#D9D9D9', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg2 },
+  arrow: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: '#D9D9D9', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg2 },
   arrowOn: { borderColor: colors.orange },
-  frameLabel: { fontFamily: fonts.regular, color: colors.text, fontSize: 12, minWidth: 64, textAlign: 'center' },
+  frameLabel: { fontFamily: fonts.regular, color: colors.text, fontSize: 15, minWidth: 90, textAlign: 'center' },
 
-  empty: { fontFamily: fonts.regular, color: colors.text, fontSize: 12, textAlign: 'center', lineHeight: 17, marginTop: 44, marginBottom: 26 },
+  empty: { fontFamily: fonts.regular, color: colors.text, fontSize: 15, textAlign: 'center', lineHeight: 21, marginTop: 44, marginBottom: 26 },
   list: { gap: 8, marginTop: 15, marginBottom: 18 },
-  tagRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.bg, borderRadius: 12, paddingHorizontal: 12, height: 50 },
-  tagLabel: { fontFamily: fonts.regular, color: colors.text, fontSize: 12.5 },
-  tagNote: { fontFamily: fonts.regular, color: colors.text, fontSize: 10, marginTop: 2 },
-  remove: { fontFamily: fonts.regular, color: colors.text, fontSize: 10.5 },
-  save: { height: 35, borderRadius: 10 },
+  tagRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.bg, borderRadius: 12, paddingHorizontal: 14, minHeight: 58, paddingVertical: 8 },
+  tagLabel: { fontFamily: fonts.semibold, color: colors.text, fontSize: 15 },
+  tagNote: { fontFamily: fonts.regular, color: colors.text, fontSize: 13, marginTop: 2 },
+  remove: { fontFamily: fonts.semibold, color: colors.text, fontSize: 13 },
 
   backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.35)' },
   sheet: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: colors.bg, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 22, paddingBottom: 36 },
   sheetTitle: { fontFamily: fonts.bold, color: colors.text, fontSize: 18 },
   sheetSub: { fontFamily: fonts.regular, color: colors.textMuted, fontSize: 12, marginTop: 2, marginBottom: 12 },
-  input: { backgroundColor: colors.track, borderRadius: 8, height: 40, paddingHorizontal: 12, fontFamily: fonts.regular, fontSize: 14, color: colors.text },
+  input: { backgroundColor: colors.track, borderRadius: 12, height: 48, paddingHorizontal: 12, fontFamily: fonts.regular, fontSize: 14, color: colors.text },
 });

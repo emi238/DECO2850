@@ -33,7 +33,7 @@ export default function ResetPasswordScreen({ navigation }: ScreenProps<'ResetPa
       <PrimaryButton
         label="Log In"
         onPress={back}
-        style={{ height: 36, borderRadius: 10, marginTop: 19 }}
+        style={{ marginTop: 19 }}
         textStyle={{ fontFamily: fonts.semibold, color: colors.bg, fontSize: 15 }}
       />
     </AuthShell>

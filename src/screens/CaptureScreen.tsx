@@ -256,14 +256,12 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
             <JoinedButtons
               left={{ label: 'Start Over', onPress: clearPhotos }}
               right={{ label: `Done (${captured.length})`, onPress: finishPhotos }}
-              height={48}
               style={{ marginTop: 20 }}
             />
           ) : (
             <JoinedButtons
               left={{ label: 'Upload Video', onPress: () => runUpload(pickVideoFrames, 'video') }}
               right={{ label: 'Upload Photos', onPress: () => runUpload(pickPhotos, 'photos') }}
-              height={48}
               style={{ marginTop: 20 }}
             />
           )}

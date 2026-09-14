@@ -89,7 +89,6 @@ export default function SpaceSavedScreen({ navigation }: ScreenProps<'SpaceSaved
             left={{ label: 'Edit Questionnaire', onPress: () => navigation.navigate('Household') }}
             right={{ label: 'Start Space Analysis', onPress: startAnalysis }}
             leftBg={colors.midGray}
-            height={41}
             style={{ marginTop: 20 }}
           />
           <Pressable onPress={() => navigation.reset({ index: 0, routes: [{ name: 'Home' }] })} style={styles.home} hitSlop={8}>

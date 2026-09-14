@@ -58,7 +58,7 @@ export function JoinedButtons({
   right,
   leftBg = colors.bg,
   rightBg = colors.orange,
-  height = 44,
+  height = 48,
   style,
 }: {
   left: { label: string; onPress: () => void };
@@ -259,8 +259,8 @@ export function TopBar({
 const styles = StyleSheet.create({
   primary: {
     backgroundColor: colors.orange,
-    borderRadius: 8,
-    height: 40,
+    borderRadius: 12,
+    height: 48, // every action button in the app is 48pt (DESIGN.md)
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 16,

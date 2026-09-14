@@ -40,14 +40,14 @@ Fonts: **Mojiw Mochizuki** for the "PawSpace" wordmark and the Welcome headline 
 - **Heading spacing:** leave 14pt between the back arrow and the screen heading, and 6pt
   between heading and subtitle.
 - Home: 24pt of space above the first section title inside the white panel.
-- Corner radius: panels 20, photo cards 12, primary buttons 8–10, pills 10.
+- Corner radius: panels 20, photo cards 12, buttons 12, pills 10.
 - Bottom nav: orange handle bar; swipe/tap up for the three round buttons (open by
   default on Home).
 
 ## Buttons
 
-- Primary: orange fill, dark text, **semibold**, height 36–40.
-- Buttons stacked together share one height (48 on Capture) with 16pt between them.
+- **Every action button is 48pt tall** (radius 12), including joined pairs and sheet buttons.
+- Primary: orange fill, dark text, **semibold**. Stacked buttons have 16–20pt between them.
 - Joined pair (`JoinedButtons`): neutral left half + orange right half in one pill,
   both labels **semibold**.
 - Account screens (Sign Up / Log In): orange fill, white semibold text.
