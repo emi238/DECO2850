@@ -82,7 +82,7 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
           )}
 
           <Pressable style={styles.changed} onPress={() => navigation.navigate('Household')}>
-            <View style={{ flex: 1 }}>
+            <View style={styles.changedText}>
               <Text style={styles.changedH}>Has your living{'\n'}situation changed? →</Text>
               <Text style={styles.changedSub}>Change your preferences and tell us what’s new!</Text>
             </View>
@@ -130,18 +130,17 @@ const styles = StyleSheet.create({
   browse: { gap: 8, paddingRight: 29 },
   empty: { fontFamily: fonts.regular, color: colors.textMuted, fontSize: 15, textAlign: 'center', marginTop: 26, lineHeight: 21 },
 
+  // The puppy sits at the bottom-right and pokes out above the card (as in the Figma).
   changed: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
     backgroundColor: colors.peach,
-    borderRadius: 8,
-    paddingLeft: 10,
-    paddingVertical: 12,
-    marginTop: 44,
-    marginHorizontal: 3,
-    height: 96,
+    borderRadius: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 20,
+    marginTop: 64,
+    overflow: 'visible',
   },
+  changedText: { paddingRight: 96 },
   changedH: { fontFamily: fonts.semibold, color: colors.text, fontSize: 17, lineHeight: 21 },
   changedSub: { fontFamily: fonts.regular, color: colors.text, fontSize: 12, marginTop: 4 },
-  changedDog: { width: 74, height: 118, marginRight: 12, marginBottom: -12 },
+  changedDog: { position: 'absolute', right: 18, bottom: 8, width: 90, height: 145 },
 });
