@@ -27,6 +27,7 @@ Fonts: **Mojiw Mochizuki** for the "PawSpace" wordmark and the Welcome headline 
 | Screen heading (e.g. "Capture your space") | 20 | Bold |
 | Screen subtitle (under the heading) | 15 / 21 | Regular |
 | Section title (e.g. "Create new space") | 16 | Semibold |
+| **Any question or field label** ("Dwelling Type", "Email Address", "Space Label:") | 13–16 | **Semibold** |
 | Home greeting ("Hi Emily,") | 24 | Semibold |
 | Body / helper text | 12.5–15 | Regular |
 | **All buttons** | 15 (smaller buttons may use 12.5) | **Semibold** |

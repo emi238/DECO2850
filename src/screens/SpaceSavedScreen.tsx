@@ -22,7 +22,7 @@ export default function SpaceSavedScreen({ navigation }: ScreenProps<'SpaceSaved
   const cardW = width - 44;
   const { height } = useWindowDimensions();
   // Photo sized so the whole screen (buttons included) fits without scrolling.
-  const FH = Math.max(220, Math.min(Math.round(cardW * 0.7 * 1.45), height - 600));
+  const FH = Math.max(220, Math.min(Math.round(cardW * 0.7 * 1.45), height - 700)); // extra room for the larger text/buttons
   const FW = Math.round(FH / 1.45);
 
   // Reaching this screen means the space is saved (it now shows on Home).
@@ -49,7 +49,7 @@ export default function SpaceSavedScreen({ navigation }: ScreenProps<'SpaceSaved
             results and analysis. You can edit or tag any new items through the home → specific space.
           </Text>
 
-          <View style={[styles.card, { height: FH + 44 }]}>
+          <View style={[styles.card, { height: FH + 40 }]}>
             {space.capture.frames[0] && (
               <View style={styles.tilt}>
                 <FrameView frame={space.capture.frames[0]} width={FW} height={FH} radius={12} />
@@ -80,7 +80,7 @@ export default function SpaceSavedScreen({ navigation }: ScreenProps<'SpaceSaved
                 selected={space.label === l}
                 onPress={() => patchSpace({ label: space.label === l ? undefined : l })}
                 style={[styles.chip, space.label !== l && { backgroundColor: colors.bg }]}
-                textStyle={{ fontSize: 12.5 }}
+                textStyle={{ fontFamily: fonts.medium, fontSize: 14 }}
               />
             ))}
           </View>
@@ -89,7 +89,7 @@ export default function SpaceSavedScreen({ navigation }: ScreenProps<'SpaceSaved
             left={{ label: 'Edit Questionnaire', onPress: () => navigation.navigate('Household') }}
             right={{ label: 'Start Space Analysis', onPress: startAnalysis }}
             leftBg={colors.midGray}
-            style={{ marginTop: 20 }}
+            style={{ marginTop: 24 }}
           />
           <Pressable onPress={() => navigation.reset({ index: 0, routes: [{ name: 'Home' }] })} style={styles.home} hitSlop={8}>
             <Text style={styles.homeTxt}>Go Home Instead</Text>
@@ -104,16 +104,16 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg2 },
   topBar: { paddingHorizontal: 22, paddingTop: 6 },
   body: { paddingHorizontal: 22, paddingBottom: 30 },
-  h1: { fontFamily: fonts.bold, color: colors.text, fontSize: 20, marginTop: -2 },
-  sub: { fontFamily: fonts.regular, color: colors.text, fontSize: 12.5, lineHeight: 17, marginTop: 4 },
-  card: { backgroundColor: colors.bg, borderRadius: 20, marginTop: 6, alignItems: 'center', justifyContent: 'center' },
+  h1: { fontFamily: fonts.bold, color: colors.text, fontSize: 20, marginTop: 14 },
+  sub: { fontFamily: fonts.regular, color: colors.text, fontSize: 15, lineHeight: 21, marginTop: 6 },
+  card: { backgroundColor: colors.bg, borderRadius: 20, marginTop: 16, alignItems: 'center', justifyContent: 'center' },
   tilt: { transform: [{ rotate: '-3deg' }] },
-  label: { fontFamily: fonts.regular, color: colors.text, fontSize: 12.5, marginTop: 16, marginBottom: 8 },
-  nameBox: { backgroundColor: colors.bg, borderRadius: 12, height: 51, justifyContent: 'center' },
+  label: { fontFamily: fonts.semibold, color: colors.text, fontSize: 16, marginTop: 20, marginBottom: 10 },
+  nameBox: { backgroundColor: colors.bg, borderRadius: 12, height: 52, justifyContent: 'center' },
   nameInput: { fontFamily: fonts.medium, fontSize: 20, color: colors.text, textAlign: 'center', paddingHorizontal: 50, height: 51 },
   pencil: { position: 'absolute', right: 14 },
   chips: { flexDirection: 'row', gap: 10 },
-  chip: { flex: 1, height: 29, borderRadius: 8 },
-  home: { alignSelf: 'center', marginTop: 16 },
-  homeTxt: { fontFamily: fonts.regular, color: colors.text, fontSize: 12, textDecorationLine: 'underline' },
+  chip: { flex: 1, height: 44, borderRadius: 12 },
+  home: { alignSelf: 'center', marginTop: 18 },
+  homeTxt: { fontFamily: fonts.medium, color: colors.text, fontSize: 15, textDecorationLine: 'underline' },
 });

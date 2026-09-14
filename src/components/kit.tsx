@@ -280,8 +280,8 @@ const styles = StyleSheet.create({
   chipOn: { backgroundColor: colors.orangeLight },
   chipTxt: { fontFamily: fonts.regular, color: colors.text, fontSize: 10 },
 
-  sectionLabel: { fontFamily: fonts.regular, color: colors.text, fontSize: 11.5, marginBottom: 7 },
-  fieldLabel: { fontFamily: fonts.regular, color: colors.text, fontSize: 12.5, marginBottom: 6 },
+  sectionLabel: { fontFamily: fonts.semibold, color: colors.text, fontSize: 13, marginBottom: 7 },
+  fieldLabel: { fontFamily: fonts.semibold, color: colors.text, fontSize: 13, marginBottom: 6 },
   field: {
     backgroundColor: colors.field,
     borderRadius: 6,
