@@ -23,10 +23,12 @@ export function EditIcon({ size = 20, color = colors.text }: P) {
   );
 }
 
+// Standard upload glyph: an arrow rising out of an open tray.
 export function UploadIcon({ size = 24, color = colors.text }: P) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24">
-      <Path fill={color} d="M5 4v2h14V4H5zm0 10h4v6h6v-6h4l-7-7-7 7z" />
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 15V4M7 9l5-5 5 5" stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4" stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }

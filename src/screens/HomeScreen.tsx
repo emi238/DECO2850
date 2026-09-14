@@ -54,7 +54,7 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
           <Text style={[styles.label, { marginTop: 0 }]}>Create new space</Text>
           <Pressable style={({ pressed }) => [styles.upload, pressed && { opacity: 0.7 }]} onPress={startCapture}>
             <Text style={styles.uploadTxt}>Upload New Space</Text>
-            <UploadIcon size={20} />
+            <UploadIcon size={26} />
           </Pressable>
 
           {featured && (
