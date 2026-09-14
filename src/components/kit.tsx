@@ -265,12 +265,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 16,
   },
-  primaryTxt: { fontFamily: fonts.regular, color: colors.text, fontSize: 15 },
+  primaryTxt: { fontFamily: fonts.semibold, color: colors.text, fontSize: 15 },
 
   joined: { flexDirection: 'row', overflow: 'hidden' },
   joinedHalf: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
   joinedRight: { flex: 1.15 },
-  joinedTxt: { fontFamily: fonts.regular, color: colors.text, fontSize: 15 },
+  joinedTxt: { fontFamily: fonts.semibold, color: colors.text, fontSize: 15 },
 
   segWrap: { flexDirection: 'row', backgroundColor: colors.track, borderRadius: 8 },
   seg: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 3 },

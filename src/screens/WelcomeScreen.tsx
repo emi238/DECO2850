@@ -97,5 +97,5 @@ const styles = StyleSheet.create({
     marginRight: 20,
   },
   ctaPaw: { width: 30, height: 30 },
-  ctaTxt: { fontFamily: fonts.regular, color: colors.text, fontSize: 17 },
+  ctaTxt: { fontFamily: fonts.semibold, color: colors.text, fontSize: 17 },
 });

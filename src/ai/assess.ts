@@ -69,7 +69,7 @@ export async function runAssessment(session: Space): Promise<AssessResult> {
       assessment: generateMockAssessment(session),
       source: 'mock',
       fallbackReason:
-        'Real AI is on, but the demo room is a built-in sample, so this is a sample assessment. Capture or upload a real room to use the model.',
+        'Real AI is on, but these photos are no longer loaded (the app was restarted), so this is a sample assessment. Capture the room again to use the model.',
     };
   }
 

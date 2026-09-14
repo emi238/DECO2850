@@ -1,22 +1,14 @@
 // Built-in mock assessment (PRD §11: "canned fallback result"). Produces a
 // schema-valid Assessment (PRD §7.2) that reflects the REAL context the user
-// entered — pet, questionnaire, and tags — and, for the seeded demo room, pins
-// every object finding onto the actual drawing via DEMO_OBJECTS coordinates.
+// entered — pet, questionnaire, and tags. Located findings come from the user's
+// own tags (the mock can't see the photos).
 
 import type { Assessment, Hazard, Space, Severity } from '../types';
-import { DEMO_OBJECTS, isDemoUri, sceneToFrame } from '../demo/room';
-import { isAssetUri, photoDemoHazards } from '../demo/photoRoom';
 
 let counter = 0;
 function hid(): string {
   counter += 1;
   return `hz_${counter}`;
-}
-
-function loc(objKey: keyof typeof DEMO_OBJECTS) {
-  const o = DEMO_OBJECTS[objKey];
-  const p = sceneToFrame(o.sx, o.sy, o.frame);
-  return { frame_index: o.frame, x: round2(p.x), y: round2(p.y) };
 }
 
 function round2(n: number): number {
@@ -45,9 +37,7 @@ function isDog(species?: string): boolean {
 
 export function generateMockAssessment(session: Space): Assessment {
   counter = 0;
-  const { mode, pet, questionnaire: q, tags, capture } = session;
-  const demo = capture.frames.length > 0 && capture.frames.some((f) => isDemoUri(f.uri));
-  const photoDemo = capture.frames.some((f) => isAssetUri(f.uri));
+  const { mode, pet, questionnaire: q, tags } = session;
   const petLabel = pet ? `${pet.breed || pet.species}`.trim() : 'the pet';
   const cat = isCat(pet?.species);
   const dog = isDog(pet?.species);
@@ -55,152 +45,26 @@ export function generateMockAssessment(session: Space): Assessment {
 
   const hazards: Hazard[] = [];
 
-  if (photoDemo) {
-    // ---- Figma living-room photo: hazards pinned onto the photo, plus any tags ----
-    photoDemoHazards(petLabel).forEach((h) => hazards.push({ ...h, id: hid() }));
-    tags.forEach((t) => {
-      hazards.push({
-        id: hid(),
-        category: inferCategory(t.label + ' ' + t.note),
-        title: `Flagged: ${t.label}`,
-        scope: 'object',
-        location: { frame_index: t.frame, x: round2(t.x ?? 0.5), y: round2(t.y ?? 0.5) },
-        risk_to: 'both',
-        severity: /fragile|valuable|antique/i.test(t.note + ' ' + t.label) ? 'high' : 'medium',
-        evidence: `You flagged "${t.label}"${t.note ? ` as ${t.note.toLowerCase()}` : ''}.`,
-        why_it_matters: `You marked this as precious; anything below about 1m is within ${petLabel}'s paw and mouth reach.`,
-        recommendation: 'Move it above dog height, or keep it in a room the dog can’t get into.',
-      });
-    });
-  } else if (demo) {
-    // ---- Object hazards pinned to the seeded demo room ----
+  // ---- Mock mode can't see the photos: lean on the REAL context the user
+  // entered (tags + questionnaire), which we CAN trust. ----
+  tags.forEach((t) => {
     hazards.push({
       id: hid(),
-      category: 'G',
-      title: 'Unscreened window',
+      category: inferCategory(t.label + ' ' + t.note),
+      title: `Flagged: ${t.label}`,
       scope: 'object',
-      location: loc('window'),
-      risk_to: 'animal',
-      severity: highRise ? 'high' : 'medium',
-      evidence: 'A large window with an open, unscreened upper pane on the left wall.',
-      why_it_matters: highRise
-        ? `On floor ${q.floor_level}, an openable unscreened window is a fatal fall risk${cat ? ' — cats are especially prone to high-rise falls' : ''}.`
-        : `An openable unscreened window is an escape and fall route for ${petLabel}.`,
-      recommendation: 'Fit a lockable window restrictor or a sturdy insect/pet screen before the window is opened.',
-    });
-
-    hazards.push({
-      id: hid(),
-      category: 'A',
-      title: 'Low houseplant',
-      scope: 'object',
-      location: loc('plant'),
-      risk_to: 'animal',
-      severity: cat ? 'high' : 'medium',
-      evidence: 'A leafy potted plant on a low stool beside the window, within easy reach.',
-      why_it_matters: cat
-        ? 'Many common houseplants (e.g. lilies, pothos) are toxic to cats, who nibble greenery.'
-        : `If it is a toxic species, ${petLabel} chewing the leaves could be poisoned.`,
-      recommendation: 'Identify the plant; if toxic, move it to a high shelf pets cannot reach or swap it for a pet-safe plant.',
-    });
-
-    hazards.push({
-      id: hid(),
-      category: 'B',
-      title: 'Exposed cord tangle',
-      scope: 'object',
-      location: loc('cords'),
+      location: {
+        frame_index: t.frame,
+        x: round2(t.x ?? 0.5),
+        y: round2(t.y ?? 0.5),
+      },
       risk_to: 'both',
-      severity: 'high',
-      evidence: 'A tangle of power cords draping from the TV console to a floor power strip.',
-      why_it_matters: `Dangling cords invite chewing (electrocution) and entanglement${dog ? ', and a bored dog may target them' : ''}.`,
-      recommendation: 'Bundle cords into a cable sleeve and clip them up off the floor, out of reach.',
+      severity: /fragile|valuable|antique|open|toxic|chemical/i.test(t.note) ? 'high' : 'medium',
+      evidence: `You flagged "${t.label}"${t.note ? ` — "${t.note}"` : ''}.`,
+      why_it_matters: `You marked this as needing attention around ${petLabel}.`,
+      recommendation: 'Secure, relocate, or make this item/zone off-limits before adopting.',
     });
-
-    hazards.push({
-      id: hid(),
-      category: 'G',
-      title: 'Balcony door',
-      scope: 'object',
-      location: loc('balconyDoor'),
-      risk_to: 'animal',
-      severity: highRise ? 'high' : 'medium',
-      evidence: 'A sliding glass door to a balcony, with railings visible behind the glass.',
-      why_it_matters: `If left ajar, ${petLabel} can slip onto the balcony; wide railing gaps at height are a fall risk.`,
-      recommendation: 'Keep the door on a locked vent position and mesh the balcony railings, or make the balcony off-limits.',
-    });
-
-    hazards.push({
-      id: hid(),
-      category: 'C',
-      title: 'Cleaning products on floor',
-      scope: 'object',
-      location: loc('cleaners'),
-      risk_to: 'animal',
-      severity: 'high',
-      evidence: 'Several cleaning bottles on the floor by an open low cabinet.',
-      why_it_matters: 'Household cleaners are poisonous if licked, chewed, or knocked over.',
-      recommendation: 'Move all chemicals into a high or child-locked cupboard.',
-    });
-
-    // Fragile vase — fold in the user tag if they flagged it, else report plainly.
-    const vaseRe = /vase|fragile|antique/i;
-    const vaseTag = tags.find((t) => vaseRe.test(t.label + ' ' + t.note));
-    hazards.push({
-      id: hid(),
-      category: 'D',
-      title: vaseTag ? `Flagged: ${vaseTag.label}` : 'Fragile vase at pet height',
-      scope: 'object',
-      location: loc('vase'),
-      risk_to: 'both',
-      severity: 'medium',
-      evidence: vaseTag
-        ? `You flagged this as "${vaseTag.label}${vaseTag.note ? ' — ' + vaseTag.note : ''}". It sits on a low, open bookshelf shelf.`
-        : 'A vase on a low, open bookshelf shelf, within tail/paw reach.',
-      why_it_matters: `${petLabel} could knock it off — broken glass injures paws and a valuable item is lost.`,
-      recommendation: 'Relocate it above pet height or secure it with museum putty.',
-    });
-
-    // Any OTHER user-tagged object is high-priority context — always address it,
-    // pinned where the user placed the tag (PRD F4.3).
-    tags
-      .filter((t) => t !== vaseTag)
-      .forEach((t) => {
-        hazards.push({
-          id: hid(),
-          category: inferCategory(t.label + ' ' + t.note),
-          title: `Flagged: ${t.label}`,
-          scope: 'object',
-          location: { frame_index: t.frame, x: round2(t.x ?? 0.5), y: round2(t.y ?? 0.5) },
-          risk_to: 'both',
-          severity: /open|toxic|chemical|sharp|hot|fall/i.test(t.note) ? 'high' : 'medium',
-          evidence: `You flagged "${t.label}"${t.note ? ` — "${t.note}"` : ''}.`,
-          why_it_matters: `You marked this as needing attention around ${petLabel}; user-flagged items are treated as top priority.`,
-          recommendation: 'Secure, relocate, or make this item/zone off-limits before adopting.',
-        });
-      });
-  } else {
-    // ---- Real photos captured, but running in mock mode: lean on the REAL
-    // context the user entered (tags + questionnaire), which we CAN trust. ----
-    tags.forEach((t) => {
-      hazards.push({
-        id: hid(),
-        category: inferCategory(t.label + ' ' + t.note),
-        title: `Flagged: ${t.label}`,
-        scope: 'object',
-        location: {
-          frame_index: t.frame,
-          x: round2(t.x ?? 0.5),
-          y: round2(t.y ?? 0.5),
-        },
-        risk_to: 'both',
-        severity: /fragile|valuable|antique|open|toxic|chemical/i.test(t.note) ? 'high' : 'medium',
-        evidence: `You flagged "${t.label}"${t.note ? ` — "${t.note}"` : ''}.`,
-        why_it_matters: `You marked this as needing attention around ${petLabel}.`,
-        recommendation: 'Secure, relocate, or make this item/zone off-limits before adopting.',
-      });
-    });
-  }
+  });
 
   // ---- Space-level findings (no single pin -> shown in the top banner) ----
   if (cat) {
@@ -255,19 +119,15 @@ export function generateMockAssessment(session: Space): Assessment {
 
   return {
     mode: mode ?? 'pet_in_mind',
-    space_summary: photoDemo
-      ? 'A cosy living room: built-in bookshelves, a framed painting over a patterned sofa, a ceramic table lamp, a low side table and an upholstered bench over a wool rug.'
-      : demo
-      ? 'A rented apartment living room: a large window and a balcony door on one side, a bookshelf, a TV console, a low cabinet and a sofa, over hard tile flooring.'
-      : 'A single room captured across several overlapping frames. (Running in demo mode — enable the real model for photo-based hazard detection.)',
-    confidence: demo || photoDemo ? 'medium' : 'low',
+    space_summary:
+      'A single room captured across several overlapping frames. (Sample assessment — enable the real model for photo-based hazard detection.)',
+    confidence: 'low',
     hazards,
     improvements,
     suitability,
     recommended_pets,
-    notes: demo || photoDemo
-      ? 'This is an approximate, 2D assessment for demonstration. A fuller LiDAR/3D scan would confirm window screening, railing gap widths, and exact floor materials. Not a substitute for a vet or shelter assessment.'
-      : 'Demo mode returns a sample assessment based on your questionnaire and tags rather than the photos. Add a Gemini API key (see src/ai/config.ts) for real photo analysis.',
+    notes:
+      'This sample assessment is based on your household answers and tags rather than the photos. Add a Gemini API key (see src/ai/config.ts) for real photo analysis.',
   };
 }
 

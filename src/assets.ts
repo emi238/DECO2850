@@ -7,7 +7,6 @@ export const IMAGES = {
   welcomeDog: require('../assets/images/welcome-dog.png'),
   goldenPuppy: require('../assets/images/golden-puppy.png'),
   loadingDog: require('../assets/images/loading-dog.png'),
-  livingRoom: require('../assets/images/living-room.jpg'),
   frenchieSitting: require('../assets/images/frenchie-sitting.png'),
   frenchieHappy: require('../assets/images/frenchie-happy.png'),
   collieSitting: require('../assets/images/collie-sitting.png'),

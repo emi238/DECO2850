@@ -1,6 +1,6 @@
-// Capture a space: sweep with the live camera, upload photos or a video, or use
-// the bundled demo room (Simulator has no camera). Then "Review your space" shows
-// the frames in a carousel before continuing to tagging.
+// Capture a space: sweep with the live camera, or upload photos or a video (the
+// Simulator has no camera). Then "Review your space" shows the frames in a
+// carousel before continuing to tagging.
 
 import React, { useCallback, useRef, useState } from 'react';
 import {
@@ -24,7 +24,6 @@ import { FrameView } from '../components/FrameView';
 import { SwipeUpNav } from '../components/SwipeUpNav';
 import { colors, fonts } from '../theme';
 import { useSession } from '../store/session';
-import { PHOTO_DEMO_FRAMES } from '../demo/photoRoom';
 import { pickPhotos, pickVideoFrames, type PickResult } from '../capture/upload';
 import type { Frame } from '../types';
 import type { ScreenProps } from '../navigation';
@@ -42,7 +41,7 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
   const [phase, setPhase] = useState<'camera' | 'review'>('camera');
   const [sweeping, setSweeping] = useState(false);
   const [captured, setCaptured] = useState<Frame[]>([]);
-  const [source, setSource] = useState<'sweep' | 'demo' | 'upload'>('sweep');
+  const [source, setSource] = useState<'sweep' | 'upload'>('sweep');
   const [preparing, setPreparing] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const busy = useRef(false);
@@ -81,7 +80,7 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
         if (framesRef.current.length >= MAX_FRAMES) stopSweep();
       }
     } catch {
-      // A failed frame (e.g. no camera) is skipped; the demo room is the fallback.
+      // A failed frame (e.g. no camera) is skipped; uploading is the fallback.
     } finally {
       busy.current = false;
     }
@@ -96,11 +95,6 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
     snap();
     timer.current = setInterval(snap, SAMPLE_MS);
   }, [snap]);
-
-  const useDemoRoom = () => {
-    setSource('demo');
-    toReview(PHOTO_DEMO_FRAMES);
-  };
 
   const retake = () => {
     framesRef.current = [];
@@ -161,10 +155,7 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
   // ---------- REVIEW ----------
   if (phase === 'review' && !preparing) {
     const n = captured.length;
-    const subtitle =
-      source === 'demo'
-        ? 'This demo room is mapped into a 2D/3D map, double check all corners are captured and no personal identifiable information is shown.'
-        : `${n} ${source === 'upload' ? 'uploaded ' : ''}${n === 1 ? 'frame' : 'frames'} to be mapped into a 2D/3D map, double check all corners are captured and no personal identifiable information is shown.`;
+    const subtitle = `${n} ${source === 'upload' ? 'uploaded ' : ''}${n === 1 ? 'frame' : 'frames'} to be mapped into a 2D/3D map, double check all corners are captured and no personal identifiable information is shown.`;
     return (
       <View style={styles.root}>
         <SafeAreaView edges={['top']} style={{ flex: 1 }}>
@@ -191,7 +182,7 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
               </ScrollView>
             </View>
 
-            {n < 4 && source !== 'demo' && (
+            {n < 4 && (
               <Text style={styles.warn}>Only {n} {n === 1 ? 'frame' : 'frames'}, a few more angles give a better read of the room.</Text>
             )}
 
@@ -200,11 +191,6 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
               right={{ label: 'Continue', onPress: proceed, disabled: n === 0 }}
               style={{ marginTop: 24 }}
             />
-            {source !== 'demo' && (
-              <Pressable onPress={useDemoRoom} style={styles.demoLink} hitSlop={8}>
-                <Text style={styles.demoTxt}>Use a demo room instead →</Text>
-              </Pressable>
-            )}
           </View>
         </SafeAreaView>
         <SwipeUpNav onSpaces={close} onCapture={retake} />
@@ -237,8 +223,8 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
                   <Text style={styles.centerTitle}>Camera not available</Text>
                   <Text style={styles.centerTxt}>
                     {permission && !permission.granted
-                      ? 'Allow camera access to sweep a real room, or upload photos, or use the demo room.'
-                      : 'No camera here (e.g. the Simulator). Upload photos or a video, or use the demo room.'}
+                      ? 'Allow camera access to sweep a real room, or upload photos or a video instead.'
+                      : 'No camera here (e.g. the Simulator). Upload photos or a video of the room instead.'}
                   </Text>
                   {permission && !permission.granted && permission.canAskAgain && (
                     <Pressable onPress={requestPermission} style={styles.grant}>
@@ -264,16 +250,11 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
             />
           )}
           {!sweeping && (
-            <>
-              <JoinedButtons
-                left={{ label: 'Upload Video', onPress: () => runUpload(pickVideoFrames, 'video') }}
-                right={{ label: 'Upload Photos', onPress: () => runUpload(pickPhotos, 'photos') }}
-                style={{ marginTop: granted ? 12 : 24 }}
-              />
-              <Pressable onPress={useDemoRoom} style={styles.demoLink} hitSlop={8}>
-                <Text style={styles.demoTxt}>Use a demo room instead →</Text>
-              </Pressable>
-            </>
+            <JoinedButtons
+              left={{ label: 'Upload Video', onPress: () => runUpload(pickVideoFrames, 'video') }}
+              right={{ label: 'Upload Photos', onPress: () => runUpload(pickPhotos, 'photos') }}
+              style={{ marginTop: granted ? 12 : 24 }}
+            />
           )}
         </View>
       </SafeAreaView>
@@ -298,8 +279,8 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg2 },
   topBar: { paddingHorizontal: 22, paddingTop: 6 },
   body: { flex: 1, paddingHorizontal: 22 },
-  h1: { fontFamily: fonts.bold, color: colors.text, fontSize: 20, marginTop: -2 },
-  sub: { fontFamily: fonts.regular, color: colors.text, fontSize: 12.5, lineHeight: 17, marginTop: 4 },
+  h1: { fontFamily: fonts.bold, color: colors.text, fontSize: 20, marginTop: 14 },
+  sub: { fontFamily: fonts.regular, color: colors.text, fontSize: 15, lineHeight: 21, marginTop: 6 },
 
   card: { backgroundColor: colors.bg, borderRadius: 20, paddingTop: 13, paddingBottom: 22, marginTop: 16 },
   cameraCard: { paddingHorizontal: 12, paddingTop: 12, paddingBottom: 12 },
@@ -313,10 +294,8 @@ const styles = StyleSheet.create({
   centerTitle: { fontFamily: fonts.semibold, color: colors.text, fontSize: 16 },
   centerTxt: { fontFamily: fonts.regular, color: colors.textMuted, fontSize: 13, textAlign: 'center', lineHeight: 18 },
   grant: { marginTop: 8, backgroundColor: colors.orange, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 8 },
-  grantTxt: { fontFamily: fonts.regular, color: colors.text, fontSize: 14 },
+  grantTxt: { fontFamily: fonts.semibold, color: colors.text, fontSize: 14 },
   sweepPill: { position: 'absolute', bottom: 14, alignSelf: 'center', flexDirection: 'row', gap: 8, alignItems: 'center', backgroundColor: colors.orangeLight, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
   sweepTxt: { fontFamily: fonts.medium, color: colors.text, fontSize: 13 },
 
-  demoLink: { alignSelf: 'flex-end', marginTop: 16 },
-  demoTxt: { fontFamily: fonts.regular, color: colors.text, fontSize: 12 },
 });

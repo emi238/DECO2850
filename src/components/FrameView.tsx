@@ -1,10 +1,7 @@
-// Renders a single captured frame at a given size: the bundled demo room is
-// drawn as SVG, a real capture is shown as an image.
+// Renders a single captured frame (a photo) at a given size, cropped to fill.
 
 import React, { useEffect, useState } from 'react';
 import { Image, View, StyleSheet } from 'react-native';
-import { DemoFrame, isDemoUri, demoIndex } from '../demo/room';
-import { isAssetUri, assetSource } from '../demo/photoRoom';
 import type { Frame } from '../types';
 import { colors } from '../theme';
 
@@ -21,28 +18,17 @@ export function FrameView({
 }) {
   return (
     <View style={[styles.wrap, { width, height, borderRadius: radius }]}>
-      {isDemoUri(frame.uri) ? (
-        <DemoFrame index={demoIndex(frame.uri)} width={width} height={height} />
-      ) : isAssetUri(frame.uri) ? (
-        <Image source={assetSource(frame.uri)} style={{ width, height }} resizeMode="cover" />
-      ) : (
-        <Image source={{ uri: frame.uri }} style={{ width, height }} resizeMode="cover" />
-      )}
+      <Image source={{ uri: frame.uri }} style={{ width, height }} resizeMode="cover" />
     </View>
   );
 }
 
-// Natural pixel size of a frame's image (null for the SVG demo room, which is
-// drawn to fit exactly, or while a photo's size is still loading).
+// Natural pixel size of a frame's image (null while it is still loading).
 export function useFrameImageSize(frame: Frame | undefined): { w: number; h: number } | null {
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
   const uri = frame?.uri;
   useEffect(() => {
-    if (!uri || isDemoUri(uri)) return setSize(null);
-    if (isAssetUri(uri)) {
-      const s = Image.resolveAssetSource(assetSource(uri));
-      return setSize({ w: s.width, h: s.height });
-    }
+    if (!uri) return setSize(null);
     let alive = true;
     Image.getSize(uri, (w, h) => alive && setSize({ w, h }), () => alive && setSize(null));
     return () => {

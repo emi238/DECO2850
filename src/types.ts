@@ -5,12 +5,11 @@ export type Mode = 'pet_in_mind' | 'explore';
 export type Severity = 'low' | 'medium' | 'high';
 
 // A captured frame. For real camera captures `uri` is a file:// path.
-// For the bundled demo room, `uri` is a "demo:N" sentinel rendered as SVG.
 export interface Frame {
   uri: string;
   // base64 is kept in memory only (never persisted) for the real-AI path.
   base64?: string;
-  // image mime type of the base64 bytes (camera = jpeg, rasterised demo = png).
+  // image mime type of the base64 bytes (camera/upload = jpeg).
   mime?: string;
 }
 

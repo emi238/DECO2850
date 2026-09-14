@@ -58,11 +58,9 @@ export function effectiveClass(size: SizeClass, energy: Energy): SizeClass {
 }
 
 // Room measurements. There is no LiDAR scan in this prototype, so these are
-// estimates: the demo living room uses the §4.9 figures, other rooms a default.
+// estimates: every room uses the same default until real measurements exist.
 export function estimateMetrics(space: Space): SpaceMetrics {
   if (space.metrics) return space.metrics;
-  const photoDemo = space.capture.frames.some((f) => f.uri.startsWith('asset:'));
-  if (photoDemo) return { floor_m2: 20, furniture_m2: 12, fixed_m2: 6, personal_zone_m2: 0, estimated: true };
   return { floor_m2: 16, furniture_m2: 8, fixed_m2: 4, personal_zone_m2: 0, estimated: true };
 }
 

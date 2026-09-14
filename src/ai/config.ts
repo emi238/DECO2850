@@ -15,9 +15,8 @@
 // Get a free key at https://aistudio.google.com/apikey  (no credit card), then
 // restart the dev server so the new values load.
 //
-// Note: real AI needs real photos of the room. On the iOS Simulator the built-in
-// demo room is rasterised (turned into an image) before sending, so real AI works
-// there too; on a phone, your camera sweep is used.
+// Note: real AI needs real photos of the room (camera sweep, or photos/video
+// uploaded from the library — the Simulator has no camera, so use upload there).
 
 const env = process.env as Record<string, string | undefined>;
 

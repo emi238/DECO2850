@@ -172,6 +172,16 @@ export const useSession = create<SessionState>()(
     {
       name: 'pawspace-spaces',
       storage: createJSONStorage(() => AsyncStorage),
+      // The built-in demo rooms were removed; drop any saved space that used one
+      // (its photo no longer exists and would crash the image view).
+      merge: (persisted, current) => {
+        const p = (persisted ?? {}) as Partial<SessionState>;
+        const spaces = (p.spaces ?? []).filter(
+          (sp) => !sp.capture.frames.some((f) => f.uri.startsWith('asset:') || f.uri.startsWith('demo:'))
+        );
+        const currentSpaceId = spaces.some((sp) => sp.id === p.currentSpaceId) ? p.currentSpaceId! : spaces[0]?.id ?? null;
+        return { ...current, ...p, spaces, currentSpaceId };
+      },
       // Persist everything except the heavy per-frame base64 bytes.
       partialize: (state) => ({
         spaces: state.spaces.map((sp) => ({
