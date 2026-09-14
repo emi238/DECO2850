@@ -5,6 +5,7 @@
 import React, { useRef, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, Animated, PanResponder } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { colors, fonts } from '../theme';
 import { DoorIcon, UploadIcon, HelpIcon } from './icons';
@@ -54,21 +55,23 @@ export function SwipeUpNav({
         style={[styles.bar, { bottom, transform: [{ translateY }], opacity: anim }]}
         pointerEvents={open ? 'auto' : 'none'}
       >
+        {/* Liquid-glass backdrop: blurred content behind + a faint white sheen and edge. */}
+        <BlurView intensity={40} tint="systemUltraThinMaterialLight" style={styles.glass} pointerEvents="none" />
         <Pressable style={styles.item} onPress={act(onSpaces)} accessibilityLabel="Home">
           <View style={[styles.btn, styles.btnSide]}>
-            <DoorIcon size={26} />
+            <DoorIcon size={24} />
           </View>
           <Text style={styles.label}>Home</Text>
         </Pressable>
         <Pressable style={[styles.item, styles.itemMain]} onPress={act(onCapture)} accessibilityLabel="Upload">
           <View style={[styles.btn, styles.btnMain]}>
-            <UploadIcon size={30} />
+            <UploadIcon size={24} />
           </View>
           <Text style={styles.label}>Upload</Text>
         </Pressable>
         <Pressable style={styles.item} onPress={act(onHelp)} accessibilityLabel="Help">
           <View style={[styles.btn, styles.btnSide]}>
-            <HelpIcon size={28} />
+            <HelpIcon size={26} />
           </View>
           <Text style={styles.label}>Help</Text>
         </Pressable>
@@ -87,12 +90,29 @@ const styles = StyleSheet.create({
   wrap: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 130, alignItems: 'center' },
   handleHit: { position: 'absolute', paddingVertical: 10, paddingHorizontal: 20 },
   handle: { width: 156, height: 6, borderRadius: 3, backgroundColor: colors.orange },
-  bar: { position: 'absolute', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-  btn: { width: 54, height: 54, borderRadius: 27, alignItems: 'center', justifyContent: 'center' },
-  btnSide: { backgroundColor: colors.track },
-  btnMain: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.orange },
-  item: { alignItems: 'center', width: 60 },
-  itemMain: { marginHorizontal: -6, zIndex: 2 },
-  // Light pill behind each name so it stays readable over room photos.
-  label: { fontFamily: fonts.semibold, fontSize: 12, color: colors.text, marginTop: 4, backgroundColor: 'rgba(255,255,255,0.9)', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 1, overflow: 'hidden' },
+  // One continuous bar: icons with their names underneath, no separate bubbles.
+  bar: {
+    position: 'absolute',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 30,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.7)',
+    backgroundColor: 'rgba(255,255,255,0.35)',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+  },
+  glass: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  btn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  btnSide: {},
+  btnMain: { backgroundColor: colors.orange },
+  item: { alignItems: 'center', width: 66 },
+  itemMain: {},
+  label: { fontFamily: fonts.semibold, fontSize: 12, color: colors.text, marginTop: 2 },
 });

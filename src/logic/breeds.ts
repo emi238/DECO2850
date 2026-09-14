@@ -30,6 +30,7 @@ export interface BreedProfile {
   lifeSpan?: string;
   bredFor?: string;
   group?: string;
+  description?: string;
   traitsEstimated?: boolean;
 }
 
@@ -106,6 +107,7 @@ function fromApi(b: ApiBreed): BreedProfile {
     lifeSpan: b.lifeSpan,
     bredFor: b.bredFor,
     group: b.group,
+    description: b.description,
     traitsEstimated: b.traitsEstimated,
   };
 }
@@ -115,7 +117,7 @@ function merge(api: ApiBreed[]): BreedProfile[] {
   const byName = new Map(api.map((b) => [norm(b.name), b]));
   const builtins = BREEDS.map((b) => {
     const a = byName.get(norm(b.name));
-    return a ? { ...b, temperament: a.temperament, lifeSpan: a.lifeSpan, bredFor: a.bredFor, group: a.group } : b;
+    return a ? { ...b, temperament: a.temperament, lifeSpan: a.lifeSpan, bredFor: a.bredFor, group: a.group, description: a.description } : b;
   });
   const builtinNames = new Set(BREEDS.map((b) => norm(b.name)));
   const rest = api.filter((b) => !builtinNames.has(norm(b.name))).map(fromApi);

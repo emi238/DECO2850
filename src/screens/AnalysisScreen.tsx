@@ -15,6 +15,7 @@ import {
   Animated,
   Easing,
   Alert,
+  PanResponder,
   useWindowDimensions,
   NativeSyntheticEvent,
   NativeScrollEvent,
@@ -204,7 +205,8 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
 
         {riskIndex == null && !reportOpen && (
           <Pressable style={styles.fab} onPress={reanalyse} hitSlop={6}>
-            <RefreshRingIcon size={30} />
+            <RefreshRingIcon size={22} />
+            <Text style={styles.fabTxt}>Re-run</Text>
           </Pressable>
         )}
       </View>
@@ -365,42 +367,22 @@ function RiskSheet({
 }
 
 // ---------------------------------------------------------------------------
-// Peeking dog avatar: bounces loosely when happy, settles when neutral, stays
-// stiff when sad (spec §4.1), with a first-person speech bubble.
+// Peeking dog avatar (static); its mood shows in the speech bubble and report.
 
 function DogAvatar({ evaluation, top, onPress }: { evaluation: Evaluation; top: number; onPress: () => void }) {
-  const bob = useRef(new Animated.Value(0)).current;
   const { mood, dog } = evaluation;
-
-  useEffect(() => {
-    bob.setValue(0);
-    if (mood === 'sad') return;
-    const amp = mood === 'happy' ? 1 : 0.4;
-    const dur = mood === 'happy' ? 420 : 1100;
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(bob, { toValue: amp, duration: dur, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-        Animated.timing(bob, { toValue: 0, duration: dur, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [mood, bob]);
-
-  const translateY = bob.interpolate({ inputRange: [0, 1], outputRange: [0, -7] });
-  const rotate = bob.interpolate({ inputRange: [0, 1], outputRange: ['0deg', mood === 'happy' ? '-4deg' : '-1deg'] });
 
   return (
     <View style={[styles.dogWrap, { top }]} pointerEvents="box-none">
       <Pressable onPress={onPress}>
-        <Animated.View style={{ transform: [{ translateY }, { rotate }] }}>
+        <View>
           {evaluation.dog.cutout ? (
             <Image source={dog.happy} style={[styles.dogImg, mood === 'sad' && { opacity: 0.92 }]} resizeMode="contain" />
           ) : (
             // Dog API breeds have a photo, not cartoon art: show it as a round badge.
             <Image source={dog.happy} style={[styles.dogPhoto, mood === 'sad' && { opacity: 0.92 }]} resizeMode="cover" />
           )}
-        </Animated.View>
+        </View>
       </Pressable>
     </View>
   );
@@ -425,14 +407,44 @@ function ReportOverlay({
   onRisks: () => void;
   onClose: () => void;
 }) {
+  // Slides up from the bottom of the map card; slides back down before closing.
+  const slide = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.spring(slide, { toValue: 1, useNativeDriver: true, damping: 18, stiffness: 160 }).start();
+  }, [slide]);
+  const dismiss = (then: () => void) =>
+    Animated.timing(slide, { toValue: 0, duration: 220, easing: Easing.in(Easing.cubic), useNativeDriver: true }).start(then);
+  // Drag the sheet down to close it (the grabber at the top hints at this).
+  const drag = useRef(new Animated.Value(0)).current;
+  const pan = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_e, g) => g.dy > 8 && Math.abs(g.dy) > Math.abs(g.dx),
+      onPanResponderMove: (_e, g) => drag.setValue(Math.max(0, g.dy)),
+      onPanResponderRelease: (_e, g) => {
+        if (g.dy > 120 || g.vy > 1) {
+          Animated.timing(drag, { toValue: 800, duration: 200, useNativeDriver: true }).start(() => onCloseRef.current());
+        } else {
+          Animated.spring(drag, { toValue: 0, useNativeDriver: true }).start();
+        }
+      },
+    })
+  ).current;
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const translateY = Animated.add(slide.interpolate({ inputRange: [0, 1], outputRange: [700, 0] }), drag);
+
   return (
-    <View style={styles.reportWrap}>
-      <View style={styles.report}>
+    <Animated.View style={[styles.reportWrap, { transform: [{ translateY }] }]}>
+      {/* Liquid glass: blur of the room photo behind, a white sheen and a bright edge. */}
+      <BlurView intensity={60} tint="systemUltraThinMaterialLight" style={styles.report}>
+        <View {...pan.panHandlers} style={styles.dragZone}>
+        <View style={styles.grabber} />
         <View style={styles.sheetHead}>
           <Text style={styles.sheetTitle}>{e.currentOwner ? `Your ${e.dog.name}` : e.dog.name}</Text>
-          <Pressable onPress={onClose} hitSlop={10}>
+          <Pressable onPress={() => dismiss(onClose)} hitSlop={10}>
             <CloseIcon size={14} />
           </Pressable>
+        </View>
         </View>
         <ScrollView contentContainerStyle={{ paddingBottom: 90 }} showsVerticalScrollIndicator={false}>
           {e.lines.advisory && (
@@ -453,7 +465,7 @@ function ReportOverlay({
           <ReportRow heading="Safety" tag={e.labels.safety} band={e.safety} line={e.lines.safety} />
 
           {riskCount > 0 && (
-            <Pressable style={styles.reportBtn} onPress={onRisks}>
+            <Pressable style={styles.reportBtn} onPress={() => dismiss(onRisks)}>
               <Text style={styles.reportBtnTxt}>See what’s flagged in this room</Text>
             </Pressable>
           )}
@@ -462,8 +474,8 @@ function ReportOverlay({
             estimated from your photos.
           </Text>
         </ScrollView>
-      </View>
-    </View>
+      </BlurView>
+    </Animated.View>
   );
 }
 
@@ -483,9 +495,9 @@ function ReportRow({ heading, tag, band, line }: { heading: string; tag: string;
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  header: { paddingHorizontal: 25, paddingTop: 6, paddingBottom: 18 },
-  h1: { fontFamily: fonts.bold, color: colors.text, fontSize: 20, marginTop: -2 },
-  sub: { fontFamily: fonts.regular, color: colors.text, fontSize: 15, lineHeight: 21, marginTop: 4 },
+  header: { paddingHorizontal: 22, paddingTop: 6, paddingBottom: 18 },
+  h1: { fontFamily: fonts.bold, color: colors.text, fontSize: 20, marginTop: 14 },
+  sub: { fontFamily: fonts.regular, color: colors.text, fontSize: 15, lineHeight: 21, marginTop: 6 },
 
   breedPill: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.orangeLight, borderRadius: 10, height: 27, paddingHorizontal: 12, marginTop: 0 },
   breedPillTxt: { fontFamily: fonts.regular, fontSize: 12, color: colors.text },
@@ -501,13 +513,16 @@ const styles = StyleSheet.create({
   pageDots: { position: 'absolute', top: 50, alignSelf: 'center', flexDirection: 'row', gap: 4 },
   pageDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.8)' },
 
-  fab: { position: 'absolute', right: 17, bottom: 22, width: 58, height: 58, borderRadius: 29, backgroundColor: colors.orange, borderWidth: 2, borderColor: '#fff', alignItems: 'center', justifyContent: 'center' },
+  // Re-run pill: icon + label so it's clear what the button does.
+  fab: { position: 'absolute', right: 17, bottom: 118, // sits above the bottom nav
+    height: 48, borderRadius: 24, paddingLeft: 14, paddingRight: 18, flexDirection: 'row', gap: 8, backgroundColor: colors.orange, borderWidth: 2, borderColor: '#fff', alignItems: 'center', justifyContent: 'center' },
+  fabTxt: { fontFamily: fonts.semibold, fontSize: 15, color: '#fff' },
 
   note: { position: 'absolute', left: 16, right: 16, top: 50, backgroundColor: 'rgba(255,255,255,0.88)', borderRadius: 10, padding: 8 },
   noteTxt: { fontFamily: fonts.regular, fontSize: 10.5, color: colors.text },
 
-  sheetWrap: { position: 'absolute', left: 10, right: 10, bottom: 0, height: '44%', borderTopLeftRadius: 22, borderTopRightRadius: 22, overflow: 'hidden' },
-  sheet: { flex: 1, backgroundColor: 'rgba(255,255,255,0.55)', paddingHorizontal: 27, paddingTop: 22 },
+  sheetWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, height: '44%', borderTopLeftRadius: 22, borderTopRightRadius: 22, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.8)' },
+  sheet: { flex: 1, backgroundColor: 'rgba(255,255,255,0.72)', paddingHorizontal: 27, paddingTop: 22 },
   sheetHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   sheetTitle: { fontFamily: fonts.bold, fontSize: 19, color: colors.text, flexShrink: 1 },
   sheetCtrls: { flexDirection: 'row', alignItems: 'center', gap: 36 },
@@ -525,8 +540,11 @@ const styles = StyleSheet.create({
   bubble: { position: 'absolute', left: 16, top: 38, maxWidth: 170, backgroundColor: colors.bg, borderRadius: 12, borderTopRightRadius: 2, paddingHorizontal: 10, paddingVertical: 6, zIndex: 3, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
   bubbleTxt: { fontFamily: fonts.medium, fontSize: 11, color: colors.text },
 
-  reportWrap: { position: 'absolute', top: 22, left: 10, right: 10, bottom: 0 },
-  report: { flex: 1, backgroundColor: 'rgba(255,255,255,0.84)', borderRadius: 22, paddingHorizontal: 22, paddingTop: 44 },
+  // Same size as the map card, so it covers the 2D/3D toggle too.
+  reportWrap: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 20 },
+  report: { flex: 1, backgroundColor: 'rgba(255,255,255,0.72)', borderTopLeftRadius: 22, borderTopRightRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.8)', overflow: 'hidden', paddingHorizontal: 22, paddingTop: 10 },
+  dragZone: { paddingTop: 2 },
+  grabber: { alignSelf: 'center', width: 44, height: 5, borderRadius: 3, backgroundColor: 'rgba(0,0,0,0.18)', marginBottom: 14 },
   advisory: { backgroundColor: '#FDE3D6', borderRadius: 12, padding: 12, marginBottom: 12 },
   advisoryHead: { fontFamily: fonts.bold, fontSize: 13, color: colors.orangeDeep, marginBottom: 4 },
   roomHead: { fontFamily: fonts.bold, fontSize: 17, color: colors.text, marginTop: 16 },

@@ -18,6 +18,7 @@ import {
 import * as Haptics from 'expo-haptics';
 import { colors, fonts } from '../theme';
 import { IMAGES } from '../assets';
+import { useNavigation } from '@react-navigation/native';
 import { PersonIcon, BackArrowIcon, CloseIcon } from './icons';
 
 const tap = () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
@@ -234,10 +235,14 @@ export function TopBar({
   right?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
 }) {
+  const navigation = useNavigation<any>();
   return (
     <View style={[styles.topBar, style]}>
       <View>
-        <PawTile />
+        {/* The paw logo always takes you back to Home. */}
+        <Pressable onPress={() => navigation.popTo('Home')} hitSlop={8} accessibilityLabel="Home">
+          <PawTile />
+        </Pressable>
         {onBack ? (
           <Pressable onPress={onBack} hitSlop={12} style={styles.backBtn}>
             <BackArrowIcon />
@@ -273,7 +278,7 @@ const styles = StyleSheet.create({
   joinedTxt: { fontFamily: fonts.semibold, color: colors.text, fontSize: 15 },
 
   segWrap: { flexDirection: 'row', backgroundColor: colors.track, borderRadius: 8 },
-  seg: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 3 },
+  seg: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 8, paddingHorizontal: 2, paddingVertical: 3 },
   segTxt: { fontFamily: fonts.regular, color: colors.text, fontSize: 10, textAlign: 'center', lineHeight: 14 },
 
   chip: { backgroundColor: colors.track, borderRadius: 10, height: 20, minWidth: 78, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center' },

@@ -57,6 +57,14 @@ export async function callGemini(session: Space, signal: AbortSignal): Promise<A
     generationConfig: { responseMimeType: 'application/json', temperature: 0.4 },
   };
 
+  const text = await generateText(body, signal);
+  const raw = extractJson(text);
+  return normaliseAssessment(raw, session);
+}
+
+// Sends a Gemini request body (direct with the key, or via the proxy) and returns
+// the model's text. Shared by the room assessment and breed suggestions.
+export async function generateText(body: unknown, signal: AbortSignal): Promise<string> {
   let url: string;
   let init: RequestInit;
 
@@ -88,7 +96,7 @@ export async function callGemini(session: Space, signal: AbortSignal): Promise<A
   const text: string =
     json?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text ?? '').join('') ?? '';
   if (!text) throw new Error('Empty response from model');
-
-  const raw = extractJson(text);
-  return normaliseAssessment(raw, session);
+  return text;
 }
+
+export { extractJson };

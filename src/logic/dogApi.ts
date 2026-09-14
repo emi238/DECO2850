@@ -37,6 +37,7 @@ export interface ApiBreed {
   bredFor: string;
   group: string;
   origin: string;
+  description: string;
   traitsEstimated: boolean; // energy/noise guessed from temperament & group
 }
 
@@ -54,14 +55,14 @@ function score(v: unknown): number | null {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
-const has = (text: string, words: RegExp) => words.test(text.toLowerCase());
+const count = (text: string, words: RegExp) => (text.toLowerCase().match(words) ?? []).length;
 
 export function parseBreed(raw: any): ApiBreed | null {
   if (!raw || raw.id == null || !raw.name) return null;
   const temperament = String(raw.temperament ?? '');
   const group = String(raw.breed_group ?? '');
-  const bredFor = String(raw.bred_for ?? '');
-  const text = `${temperament} ${bredFor}`;
+  const bredFor = raw.bred_for ? String(raw.bred_for) : '';
+  const text = `${temperament} ${bredFor} ${raw.description ?? ''}`;
 
   // Weight → size class (spec §4.2: small <12kg, medium 12–25kg, large >25kg).
   const kg =
@@ -81,10 +82,15 @@ export function parseBreed(raw: any): ApiBreed | null {
   if (e != null) energy = e <= 2 ? 'low' : e >= 4 ? 'high' : 'moderate';
   else if (exerciseMin != null) energy = exerciseMin < 45 ? 'low' : exerciseMin >= 90 ? 'high' : 'moderate';
   else {
+    // Weigh temperament words against each other (plus the breed group) rather
+    // than letting a single word like "active" decide.
     estimated = true;
-    if (has(text, /energetic|tireless|hard-working|active|lively|agile|athletic|herding|hunting/) || /herding|sporting/i.test(group)) energy = 'high';
-    else if (has(text, /calm|docile|laid-back|easygoing|lap|companion/) || /toy/i.test(group)) energy = 'low';
-    else energy = 'moderate';
+    const hi = count(text, /energetic|tireless|athletic|agile|hard-working|driven|lively|high-energy|spirited|vigorous|boisterous|energy/g);
+    const lo = count(text, /calm|laid-back|easygoing|easy-going|docile|relaxed|lazy|placid|mellow|dignified|lap/g);
+    const g = /herding|sporting|terrier/i.test(group) ? 1 : /toy|companion|non-sporting|guardian/i.test(group) ? -1 : 0;
+    const sizeNudge = kg != null && kg > 45 ? -1 : 0; // giant breeds tend to be lower energy indoors
+    const t = hi - lo + g + sizeNudge;
+    energy = t >= 2 ? 'high' : t <= -1 ? 'low' : 'moderate';
   }
 
   // Noise: use barking/vocalisation score when present, else infer.
@@ -93,9 +99,12 @@ export function parseBreed(raw: any): ApiBreed | null {
   if (b != null) noise = b <= 2 ? 'quiet' : b >= 4 ? 'vocal' : 'moderate';
   else {
     estimated = true;
-    if (/hound/i.test(group) || has(text, /vocal|alert|watchful|guard|vigilant|protective/)) noise = 'vocal';
-    else if (has(text, /quiet|calm|gentle|docile|reserved/)) noise = 'quiet';
-    else noise = 'moderate';
+    const loud = count(text, /vocal|noisy|bark|yappy|howl|talkative|watchdog|watchful|vigilant/g);
+    const quiet = count(text, /quiet|calm|reserved|gentle|placid|laid-back|easygoing|dignified|docile/g);
+    // Hounds bay, terriers and toy breeds tend to bark at everything.
+    const g = /hound/i.test(group) ? 2 : /terrier|toy/i.test(group) ? 1 : 0;
+    const t = loud - quiet + g;
+    noise = t >= 1 ? 'vocal' : t <= -1 ? 'quiet' : 'moderate';
   }
 
   const imageUrl: string | null =
@@ -114,6 +123,7 @@ export function parseBreed(raw: any): ApiBreed | null {
     bredFor,
     group,
     origin: String(raw.origin ?? ''),
+    description: String(raw.description ?? ''),
     traitsEstimated: estimated,
   };
 }
@@ -145,6 +155,8 @@ export async function loadApiBreeds(): Promise<ApiBreed[]> {
       const breeds = (Array.isArray(json) ? json : [])
         .map(parseBreed)
         .filter((b): b is ApiBreed => !!b)
+        // The API has the odd duplicate name; keep the first.
+        .filter((b, i, all) => all.findIndex((x) => x.name.toLowerCase() === b.name.toLowerCase()) === i)
         .sort((a, b) => a.name.localeCompare(b.name));
       memory = breeds;
       AsyncStorage.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), breeds })).catch(() => {});

@@ -6,8 +6,8 @@
 //    space with the §4 logic and shows the best fits (no scores).
 // Choosing a breed attaches it to the space and returns to the analysis report.
 
-import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, Image, useWindowDimensions } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, Pressable, ScrollView, Image, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { TopBar, Segmented, PrimaryButton } from '../components/kit';
@@ -15,7 +15,7 @@ import { OptionSheet } from '../components/OptionSheet';
 import { colors, fonts } from '../theme';
 import { useSession, useCurrentSpace } from '../store/session';
 import { ENERGY_OPTIONS, MIXED_ID, SIZE_OPTIONS, findBreed, useBreedCatalogue, type BreedProfile, type Energy, type SizeClass } from '../logic/breeds';
-import { rankBreeds } from '../logic/evaluate';
+import { suggestBreeds, type SuggestionResult } from '../ai/breedSuggest';
 import type { ScreenProps } from '../navigation';
 
 type Tab = 'in_mind' | 'explore';
@@ -25,7 +25,6 @@ export default function SelectBreedScreen({ navigation }: ScreenProps<'SelectBre
   const household = useSession((s) => s.household);
   const setPet = useSession((s) => s.setPet);
   const setMode = useSession((s) => s.setMode);
-  const { width } = useWindowDimensions();
   const { breeds, loading } = useBreedCatalogue();
 
   const current = space?.pet ?? null;
@@ -37,6 +36,9 @@ export default function SelectBreedScreen({ navigation }: ScreenProps<'SelectBre
   const [size, setSize] = useState<SizeClass | null>(current?.size ?? currentBreed?.size ?? null);
   const [picker, setPicker] = useState<'breed' | 'energy' | 'size' | null>(null);
   const [thinking, setThinking] = useState(true);
+  // Energy + size live under a collapsible "Advanced search"; opened automatically
+  // for a mixed breed (size is required then) or if they were set before.
+  const [advancedOpen, setAdvancedOpen] = useState(!!current?.energy || current?.breed === 'Mixed breed');
 
   const breed = breedId && breedId !== MIXED_ID ? breeds.find((b) => b.id === breedId) ?? findBreed(breedId) : undefined;
 
@@ -48,19 +50,26 @@ export default function SelectBreedScreen({ navigation }: ScreenProps<'SelectBre
   }, [breeds, breedId, current?.breed]);
   const mixed = breedId === MIXED_ID;
 
-  // Explore tab: a short "thinking......" beat before the ranked cards appear.
+  // Explore tab: rules shortlist the whole catalogue, then the AI picks and
+  // explains the best matches (src/ai/breedSuggest.ts). Waits for the catalogue.
+  const [suggested, setSuggested] = useState<SuggestionResult | null>(null);
   useEffect(() => {
-    if (tab !== 'explore') return;
+    if (tab !== 'explore' || !space || loading) return;
+    let alive = true;
     setThinking(true);
-    const t = setTimeout(() => setThinking(false), 1400);
-    return () => clearTimeout(t);
-  }, [tab]);
-
-  // Show the six best fits (the Figma has six card slots).
-  const ranked = useMemo(() => (space ? rankBreeds(space, household, breeds).slice(0, 6) : []), [space, household, breeds]);
+    suggestBreeds(space, household, breeds).then((res) => {
+      if (!alive) return;
+      setSuggested(res);
+      setThinking(false);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [tab, space, household, breeds, loading]);
 
   const pickBreed = (id: string) => {
     setBreedId(id);
+    if (id === MIXED_ID) setAdvancedOpen(true);
     const b = breeds.find((x) => x.id === id);
     if (b) {
       setEnergy(b.energy);
@@ -87,8 +96,6 @@ export default function SelectBreedScreen({ navigation }: ScreenProps<'SelectBre
     done();
   };
 
-  // screen − card margins (44) − card padding (36) − grid padding (12) − 2 gaps (24)
-  const cardW = Math.floor((width - 44 - 36 - 12 - 2 * 12) / 3);
 
   return (
     <View style={styles.root}>
@@ -107,7 +114,7 @@ export default function SelectBreedScreen({ navigation }: ScreenProps<'SelectBre
               { value: 'in_mind', label: 'I have a dog breed in mind' },
               { value: 'explore', label: 'Explore breeds for my space' },
             ]}
-            height={26}
+            height={48}
             activeColor={colors.orange}
             style={styles.tabs}
             textStyle={styles.tabTxt}
@@ -118,12 +125,18 @@ export default function SelectBreedScreen({ navigation }: ScreenProps<'SelectBre
               <Text style={styles.label}>Browse breeds:</Text>
               <Dropdown
                 value={breed?.name ?? (mixed ? 'Not sure / mixed breed' : '')}
-                placeholder={loading ? 'Loading breeds…' : `Search ${breeds.length} breeds`}
+                placeholder={loading ? 'Loading breeds…' : 'Search breeds'}
                 onPress={() => setPicker('breed')}
               />
               {breed && <BreedFacts breed={breed} />}
 
-              <Text style={styles.advanced}>Advanced search for pets already in mind</Text>
+              <Pressable onPress={() => setAdvancedOpen((o) => !o)} hitSlop={8} style={styles.advancedBtn}>
+                <Text style={styles.advanced}>
+                  {advancedOpen ? 'Hide advanced search' : 'Advanced search for pets already in mind'}
+                </Text>
+              </Pressable>
+              {advancedOpen && (
+              <>
 
               <Text style={styles.label}>Energy Levels:</Text>
               <Text style={styles.hint}>
@@ -131,7 +144,7 @@ export default function SelectBreedScreen({ navigation }: ScreenProps<'SelectBre
               </Text>
               <Dropdown value={ENERGY_OPTIONS.find((o) => o.value === energy)?.label ?? ''} placeholder="Choose an energy level" onPress={() => setPicker('energy')} />
 
-              <Text style={[styles.label, { marginTop: 18 }]}>Size:</Text>
+              <Text style={[styles.label, { marginTop: 22 }]}>Size:</Text>
               <Text style={styles.hint}>Small, under 12kg / Medium, 12-25kg / Large, over 25kg</Text>
               <Dropdown
                 value={SIZE_OPTIONS.find((o) => o.value === size)?.label ?? ''}
@@ -139,6 +152,8 @@ export default function SelectBreedScreen({ navigation }: ScreenProps<'SelectBre
                 disabled={!!breed}
                 onPress={() => setPicker('size')}
               />
+              </>
+              )}
 
               <PrimaryButton
                 label="Select Breed"
@@ -149,29 +164,39 @@ export default function SelectBreedScreen({ navigation }: ScreenProps<'SelectBre
             </ScrollView>
           ) : (
             <ScrollView contentContainerStyle={{ paddingBottom: 30 }} showsVerticalScrollIndicator={false}>
-              {thinking ? (
-                <Text style={styles.thinking}>thinking......</Text>
+              {thinking || !suggested ? (
+                <View style={styles.thinkingWrap}>
+                  <ActivityIndicator color={colors.orange} />
+                  <Text style={styles.thinking}>Matching breeds to your space…</Text>
+                </View>
               ) : (
                 <>
                   <Text style={styles.compat}>Compatible breeds with your space</Text>
                   <Text style={styles.bias}>
-                    Breed only explains part of an individual dog’s behaviour, so treat these as a starting point.
+                    {suggested.source === 'ai' ? 'Picked by AI from ' : 'Ranked from '}
+                    {breeds.length} breeds using your household answers and this room. Breed only explains part of an
+                    individual dog’s behaviour, so treat these as a starting point.
                   </Text>
-                  <View style={styles.grid}>
-                    {ranked.map(({ breed: b, summary }) => (
-                      <Pressable key={b.id} onPress={() => chooseSuggested(b)} style={{ width: cardW }}>
-                        <View style={[styles.breedCard, { width: cardW, height: Math.round(cardW * 1.8) }]}>
-                          <Text style={styles.breedName}>{b.name}</Text>
-                          <Image
-                            source={b.sitting}
-                            style={b.cutout ? styles.breedImg : styles.breedPhoto}
-                            resizeMode={b.cutout ? 'contain' : 'cover'}
-                          />
+                  {!!suggested.note && <Text style={styles.suggestNote}>{suggested.note}</Text>}
+                  {suggested.suggestions.map(({ breed: b, fit, reason, watchOut }) => (
+                    <Pressable key={b.id} onPress={() => chooseSuggested(b)} style={({ pressed }) => [styles.suggestRow, pressed && { opacity: 0.8 }]}>
+                      <Image
+                        source={b.sitting}
+                        style={styles.suggestImg}
+                        resizeMode={b.cutout ? 'contain' : 'cover'}
+                      />
+                      <View style={{ flex: 1 }}>
+                        <View style={styles.suggestHead}>
+                          <Text style={styles.suggestName} numberOfLines={1}>{b.name}</Text>
+                          <View style={[styles.fitChip, fit === 'good' && { backgroundColor: colors.orange }]}>
+                            <Text style={styles.fitTxt}>{FIT_LABEL[fit]}</Text>
+                          </View>
                         </View>
-                        <Text style={styles.breedFit}>{summary}</Text>
-                      </Pressable>
-                    ))}
-                  </View>
+                        <Text style={styles.suggestReason}>{reason}</Text>
+                        {!!watchOut && <Text style={styles.suggestWatch}>Watch out: {watchOut}</Text>}
+                      </View>
+                    </Pressable>
+                  ))}
                 </>
               )}
             </ScrollView>
@@ -235,6 +260,7 @@ function BreedFacts({ breed }: { breed: BreedProfile }) {
           </Text>
         </View>
       </View>
+      {!!breed.description && <Text style={styles.factDesc}>{breed.description}</Text>}
       {rows.map(([k, v]) => (
         <Text key={k} style={styles.factRow}>
           <Text style={styles.factKey}>{k}: </Text>
@@ -250,6 +276,8 @@ function BreedFacts({ breed }: { breed: BreedProfile }) {
   );
 }
 
+const FIT_LABEL = { good: 'Good fit', could_work: 'Could work', tricky: 'Tricky fit' } as const;
+
 function Dropdown({ value, placeholder, onPress, disabled }: { value: string; placeholder: string; onPress: () => void; disabled?: boolean }) {
   return (
     <Pressable onPress={onPress} disabled={disabled} style={styles.dropdown}>
@@ -263,38 +291,44 @@ function Dropdown({ value, placeholder, onPress, disabled }: { value: string; pl
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg2 },
-  topBar: { paddingHorizontal: 25, paddingTop: 6 },
-  titles: { paddingHorizontal: 32 },
-  h1: { fontFamily: fonts.bold, color: colors.text, fontSize: 20, marginTop: -2 },
-  sub: { fontFamily: fonts.regular, color: colors.text, fontSize: 15, marginTop: 4 },
+  topBar: { paddingHorizontal: 22, paddingTop: 6 },
+  titles: { paddingHorizontal: 22 },
+  h1: { fontFamily: fonts.bold, color: colors.text, fontSize: 20, marginTop: 14 },
+  sub: { fontFamily: fonts.regular, color: colors.text, fontSize: 15, lineHeight: 21, marginTop: 6 },
 
-  card: { flex: 1, backgroundColor: colors.bg, borderRadius: 22, marginHorizontal: 22, marginTop: 12, marginBottom: 40, paddingHorizontal: 18, paddingTop: 20 },
+  card: { flex: 1, backgroundColor: colors.bg, borderRadius: 22, marginHorizontal: 22, marginTop: 16, marginBottom: 40, paddingHorizontal: 12, paddingTop: 20 },
   tabs: { marginBottom: 20 },
-  tabTxt: { fontFamily: fonts.medium, fontSize: 10.5 },
+  tabTxt: { fontFamily: fonts.semibold, fontSize: 12, lineHeight: 16 },
 
-  label: { fontFamily: fonts.semibold, color: colors.text, fontSize: 11, marginBottom: 5 },
-  hint: { fontFamily: fonts.regular, color: colors.text, fontSize: 8.5, lineHeight: 11, marginBottom: 6 },
-  advanced: { fontFamily: fonts.semibold, color: colors.text, fontSize: 11, textAlign: 'center', marginTop: 18, marginBottom: 18 },
-  dropdown: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.track, borderRadius: 12, height: 34, paddingHorizontal: 14 },
-  dropdownValue: { flex: 1, fontFamily: fonts.regular, fontSize: 12, color: colors.text },
-  dropdownTag: { fontFamily: fonts.regular, fontSize: 11, color: colors.text, marginLeft: 8 },
+  label: { fontFamily: fonts.semibold, color: colors.text, fontSize: 16, marginBottom: 6 },
+  hint: { fontFamily: fonts.regular, color: colors.textMuted, fontSize: 13, lineHeight: 18, marginBottom: 8 },
+  advancedBtn: { alignSelf: 'center', marginTop: 22, marginBottom: 22 },
+  advanced: { fontFamily: fonts.semibold, color: colors.orangeDeep, fontSize: 15, textAlign: 'center', textDecorationLine: 'underline' },
+  dropdown: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.track, borderRadius: 12, height: 48, paddingHorizontal: 14 },
+  dropdownValue: { flex: 1, fontFamily: fonts.regular, fontSize: 15, color: colors.text },
+  dropdownTag: { fontFamily: fonts.medium, fontSize: 13, color: colors.textMuted, marginLeft: 8 },
   selectBtn: { marginTop: 18 },
 
-  thinking: { fontFamily: fonts.semibold, fontSize: 10, color: colors.text, textAlign: 'center', marginTop: 50 },
-  compat: { fontFamily: fonts.medium, fontSize: 15, color: colors.text, marginTop: 18, marginLeft: 6 },
-  bias: { fontFamily: fonts.regular, fontSize: 9.5, color: colors.textMuted, marginTop: 4, marginLeft: 6, marginBottom: 14 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingHorizontal: 6 },
-  breedCard: { backgroundColor: colors.orangeLight, borderRadius: 10, overflow: 'hidden', alignItems: 'center', paddingTop: 8 },
-  breedName: { fontFamily: fonts.semibold, fontSize: 10, color: colors.text, textAlign: 'center', paddingHorizontal: 4 },
-  breedImg: { flex: 1, width: '92%', marginTop: 4 },
-  breedPhoto: { flex: 1, width: '100%', marginTop: 6 },
+  thinkingWrap: { alignItems: 'center', gap: 10, marginTop: 50 },
+  thinking: { fontFamily: fonts.semibold, fontSize: 15, color: colors.text, textAlign: 'center' },
+  suggestNote: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.orangeDeep, marginLeft: 6, marginBottom: 10 },
+  suggestRow: { flexDirection: 'row', gap: 12, backgroundColor: colors.cream, borderRadius: 14, padding: 10, marginBottom: 10 },
+  suggestImg: { width: 72, height: 72, borderRadius: 12, backgroundColor: colors.orangeLight },
+  suggestHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 3 },
+  suggestName: { flexShrink: 1, fontFamily: fonts.semibold, fontSize: 15, color: colors.text },
+  fitChip: { backgroundColor: colors.orangeLight, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2 },
+  fitTxt: { fontFamily: fonts.semibold, fontSize: 11, color: colors.text },
+  suggestReason: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.text },
+  suggestWatch: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 16, color: colors.textMuted, marginTop: 3 },
+  compat: { fontFamily: fonts.semibold, fontSize: 16, color: colors.text, marginTop: 18, marginLeft: 6 },
+  bias: { fontFamily: fonts.regular, fontSize: 12.5, color: colors.textMuted, marginTop: 4, marginLeft: 6, marginBottom: 14 },
   facts: { backgroundColor: colors.cream, borderRadius: 12, padding: 12, marginTop: 10 },
   factsHead: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 },
   factsImg: { width: 48, height: 48, borderRadius: 10, backgroundColor: colors.orangeLight },
-  factsName: { fontFamily: fonts.semibold, fontSize: 14, color: colors.text },
-  factsTraits: { fontFamily: fonts.regular, fontSize: 11, color: colors.textMuted, marginTop: 2, textTransform: 'none' },
-  factRow: { fontFamily: fonts.regular, fontSize: 11.5, lineHeight: 16, color: colors.text, marginTop: 2 },
+  factsName: { fontFamily: fonts.semibold, fontSize: 16, color: colors.text },
+  factsTraits: { fontFamily: fonts.regular, fontSize: 13, color: colors.textMuted, marginTop: 2, textTransform: 'none' },
+  factRow: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.text, marginTop: 2 },
   factKey: { fontFamily: fonts.semibold },
-  biasNote: { fontFamily: fonts.regular, fontSize: 10, lineHeight: 14, color: colors.textMuted, marginTop: 8 },
-  breedFit: { fontFamily: fonts.regular, fontSize: 8.5, lineHeight: 11, color: colors.text, marginTop: 5 },
+  factDesc: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.text, marginBottom: 4 },
+  biasNote: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 16, color: colors.textMuted, marginTop: 8 },
 });
