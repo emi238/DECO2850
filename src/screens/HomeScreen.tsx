@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
   sub: { fontFamily: fonts.regular, color: colors.text, fontSize: 17, marginTop: 4 },
 
   panel: { flex: 1, backgroundColor: colors.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20 },
-  body: { paddingHorizontal: 29, paddingTop: 12, paddingBottom: 120 },
+  body: { paddingHorizontal: 29, paddingTop: 24, paddingBottom: 120 },
   label: { fontFamily: fonts.semibold, color: colors.text, fontSize: 16, marginBottom: 10, marginTop: 26 },
 
   upload: {
