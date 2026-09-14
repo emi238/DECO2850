@@ -7,7 +7,7 @@ import type {
   Assessment,
   Hazard,
   HazardCategory,
-  Session,
+  Space,
   Severity,
 } from '../types';
 
@@ -66,7 +66,7 @@ function str(v: any, fallback: string): string {
   return typeof v === 'string' ? v : fallback;
 }
 
-export function normaliseAssessment(raw: any, session: Session): Assessment {
+export function normaliseAssessment(raw: any, session: Space): Assessment {
   const frameCount = session.capture.frames.length;
   const mode: Assessment['mode'] =
     raw?.mode === 'explore' || raw?.mode === 'pet_in_mind'

@@ -1,32 +1,53 @@
-// Central design tokens for PawSpace.
-// Kept deliberately minimal (PRD §9): neutral surfaces, generous whitespace,
-// ONE warm accent reserved for the primary action and the "high" severity ramp.
+// Design tokens for the PawSpace redesign (light + warm orange).
+// Palette: #FBAB4B orange, #FFD2A3 light orange, #FFFFFF / #EFEFEF backgrounds.
+// Type: Mojiw Mochizuki for the logo + welcome/hero headers; Goga for everything
+// else (switching weights).
+
+export const fonts = {
+  display: 'MojiwMochizuki', // logo + big welcome headers
+  regular: 'Goga-Regular',
+  medium: 'Goga-Medium',
+  semibold: 'Goga-Semibold',
+  bold: 'Goga-Bold',
+} as const;
 
 export const colors = {
-  // Neutral base
-  bg: '#0F1115', // deep charcoal behind the frosted glass
-  bgElevated: '#171A20',
-  surface: 'rgba(255,255,255,0.08)', // glass fill
-  surfaceStrong: 'rgba(255,255,255,0.14)',
-  border: 'rgba(255,255,255,0.16)',
+  // Brand
+  orange: '#FBAB4B',
+  orangeLight: '#FFD2A3',
+  orangeDeep: '#BF3D05', // the dark paw / accents in the logo
 
-  text: '#F4F5F7',
-  textMuted: '#AEB4BE',
-  textFaint: '#7C828C',
+  // Backgrounds
+  bg: '#FFFFFF',
+  bg2: '#EFEFEF',
+  bgElevated: '#EFEFEF',
+  surface: '#EFEFEF',
+  surfaceStrong: '#FFD2A3',
+  cream: '#FFF6EC',
+  peach: '#FFE7CE', // "living situation changed" card
+  track: '#EFEFEF', // unselected segment / chip
+  field: '#E8E8E8', // sign-up inputs
+  dots: '#BDBAB7', // inactive carousel bar
+  danger: '#FF7B7B', // Delete All Data
+  midGray: '#D0D0D0', // Edit Questionnaire
+  border: 'rgba(0,0,0,0.08)',
 
-  // Single warm accent — primary CTA + "high" severity (PRD §9)
-  accent: '#E5643C',
-  accentText: '#FFFFFF',
+  // Text (near-black ink on light)
+  text: '#241E18',
+  textMuted: '#6E655C',
+  textFaint: '#A69C92',
 
-  // Severity ramp (low / medium / high) — a simple, intuitive traffic ramp
-  sevLow: '#5FB07E',
-  sevMedium: '#E6A93C',
-  sevHigh: '#E5643C',
+  // Primary action = orange with dark ink text (matches the mockups)
+  accent: '#FBAB4B',
+  accentText: '#3A2712',
 
-  // Verdict tints
-  good: '#5FB07E',
-  ok: '#E6A93C',
-  bad: '#E5643C',
+  // Severity ramp (warm): good / adequate / poor
+  sevLow: '#5FAe7f',
+  sevMedium: '#FBAB4B',
+  sevHigh: '#E4572E',
+  good: '#5FAe7f',
+  ok: '#FBAB4B',
+  bad: '#E4572E',
 } as const;
 
 export type Severity = 'low' | 'medium' | 'high';
@@ -50,12 +71,13 @@ export const radius = {
   sm: 10,
   md: 16,
   lg: 22,
+  xl: 28,
   pill: 999,
 } as const;
 
 export const font = {
-  h1: 28,
-  h2: 22,
+  h1: 34,
+  h2: 24,
   h3: 18,
   body: 15,
   small: 13,

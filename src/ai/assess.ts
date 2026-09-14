@@ -1,7 +1,7 @@
 // Orchestrator (PRD F5). Chooses real Gemini vs the built-in mock, applies a
 // timeout, retries once, and falls back to the mock so the demo NEVER dead-ends.
 
-import type { Assessment, Session } from '../types';
+import type { Assessment, Space } from '../types';
 import { AI_CONFIG, realAiEnabled } from './config';
 import { callGemini, hasUsableImages } from './gemini';
 import { generateMockAssessment } from './mock';
@@ -38,7 +38,7 @@ function friendlyFailure(err: unknown): string {
 
 const MAX_ATTEMPTS = 3; // initial try + 2 retries (PRD F5.5), with backoff
 
-export async function runAssessment(session: Session): Promise<AssessResult> {
+export async function runAssessment(session: Space): Promise<AssessResult> {
   if (realAiEnabled() && hasUsableImages(session)) {
     // Retry with a short backoff so transient free-tier 503 spikes can clear,
     // then fall back to the mock so a demo never dead-ends.
@@ -69,7 +69,7 @@ export async function runAssessment(session: Session): Promise<AssessResult> {
       assessment: generateMockAssessment(session),
       source: 'mock',
       fallbackReason:
-        'Real AI is enabled but these frames have no photo data (the demo room is a drawing). Capture a real room to use the model.',
+        'Real AI is on, but these photos are no longer loaded (the app was restarted), so this is a sample assessment. Capture the room again to use the model.',
     };
   }
 

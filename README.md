@@ -11,9 +11,22 @@ app and runs on a real iPhone/Android phone or in the iOS Simulator.
 
 ---
 
-## The flow (5 screens)
+## How it's organised
 
-**Capture → Pet mode → Questionnaire → Tag objects → Results**
+The **first run is an onboarding flow** for your first space; after that the app
+opens on a **Home hub**.
+
+- **Home** is the main screen: it shows the current space's room map with a
+  **2D map / 3D room toggle**, a row of **space tabs** to switch between spaces,
+  an **+ Add space** button (which re-runs the onboarding for a new room), and
+  buttons to **Edit questionnaire** (edits the space's answers and re-analyses)
+  and **Re-analyse**. Tap the space name to rename it, or **Delete** to remove it.
+- **Add space** lets you build as many rooms as you like — living room, garage,
+  bedroom, … — each with its own capture, pet, questionnaire, tags and result.
+
+## The onboarding flow (per space)
+
+**Name space → Capture → Pet mode → Questionnaire → Tag objects → Results**
 
 1. **Capture** — sweep the phone across the room and it snaps ~10 frames, assembled
    into one scrollable 2D map. You can also **Upload photos** or **Upload a video**
