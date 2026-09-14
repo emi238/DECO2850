@@ -1,5 +1,6 @@
-// Capture a space: sweep with the live camera, or upload photos or a video (the
-// Simulator has no camera). Then "Review your space" shows the frames in a
+// Capture a space: take as many photos as you like with the camera (you press
+// the shutter for each one), or upload photos or a video (the Simulator has no
+// camera). Then "Review your space" shows the frames in a
 // carousel before continuing to tagging.
 
 import React, { useCallback, useRef, useState } from 'react';
@@ -19,7 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 
-import { TopBar, JoinedButtons, PrimaryButton } from '../components/kit';
+import { TopBar, JoinedButtons } from '../components/kit';
 import { FrameView } from '../components/FrameView';
 import { SwipeUpNav } from '../components/SwipeUpNav';
 import { colors, fonts } from '../theme';
@@ -27,9 +28,6 @@ import { useSession } from '../store/session';
 import { pickPhotos, pickVideoFrames, type PickResult } from '../capture/upload';
 import type { Frame } from '../types';
 import type { ScreenProps } from '../navigation';
-
-const MAX_FRAMES = 12;
-const SAMPLE_MS = 550;
 
 export default function CaptureScreen({ navigation, route }: ScreenProps<'Capture'>) {
   const fresh = !!route.params?.fresh;
@@ -39,13 +37,11 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
   const setFrames = useSession((s) => s.setFrames);
 
   const [phase, setPhase] = useState<'camera' | 'review'>('camera');
-  const [sweeping, setSweeping] = useState(false);
   const [captured, setCaptured] = useState<Frame[]>([]);
-  const [source, setSource] = useState<'sweep' | 'upload'>('sweep');
+  const [source, setSource] = useState<'camera' | 'upload'>('camera');
   const [preparing, setPreparing] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const busy = useRef(false);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const framesRef = useRef<Frame[]>([]);
 
   const { width } = useWindowDimensions();
@@ -61,45 +57,39 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
     setPhase('review');
   };
 
-  const stopSweep = useCallback(() => {
-    if (timer.current) clearInterval(timer.current);
-    timer.current = null;
-    setSweeping(false);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    toReview([...framesRef.current]);
-  }, []);
-
-  const snap = useCallback(async () => {
+  // Shutter: one photo per tap, no limit. Photos collect until "Done".
+  const takePhoto = useCallback(async () => {
     if (busy.current || !cameraRef.current) return;
     busy.current = true;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     try {
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.4, base64: true, skipProcessing: true });
       if (photo?.uri) {
         framesRef.current = [...framesRef.current, { uri: photo.uri, base64: photo.base64, mime: 'image/jpeg' }];
         setCaptured([...framesRef.current]);
-        if (framesRef.current.length >= MAX_FRAMES) stopSweep();
+        setSource('camera');
       }
     } catch {
-      // A failed frame (e.g. no camera) is skipped; uploading is the fallback.
+      // A failed shot is skipped; the user can simply tap again.
     } finally {
       busy.current = false;
     }
-  }, [stopSweep]);
+  }, []);
 
-  const startSweep = useCallback(() => {
+  const finishPhotos = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    toReview([...framesRef.current]);
+  };
+
+  const clearPhotos = () => {
     framesRef.current = [];
     setCaptured([]);
-    setSource('sweep');
-    setSweeping(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-    snap();
-    timer.current = setInterval(snap, SAMPLE_MS);
-  }, [snap]);
+  };
 
   const retake = () => {
     framesRef.current = [];
     setCaptured([]);
-    setSource('sweep');
+    setSource('camera');
     setPhase('camera');
   };
 
@@ -206,7 +196,7 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
         <View style={styles.body}>
           <Text style={styles.h1}>Capture your space</Text>
           <Text style={styles.sub}>
-            Sweep your camera slowly from left to right, or upload photos or a video of the room.
+            Tap the shutter to take a photo, as many as you need to capture every corner of the room. Or upload photos or a video.
           </Text>
 
           <View style={[styles.card, styles.cameraCard, { width: cardW }]}>
@@ -223,7 +213,7 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
                   <Text style={styles.centerTitle}>Camera not available</Text>
                   <Text style={styles.centerTxt}>
                     {permission && !permission.granted
-                      ? 'Allow camera access to sweep a real room, or upload photos or a video instead.'
+                      ? 'Allow camera access to photograph the room, or upload photos or a video instead.'
                       : 'No camera here (e.g. the Simulator). Upload photos or a video of the room instead.'}
                   </Text>
                   {permission && !permission.granted && permission.canAskAgain && (
@@ -233,28 +223,48 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
                   )}
                 </View>
               )}
-              {sweeping && (
-                <View style={styles.sweepPill} pointerEvents="none">
-                  <ActivityIndicator color={colors.text} />
-                  <Text style={styles.sweepTxt}>{captured.length} frames, keep panning…</Text>
-                </View>
+              {granted && !preparing && (
+                <>
+                  {captured.length > 0 && (
+                    <View style={styles.countPill} pointerEvents="none">
+                      <Text style={styles.countTxt}>
+                        {captured.length} {captured.length === 1 ? 'photo' : 'photos'}
+                      </Text>
+                    </View>
+                  )}
+                  <View style={styles.shutterRow}>
+                    <View style={styles.thumbSlot}>
+                      {captured.length > 0 && (
+                        <FrameView frame={captured[captured.length - 1]} width={44} height={44} radius={8} />
+                      )}
+                    </View>
+                    <Pressable
+                      onPress={takePhoto}
+                      accessibilityLabel="Take photo"
+                      style={({ pressed }) => [styles.shutter, pressed && { transform: [{ scale: 0.92 }] }]}
+                    >
+                      <View style={styles.shutterInner} />
+                    </Pressable>
+                    <View style={styles.thumbSlot} />
+                  </View>
+                </>
               )}
             </View>
           </View>
 
-          {granted && (
-            <PrimaryButton
-              label={sweeping ? 'Done sweeping' : 'Start sweep'}
-              onPress={sweeping ? stopSweep : startSweep}
-              style={{ marginTop: 20, height: 48, borderRadius: 12 }}
+          {captured.length > 0 && source === 'camera' ? (
+            <JoinedButtons
+              left={{ label: 'Start Over', onPress: clearPhotos }}
+              right={{ label: `Done (${captured.length})`, onPress: finishPhotos }}
+              height={48}
+              style={{ marginTop: 20 }}
             />
-          )}
-          {!sweeping && (
+          ) : (
             <JoinedButtons
               left={{ label: 'Upload Video', onPress: () => runUpload(pickVideoFrames, 'video') }}
               right={{ label: 'Upload Photos', onPress: () => runUpload(pickPhotos, 'photos') }}
               height={48}
-              style={{ marginTop: granted ? 16 : 24 }}
+              style={{ marginTop: 20 }}
             />
           )}
         </View>
@@ -296,7 +306,11 @@ const styles = StyleSheet.create({
   centerTxt: { fontFamily: fonts.regular, color: colors.textMuted, fontSize: 13, textAlign: 'center', lineHeight: 18 },
   grant: { marginTop: 8, backgroundColor: colors.orange, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 8 },
   grantTxt: { fontFamily: fonts.semibold, color: colors.text, fontSize: 14 },
-  sweepPill: { position: 'absolute', bottom: 14, alignSelf: 'center', flexDirection: 'row', gap: 8, alignItems: 'center', backgroundColor: colors.orangeLight, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
-  sweepTxt: { fontFamily: fonts.medium, color: colors.text, fontSize: 13 },
+  countPill: { position: 'absolute', top: 12, alignSelf: 'center', backgroundColor: colors.orangeLight, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6 },
+  countTxt: { fontFamily: fonts.semibold, color: colors.text, fontSize: 13 },
+  shutterRow: { position: 'absolute', left: 0, right: 0, bottom: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24 },
+  thumbSlot: { width: 44, height: 44 },
+  shutter: { width: 72, height: 72, borderRadius: 36, borderWidth: 4, borderColor: '#fff', alignItems: 'center', justifyContent: 'center' },
+  shutterInner: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.orange },
 
 });
