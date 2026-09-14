@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 13,
   },
-  fieldWhite: { backgroundColor: colors.bg, borderRadius: 12, height: 40, borderWidth: 0 },
+  fieldWhite: { backgroundColor: colors.bg, borderRadius: 12, height: 48, borderWidth: 0, fontSize: 15, paddingHorizontal: 14 },
   fieldPeach: { backgroundColor: colors.orangeLight, height: 38, borderWidth: 0 },
 
   avatar: { backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' },
