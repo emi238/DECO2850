@@ -33,13 +33,14 @@ export function HouseholdForm({
   value: Questionnaire;
   onChange: (patch: Partial<Questionnaire>) => void;
   disabled?: boolean;
-  compact?: boolean; // tighter spacing inside the Profile card
+  compact?: boolean; // tighter spacing between questions inside the Profile card
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const { breeds } = useBreedCatalogue();
-  const gap = compact ? 12 : 26;
-  // Onboarding uses bigger, filled controls; the Profile card keeps them compact.
-  const big = !compact;
+  const gap = compact ? 20 : 26;
+  // Big, filled controls everywhere (onboarding and Profile); `compact` only
+  // tightens the spacing between questions inside the Profile card.
+  const big = true;
   const segH = big ? 44 : undefined;
   const segTxt = big ? styles.segTxtBig : undefined;
   const label = big ? styles.labelBig : undefined;
