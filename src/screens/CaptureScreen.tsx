@@ -246,14 +246,15 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
             <PrimaryButton
               label={sweeping ? 'Done sweeping' : 'Start sweep'}
               onPress={sweeping ? stopSweep : startSweep}
-              style={{ marginTop: 18, height: 36, borderRadius: 10 }}
+              style={{ marginTop: 20, height: 48, borderRadius: 12 }}
             />
           )}
           {!sweeping && (
             <JoinedButtons
               left={{ label: 'Upload Video', onPress: () => runUpload(pickVideoFrames, 'video') }}
               right={{ label: 'Upload Photos', onPress: () => runUpload(pickPhotos, 'photos') }}
-              style={{ marginTop: granted ? 12 : 24 }}
+              height={48}
+              style={{ marginTop: granted ? 16 : 24 }}
             />
           )}
         </View>

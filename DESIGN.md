@@ -47,6 +47,7 @@ Fonts: **Mojiw Mochizuki** for the "PawSpace" wordmark and the Welcome headline 
 ## Buttons
 
 - Primary: orange fill, dark text, **semibold**, height 36–40.
+- Buttons stacked together share one height (48 on Capture) with 16pt between them.
 - Joined pair (`JoinedButtons`): neutral left half + orange right half in one pill,
   both labels **semibold**.
 - Account screens (Sign Up / Log In): orange fill, white semibold text.
