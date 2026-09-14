@@ -13,14 +13,17 @@ import { FONT_MAP } from './src/fontMap';
 import type { RootStackParamList } from './src/navigation';
 import { useSession, useStoreHydrated } from './src/store/session';
 import WelcomeScreen from './src/screens/WelcomeScreen';
+import CreateAccountScreen from './src/screens/CreateAccountScreen';
+import LoginScreen from './src/screens/LoginScreen';
+import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
+import HouseholdScreen from './src/screens/HouseholdScreen';
+import ProfileScreen from './src/screens/ProfileScreen';
 import HomeScreen from './src/screens/HomeScreen';
-import NewSpaceScreen from './src/screens/NewSpaceScreen';
 import CaptureScreen from './src/screens/CaptureScreen';
-import ModeScreen from './src/screens/ModeScreen';
-import QuestionnaireScreen from './src/screens/QuestionnaireScreen';
 import TaggingScreen from './src/screens/TaggingScreen';
-import ResultsScreen from './src/screens/ResultsScreen';
-import Room3DScreen from './src/screens/Room3DScreen';
+import SpaceSavedScreen from './src/screens/SpaceSavedScreen';
+import AnalysisScreen from './src/screens/AnalysisScreen';
+import SelectBreedScreen from './src/screens/SelectBreedScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -55,14 +58,17 @@ export default function App() {
               }}
             >
               <Stack.Screen name="Welcome" component={WelcomeScreen} />
+              <Stack.Screen name="CreateAccount" component={CreateAccountScreen} />
+              <Stack.Screen name="Login" component={LoginScreen} />
+              <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
+              <Stack.Screen name="Household" component={HouseholdScreen} />
+              <Stack.Screen name="Profile" component={ProfileScreen} />
               <Stack.Screen name="Home" component={HomeScreen} />
-              <Stack.Screen name="NewSpace" component={NewSpaceScreen} />
               <Stack.Screen name="Capture" component={CaptureScreen} />
-              <Stack.Screen name="Mode" component={ModeScreen} />
-              <Stack.Screen name="Questionnaire" component={QuestionnaireScreen} />
               <Stack.Screen name="Tagging" component={TaggingScreen} />
-              <Stack.Screen name="Results" component={ResultsScreen} />
-              <Stack.Screen name="Room3D" component={Room3DScreen} />
+              <Stack.Screen name="SpaceSaved" component={SpaceSavedScreen} />
+              <Stack.Screen name="Analysis" component={AnalysisScreen} />
+              <Stack.Screen name="SelectBreed" component={SelectBreedScreen} />
             </Stack.Navigator>
           </NavigationContainer>
         )}

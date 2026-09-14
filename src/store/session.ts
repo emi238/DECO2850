@@ -28,7 +28,8 @@ function uuid(): string {
 export const defaultQuestionnaire: Questionnaire = {
   dwelling: 'apartment',
   rental: true,
-  floor_level: 8,
+  neighbours: 'attached',
+  floor_level: null, // not asked in the redesigned questionnaire
   outdoor_access: 'balcony',
   adults: 1,
   children: 0,
@@ -54,10 +55,21 @@ function freshSpace(name: string, baseQuestionnaire: Questionnaire): Space {
   };
 }
 
+export interface Profile {
+  name: string;
+  email: string;
+}
+
 interface SessionState {
   spaces: Space[];
   currentSpaceId: string | null;
   onboarded: boolean;
+  household: Questionnaire; // shared across spaces, set at onboarding, edited in Profile
+  profile: Profile;
+
+  setHousehold: (patch: Partial<Questionnaire>) => void;
+  setProfile: (patch: Partial<Profile>) => void;
+  resetAll: () => void;
 
   // ---- space management ----
   current: () => Space | null;
@@ -76,6 +88,8 @@ interface SessionState {
   updateTag: (id: string, patch: Partial<Tag>) => void;
   removeTag: (id: string) => void;
   setResult: (result: Assessment | null, source?: 'ai' | 'mock', note?: string) => void;
+  patchSpace: (patch: Partial<Space>) => void; // label, name, saved flag…
+  visitSpace: (id: string) => void; // make current + count the visit
 }
 
 type SetFn = (partial: Partial<SessionState> | ((s: SessionState) => Partial<SessionState>)) => void;
@@ -96,6 +110,19 @@ export const useSession = create<SessionState>()(
       spaces: [],
       currentSpaceId: null,
       onboarded: false,
+      household: { ...defaultQuestionnaire },
+      profile: { name: '', email: '' },
+
+      setHousehold: (patch) => set((s) => ({ household: { ...s.household, ...patch } })),
+      setProfile: (patch) => set((s) => ({ profile: { ...s.profile, ...patch } })),
+      resetAll: () =>
+        set({
+          spaces: [],
+          currentSpaceId: null,
+          onboarded: false,
+          household: { ...defaultQuestionnaire },
+          profile: { name: '', email: '' },
+        }),
 
       current: () => {
         const s = get();
@@ -103,7 +130,7 @@ export const useSession = create<SessionState>()(
       },
 
       addSpace: (name) => {
-        const base = get().current()?.questionnaire ?? defaultQuestionnaire;
+        const base = get().household ?? defaultQuestionnaire;
         const sp = freshSpace(name, base);
         set((s) => ({ spaces: [...s.spaces, sp], currentSpaceId: sp.id }));
         return sp.id;
@@ -135,6 +162,12 @@ export const useSession = create<SessionState>()(
       removeTag: (id) => patchCurrent(set, get, (sp) => ({ tags: sp.tags.filter((t) => t.id !== id) })),
       setResult: (result, source, note) =>
         patchCurrent(set, get, () => ({ result, resultSource: source, resultNote: note })),
+      patchSpace: (patch) => patchCurrent(set, get, () => patch),
+      visitSpace: (id) =>
+        set((s) => ({
+          currentSpaceId: id,
+          spaces: s.spaces.map((sp) => (sp.id === id ? { ...sp, visits: (sp.visits ?? 0) + 1 } : sp)),
+        })),
     }),
     {
       name: 'pawspace-spaces',
@@ -150,6 +183,8 @@ export const useSession = create<SessionState>()(
         })),
         currentSpaceId: state.currentSpaceId,
         onboarded: state.onboarded,
+        household: state.household,
+        profile: state.profile,
       }),
     }
   )

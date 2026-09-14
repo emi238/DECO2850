@@ -24,6 +24,12 @@ export const colors = {
   surface: '#EFEFEF',
   surfaceStrong: '#FFD2A3',
   cream: '#FFF6EC',
+  peach: '#FFE7CE', // "living situation changed" card
+  track: '#EFEFEF', // unselected segment / chip
+  field: '#E8E8E8', // sign-up inputs
+  dots: '#BDBAB7', // inactive carousel bar
+  danger: '#FF7B7B', // Delete All Data
+  midGray: '#D0D0D0', // Edit Questionnaire
   border: 'rgba(0,0,0,0.08)',
 
   // Text (near-black ink on light)

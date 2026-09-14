@@ -5,6 +5,7 @@
 
 import type { Assessment, Hazard, Space, Severity } from '../types';
 import { DEMO_OBJECTS, isDemoUri, sceneToFrame } from '../demo/room';
+import { isAssetUri, photoDemoHazards } from '../demo/photoRoom';
 
 let counter = 0;
 function hid(): string {
@@ -46,6 +47,7 @@ export function generateMockAssessment(session: Space): Assessment {
   counter = 0;
   const { mode, pet, questionnaire: q, tags, capture } = session;
   const demo = capture.frames.length > 0 && capture.frames.some((f) => isDemoUri(f.uri));
+  const photoDemo = capture.frames.some((f) => isAssetUri(f.uri));
   const petLabel = pet ? `${pet.breed || pet.species}`.trim() : 'the pet';
   const cat = isCat(pet?.species);
   const dog = isDog(pet?.species);
@@ -53,7 +55,24 @@ export function generateMockAssessment(session: Space): Assessment {
 
   const hazards: Hazard[] = [];
 
-  if (demo) {
+  if (photoDemo) {
+    // ---- Figma living-room photo: hazards pinned onto the photo, plus any tags ----
+    photoDemoHazards(petLabel).forEach((h) => hazards.push({ ...h, id: hid() }));
+    tags.forEach((t) => {
+      hazards.push({
+        id: hid(),
+        category: inferCategory(t.label + ' ' + t.note),
+        title: `Flagged: ${t.label}`,
+        scope: 'object',
+        location: { frame_index: t.frame, x: round2(t.x ?? 0.5), y: round2(t.y ?? 0.5) },
+        risk_to: 'both',
+        severity: /fragile|valuable|antique/i.test(t.note + ' ' + t.label) ? 'high' : 'medium',
+        evidence: `You flagged "${t.label}"${t.note ? ` as ${t.note.toLowerCase()}` : ''}.`,
+        why_it_matters: `You marked this as precious; anything below about 1m is within ${petLabel}'s paw and mouth reach.`,
+        recommendation: 'Move it above dog height, or keep it in a room the dog can’t get into.',
+      });
+    });
+  } else if (demo) {
     // ---- Object hazards pinned to the seeded demo room ----
     hazards.push({
       id: hid(),
@@ -236,15 +255,17 @@ export function generateMockAssessment(session: Space): Assessment {
 
   return {
     mode: mode ?? 'pet_in_mind',
-    space_summary: demo
+    space_summary: photoDemo
+      ? 'A cosy living room: built-in bookshelves, a framed painting over a patterned sofa, a ceramic table lamp, a low side table and an upholstered bench over a wool rug.'
+      : demo
       ? 'A rented apartment living room: a large window and a balcony door on one side, a bookshelf, a TV console, a low cabinet and a sofa, over hard tile flooring.'
       : 'A single room captured across several overlapping frames. (Running in demo mode — enable the real model for photo-based hazard detection.)',
-    confidence: demo ? 'medium' : 'low',
+    confidence: demo || photoDemo ? 'medium' : 'low',
     hazards,
     improvements,
     suitability,
     recommended_pets,
-    notes: demo
+    notes: demo || photoDemo
       ? 'This is an approximate, 2D assessment for demonstration. A fuller LiDAR/3D scan would confirm window screening, railing gap widths, and exact floor materials. Not a substitute for a vet or shelter assessment.'
       : 'Demo mode returns a sample assessment based on your questionnaire and tags rather than the photos. Add a Gemini API key (see src/ai/config.ts) for real photo analysis.',
   };

@@ -1,6 +1,6 @@
-// F1 — Room capture by sweep-and-snap. Live camera samples stills while the
-// user pans; frames assemble into the scrollable 2D map used everywhere after.
-// A "Use demo room" path works with no camera (iOS Simulator / reliable demo).
+// Capture a space: sweep with the live camera, upload photos or a video, or use
+// the bundled demo room (Simulator has no camera). Then "Review your space" shows
+// the frames in a carousel before continuing to tagging.
 
 import React, { useCallback, useRef, useState } from 'react';
 import {
@@ -11,69 +11,77 @@ import {
   Pressable,
   ActivityIndicator,
   Alert,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  useWindowDimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 
-import { Screen } from '../components/Screen';
-import { Button } from '../components/Button';
-import { GlassCard } from '../components/GlassCard';
+import { TopBar, JoinedButtons, PrimaryButton } from '../components/kit';
 import { FrameView } from '../components/FrameView';
-import { colors, spacing, font, radius } from '../theme';
+import { SwipeUpNav } from '../components/SwipeUpNav';
+import { colors, fonts } from '../theme';
 import { useSession } from '../store/session';
-import { DEMO_FRAMES, DemoRasterizer } from '../demo/room';
-import { realAiEnabled } from '../ai/config';
+import { PHOTO_DEMO_FRAMES } from '../demo/photoRoom';
 import { pickPhotos, pickVideoFrames, type PickResult } from '../capture/upload';
 import type { Frame } from '../types';
 import type { ScreenProps } from '../navigation';
 
-type Source = 'sweep' | 'demo' | 'upload';
-
-const TARGET_FRAMES = 10;
 const MAX_FRAMES = 12;
 const SAMPLE_MS = 550;
 
-export default function CaptureScreen({ navigation }: ScreenProps<'Capture'>) {
+export default function CaptureScreen({ navigation, route }: ScreenProps<'Capture'>) {
+  const fresh = !!route.params?.fresh;
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
+  const addSpace = useSession((s) => s.addSpace);
   const setFrames = useSession((s) => s.setFrames);
 
   const [phase, setPhase] = useState<'camera' | 'review'>('camera');
   const [sweeping, setSweeping] = useState(false);
   const [captured, setCaptured] = useState<Frame[]>([]);
-  const [source, setSource] = useState<Source>('sweep');
-  const [rasterizing, setRasterizing] = useState(false);
+  const [source, setSource] = useState<'sweep' | 'demo' | 'upload'>('sweep');
   const [preparing, setPreparing] = useState<string | null>(null);
-  const isDemo = source === 'demo';
+  const [page, setPage] = useState(0);
   const busy = useRef(false);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const framesRef = useRef<Frame[]>([]);
+
+  const { width } = useWindowDimensions();
+  const cardW = width - 44;
+  const itemW = Math.round(cardW * 0.7);
+  const itemH = Math.round(itemW * 1.45);
+  const itemGap = 18;
+
+  const toReview = (frames: Frame[]) => {
+    framesRef.current = frames;
+    setCaptured(frames);
+    setPage(0);
+    setPhase('review');
+  };
 
   const stopSweep = useCallback(() => {
     if (timer.current) clearInterval(timer.current);
     timer.current = null;
     setSweeping(false);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    setCaptured([...framesRef.current]);
-    setPhase('review');
+    toReview([...framesRef.current]);
   }, []);
 
   const snap = useCallback(async () => {
     if (busy.current || !cameraRef.current) return;
     busy.current = true;
     try {
-      const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.4,
-        base64: true,
-        skipProcessing: true,
-      });
+      const photo = await cameraRef.current.takePictureAsync({ quality: 0.4, base64: true, skipProcessing: true });
       if (photo?.uri) {
         framesRef.current = [...framesRef.current, { uri: photo.uri, base64: photo.base64, mime: 'image/jpeg' }];
         setCaptured([...framesRef.current]);
         if (framesRef.current.length >= MAX_FRAMES) stopSweep();
       }
     } catch {
-      // A failed frame (e.g. no camera) is skipped; the demo path is the fallback.
+      // A failed frame (e.g. no camera) is skipped; the demo room is the fallback.
     } finally {
       busy.current = false;
     }
@@ -89,282 +97,226 @@ export default function CaptureScreen({ navigation }: ScreenProps<'Capture'>) {
     timer.current = setInterval(snap, SAMPLE_MS);
   }, [snap]);
 
-  const useDemoRoom = useCallback(() => {
+  const useDemoRoom = () => {
     setSource('demo');
-    if (realAiEnabled()) {
-      // Real model on: rasterise the demo room to PNGs so it can be analysed.
-      setRasterizing(true);
-    } else {
-      framesRef.current = DEMO_FRAMES;
-      setCaptured(DEMO_FRAMES);
-      setPhase('review');
-    }
-  }, []);
+    toReview(PHOTO_DEMO_FRAMES);
+  };
 
-  const onRasterDone = useCallback((frames: Frame[]) => {
-    framesRef.current = frames;
-    setCaptured(frames);
-    setRasterizing(false);
-    setPhase('review');
-  }, []);
-
-  const retake = useCallback(() => {
+  const retake = () => {
     framesRef.current = [];
     setCaptured([]);
     setSource('sweep');
     setPhase('camera');
-  }, []);
+  };
 
-  // Build a room from the photo library (photos or a sampled video).
-  const runUpload = useCallback(
-    async (picker: () => Promise<PickResult>, kind: 'photos' | 'video') => {
-      setPreparing(kind === 'video' ? 'Sampling frames from your video…' : 'Processing your photos…');
-      try {
-        const res = await picker();
-        if (res.status === 'denied') {
-          Alert.alert('Photo access needed', 'Allow photo library access to upload photos or a video of the room.');
-          return;
-        }
-        if (res.status === 'cancelled') return;
-        if (res.status === 'empty') {
-          Alert.alert('Nothing to use', 'No usable frames were found. Try different photos or a clearer video.');
-          return;
-        }
-        setSource('upload');
-        framesRef.current = res.frames;
-        setCaptured(res.frames);
-        setPhase('review');
-      } catch (e) {
-        Alert.alert('Upload failed', e instanceof Error ? e.message : 'Could not import from your library.');
-      } finally {
-        setPreparing(null);
+  const runUpload = async (picker: () => Promise<PickResult>, kind: 'photos' | 'video') => {
+    setPreparing(kind === 'video' ? 'Sampling frames from your video…' : 'Processing your photos…');
+    try {
+      const res = await picker();
+      if (res.status === 'denied') {
+        Alert.alert('Photo access needed', 'Allow photo library access to upload photos or a video of the room.');
+        return;
       }
-    },
-    []
-  );
+      if (res.status === 'cancelled') return;
+      if (res.status === 'empty') {
+        Alert.alert('Nothing to use', 'No usable frames were found. Try different photos or a clearer video.');
+        return;
+      }
+      setSource('upload');
+      toReview(res.frames);
+    } catch (e) {
+      Alert.alert('Upload failed', e instanceof Error ? e.message : 'Could not import from your library.');
+    } finally {
+      setPreparing(null);
+    }
+  };
 
-  const proceed = useCallback(() => {
-    setFrames(captured);
-    navigation.navigate('Mode');
-  }, [captured, navigation, setFrames]);
+  // A fresh capture creates its space once (coming back here and continuing
+  // again reuses it rather than making a duplicate).
+  const createdRef = useRef(false);
+  const proceed = () => {
+    if ((fresh && !createdRef.current) || !useSession.getState().current()) {
+      const n = useSession.getState().spaces.length + 1;
+      addSpace(`Space ${n}`);
+      useSession.getState().patchSpace({ saved: false });
+      createdRef.current = true;
+    }
+    const cur = useSession.getState().current();
+    if (cur && cur.capture.frames !== framesRef.current) {
+      // New photos: tags and results pinned to the old ones no longer line up.
+      useSession.getState().patchSpace({ tags: [], result: null });
+    }
+    setFrames(framesRef.current);
+    navigation.navigate('Tagging');
+  };
 
-  // ---------- PREPARING DEMO ROOM (rasterising for the real model) ----------
-  if (rasterizing) {
-    return (
-      <Screen step={0} title="Preparing demo room" subtitle="Rendering the room into images for the AI…">
-        <View style={styles.prep}>
-          <ActivityIndicator size="large" color={colors.accent} />
-          <Text style={styles.prepTxt}>One moment…</Text>
-        </View>
-        <DemoRasterizer onDone={onRasterDone} />
-      </Screen>
-    );
-  }
+  const onCarousel = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const i = Math.round(e.nativeEvent.contentOffset.x / (itemW + itemGap));
+    if (i !== page) setPage(Math.max(0, Math.min(captured.length - 1, i)));
+  };
 
-  // ---------- PREPARING UPLOAD (importing photos / sampling a video) ----------
-  if (preparing) {
-    return (
-      <Screen step={0} title="Building your room" subtitle={preparing}>
-        <View style={styles.prep}>
-          <ActivityIndicator size="large" color={colors.accent} />
-          <Text style={styles.prepTxt}>One moment…</Text>
-        </View>
-      </Screen>
-    );
-  }
-
-  // ---------- REVIEW ----------
-  if (phase === 'review') {
-    const enough = captured.length >= 6;
-    const reviewSubtitle =
-      source === 'demo'
-        ? 'This is the built-in demo room — a scrollable 2D map of the space.'
-        : source === 'upload'
-        ? `${captured.length} uploaded ${captured.length === 1 ? 'frame' : 'frames'} assembled into one scrollable 2D room map.`
-        : `${captured.length} frames assembled into one scrollable 2D room map.`;
-    return (
-      <Screen step={0} title="Review your room" subtitle={reviewSubtitle}>
-        <View style={styles.reviewBody}>
-          <GlassCard style={styles.mapCard} padded={false}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.strip}
-            >
-              {captured.map((f, i) => (
-                <View key={i} style={styles.reviewFrame}>
-                  <FrameView frame={f} width={168} height={224} radius={radius.md} />
-                  <Text style={styles.frameIdx}>{i}</Text>
-                </View>
-              ))}
-            </ScrollView>
-          </GlassCard>
-
-          {!enough && !isDemo && (
-            <Text style={styles.warn}>
-              Only {captured.length} {captured.length === 1 ? 'frame' : 'frames'} — a few more
-              angles give the AI a better read of the room.
-            </Text>
-          )}
-
-          <View style={styles.actions}>
-            <Button label="Retake" variant="secondary" onPress={retake} style={{ flex: 1 }} />
-            <Button
-              label="Continue"
-              onPress={proceed}
-              disabled={captured.length === 0}
-              style={{ flex: 1 }}
-            />
-          </View>
-          {!isDemo && (
-            <Button label="Use demo room instead" variant="ghost" onPress={useDemoRoom} />
-          )}
-        </View>
-      </Screen>
-    );
-  }
-
-  // ---------- CAMERA ----------
+  const close = () => navigation.navigate('Home');
   const granted = permission?.granted;
 
+  // ---------- REVIEW ----------
+  if (phase === 'review' && !preparing) {
+    const n = captured.length;
+    const subtitle =
+      source === 'demo'
+        ? 'This demo room is mapped into a 2D/3D map, double check all corners are captured and no personal identifiable information is shown.'
+        : `${n} ${source === 'upload' ? 'uploaded ' : ''}${n === 1 ? 'frame' : 'frames'} to be mapped into a 2D/3D map, double check all corners are captured and no personal identifiable information is shown.`;
+    return (
+      <View style={styles.root}>
+        <SafeAreaView edges={['top']} style={{ flex: 1 }}>
+          <TopBar onBack={retake} onClose={close} style={styles.topBar} />
+          <View style={styles.body}>
+            <Text style={styles.h1}>Review your space</Text>
+            <Text style={styles.sub}>{subtitle}</Text>
+
+            <View style={[styles.card, { width: cardW }]}>
+              <ProgressBars count={n} active={page} />
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                snapToInterval={itemW + itemGap}
+                decelerationRate="fast"
+                onScroll={onCarousel}
+                scrollEventThrottle={32}
+                contentContainerStyle={{ paddingHorizontal: 12, gap: itemGap }}
+              >
+                {captured.map((f, i) => (
+                  <FrameView key={i} frame={f} width={itemW} height={itemH} radius={12} />
+                ))}
+                {n === 1 && <View style={[styles.ghostFrame, { width: cardW - itemW - 42, height: itemH }]} />}
+              </ScrollView>
+            </View>
+
+            {n < 4 && source !== 'demo' && (
+              <Text style={styles.warn}>Only {n} {n === 1 ? 'frame' : 'frames'}, a few more angles give a better read of the room.</Text>
+            )}
+
+            <JoinedButtons
+              left={{ label: 'Retake Images', onPress: retake }}
+              right={{ label: 'Continue', onPress: proceed, disabled: n === 0 }}
+              style={{ marginTop: 24 }}
+            />
+            {source !== 'demo' && (
+              <Pressable onPress={useDemoRoom} style={styles.demoLink} hitSlop={8}>
+                <Text style={styles.demoTxt}>Use a demo room instead →</Text>
+              </Pressable>
+            )}
+          </View>
+        </SafeAreaView>
+        <SwipeUpNav onSpaces={close} onCapture={retake} />
+      </View>
+    );
+  }
+
+  // ---------- CAMERA / UPLOAD ----------
   return (
-    <Screen
-      step={0}
-      title="Capture the room"
-      subtitle="Sweep slowly left → right, or upload photos or a video of the room."
-    >
-      <View style={styles.cameraBody}>
-        <View style={styles.viewport}>
-          {granted ? (
-            <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="back" />
-          ) : (
-            <View style={styles.noCam}>
-              <Text style={styles.noCamTitle}>Camera not available</Text>
-              <Text style={styles.noCamText}>
-                {permission && !permission.granted
-                  ? 'Grant camera access to sweep a real room — or upload photos/a video, or use the demo room below.'
-                  : 'No camera here (e.g. the simulator) — upload photos or a video of a room, or use the demo room below.'}
-              </Text>
-              {permission && !permission.granted && permission.canAskAgain && (
-                <Button
-                  label="Grant camera access"
-                  variant="secondary"
-                  onPress={requestPermission}
-                  style={{ marginTop: spacing.md }}
-                />
+    <View style={styles.root}>
+      <SafeAreaView edges={['top']} style={{ flex: 1 }}>
+        <TopBar onBack={() => navigation.goBack()} onClose={close} style={styles.topBar} />
+        <View style={styles.body}>
+          <Text style={styles.h1}>Capture your space</Text>
+          <Text style={styles.sub}>
+            Sweep your camera slowly from left to right, or upload photos or a video of the room.
+          </Text>
+
+          <View style={[styles.card, styles.cameraCard, { width: cardW }]}>
+            <View style={styles.viewport}>
+              {preparing ? (
+                <View style={styles.center}>
+                  <ActivityIndicator color={colors.orange} size="large" />
+                  <Text style={styles.centerTxt}>{preparing}</Text>
+                </View>
+              ) : granted ? (
+                <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="back" />
+              ) : (
+                <View style={styles.center}>
+                  <Text style={styles.centerTitle}>Camera not available</Text>
+                  <Text style={styles.centerTxt}>
+                    {permission && !permission.granted
+                      ? 'Allow camera access to sweep a real room, or upload photos, or use the demo room.'
+                      : 'No camera here (e.g. the Simulator). Upload photos or a video, or use the demo room.'}
+                  </Text>
+                  {permission && !permission.granted && permission.canAskAgain && (
+                    <Pressable onPress={requestPermission} style={styles.grant}>
+                      <Text style={styles.grantTxt}>Allow camera</Text>
+                    </Pressable>
+                  )}
+                </View>
+              )}
+              {sweeping && (
+                <View style={styles.sweepPill} pointerEvents="none">
+                  <ActivityIndicator color={colors.text} />
+                  <Text style={styles.sweepTxt}>{captured.length} frames, keep panning…</Text>
+                </View>
               )}
             </View>
+          </View>
+
+          {granted && (
+            <PrimaryButton
+              label={sweeping ? 'Done sweeping' : 'Start sweep'}
+              onPress={sweeping ? stopSweep : startSweep}
+              style={{ marginTop: 18, height: 36, borderRadius: 10 }}
+            />
           )}
-
-          {sweeping && (
-            <View style={styles.sweepOverlay} pointerEvents="none">
-              <View style={styles.counter}>
-                <ActivityIndicator color={colors.accentText} />
-                <Text style={styles.counterText}>{captured.length} / {TARGET_FRAMES}</Text>
-              </View>
-              <Text style={styles.sweepHint}>Keep panning slowly…</Text>
-            </View>
-          )}
-        </View>
-
-        <View style={styles.controls}>
-          {granted && sweeping && <Button label="Done sweeping" onPress={stopSweep} />}
-          {granted && !sweeping && <Button label="Start sweep" onPress={startSweep} />}
-
           {!sweeping && (
             <>
-              <View style={styles.altRow}>
-                <Button
-                  label="Upload photos"
-                  variant="secondary"
-                  onPress={() => runUpload(pickPhotos, 'photos')}
-                  style={{ flex: 1 }}
-                />
-                <Button
-                  label="Upload video"
-                  variant="secondary"
-                  onPress={() => runUpload(pickVideoFrames, 'video')}
-                  style={{ flex: 1 }}
-                />
-              </View>
-              <Pressable onPress={useDemoRoom} style={styles.demoLink}>
-                <Text style={styles.demoLinkText}>Use demo room →</Text>
+              <JoinedButtons
+                left={{ label: 'Upload Video', onPress: () => runUpload(pickVideoFrames, 'video') }}
+                right={{ label: 'Upload Photos', onPress: () => runUpload(pickPhotos, 'photos') }}
+                style={{ marginTop: granted ? 12 : 24 }}
+              />
+              <Pressable onPress={useDemoRoom} style={styles.demoLink} hitSlop={8}>
+                <Text style={styles.demoTxt}>Use a demo room instead →</Text>
               </Pressable>
             </>
           )}
         </View>
-      </View>
-    </Screen>
+      </SafeAreaView>
+    </View>
+  );
+}
+
+// Thin bars across the top of the carousel card; the orange one is the current frame.
+export function ProgressBars({ count, active }: { count: number; active: number }) {
+  const bars = Math.max(3, Math.min(count, 8));
+  const current = count > bars ? Math.round((active / Math.max(1, count - 1)) * (bars - 1)) : active;
+  return (
+    <View style={styles.bars}>
+      {Array.from({ length: bars }, (_, i) => (
+        <View key={i} style={[styles.bar, { width: bars > 3 ? 32 : 58 }, i === current && { backgroundColor: colors.orange }]} />
+      ))}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  prep: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
-  prepTxt: { color: colors.textMuted, fontSize: font.body },
-  cameraBody: { flex: 1, paddingHorizontal: spacing.xl },
-  viewport: {
-    flex: 1,
-    borderRadius: radius.lg,
-    overflow: 'hidden',
-    backgroundColor: '#000',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  noCam: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.xl,
-  },
-  noCamTitle: { color: colors.text, fontSize: font.h3, fontWeight: '600', marginBottom: 8 },
-  noCamText: { color: colors.textMuted, fontSize: font.body, textAlign: 'center', lineHeight: 21 },
-  sweepOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    paddingBottom: spacing.xl,
-  },
-  counter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: radius.pill,
-  },
-  counterText: { color: colors.accentText, fontSize: font.h3, fontWeight: '700' },
-  sweepHint: { color: '#fff', marginTop: 10, fontSize: font.body },
-  controls: { paddingVertical: spacing.lg, gap: spacing.md },
-  altRow: { flexDirection: 'row', gap: spacing.md },
-  demoLink: { alignItems: 'center', paddingVertical: 6 },
-  demoLinkText: { color: colors.textMuted, fontSize: font.body, fontWeight: '600' },
+  root: { flex: 1, backgroundColor: colors.bg2 },
+  topBar: { paddingHorizontal: 22, paddingTop: 6 },
+  body: { flex: 1, paddingHorizontal: 22 },
+  h1: { fontFamily: fonts.bold, color: colors.text, fontSize: 20, marginTop: -2 },
+  sub: { fontFamily: fonts.regular, color: colors.text, fontSize: 12.5, lineHeight: 17, marginTop: 4 },
 
-  reviewBody: { flex: 1, paddingHorizontal: spacing.xl, gap: spacing.lg },
-  mapCard: { paddingVertical: spacing.md },
-  strip: { paddingHorizontal: spacing.md, gap: spacing.sm, alignItems: 'center' },
-  reviewFrame: { position: 'relative' },
-  frameIdx: {
-    position: 'absolute',
-    top: 6,
-    left: 6,
-    color: '#fff',
-    fontSize: font.tiny,
-    fontWeight: '700',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    overflow: 'hidden',
-  },
-  warn: { color: colors.sevMedium, fontSize: font.small, lineHeight: 19 },
-  actions: { flexDirection: 'row', gap: spacing.md },
+  card: { backgroundColor: colors.bg, borderRadius: 20, paddingTop: 13, paddingBottom: 22, marginTop: 16 },
+  cameraCard: { paddingHorizontal: 12, paddingTop: 12, paddingBottom: 12 },
+  bars: { flexDirection: 'row', justifyContent: 'center', gap: 5, marginBottom: 16 },
+  bar: { height: 6, borderRadius: 3, backgroundColor: colors.dots },
+  ghostFrame: { backgroundColor: colors.track, borderRadius: 12 },
+  warn: { fontFamily: fonts.regular, color: colors.orangeDeep, fontSize: 12, marginTop: 10 },
+
+  viewport: { height: 380, borderRadius: 12, overflow: 'hidden', backgroundColor: colors.track },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 8 },
+  centerTitle: { fontFamily: fonts.semibold, color: colors.text, fontSize: 16 },
+  centerTxt: { fontFamily: fonts.regular, color: colors.textMuted, fontSize: 13, textAlign: 'center', lineHeight: 18 },
+  grant: { marginTop: 8, backgroundColor: colors.orange, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 8 },
+  grantTxt: { fontFamily: fonts.regular, color: colors.text, fontSize: 14 },
+  sweepPill: { position: 'absolute', bottom: 14, alignSelf: 'center', flexDirection: 'row', gap: 8, alignItems: 'center', backgroundColor: colors.orangeLight, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
+  sweepTxt: { fontFamily: fonts.medium, color: colors.text, fontSize: 13 },
+
+  demoLink: { alignSelf: 'flex-end', marginTop: 16 },
+  demoTxt: { fontFamily: fonts.regular, color: colors.text, fontSize: 12 },
 });

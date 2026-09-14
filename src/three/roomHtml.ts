@@ -52,7 +52,7 @@ export function buildRoomHtml(scene: Scene3D): string {
 </style>
 </head>
 <body>
-<div id="banner">
+<div id="banner" class="hidden"><!-- hidden: the app shows its own header, and the spec never shows a score -->
   <div class="brow" id="brow"></div>
   <div class="bsummary" id="bsummary"></div>
 </div>
