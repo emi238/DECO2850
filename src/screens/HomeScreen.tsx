@@ -54,7 +54,7 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
           <Text style={[styles.label, { marginTop: 0 }]}>Create new space</Text>
           <Pressable style={({ pressed }) => [styles.upload, pressed && { opacity: 0.7 }]} onPress={startCapture}>
             <Text style={styles.uploadTxt}>Upload New Space</Text>
-            <UploadIcon size={18} />
+            <UploadIcon size={20} />
           </Pressable>
 
           {featured && (
@@ -106,12 +106,12 @@ const styles = StyleSheet.create({
   top: { paddingHorizontal: 29, paddingBottom: 14 },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 },
   paw: { width: 36, height: 36, tintColor: colors.orangeDeep },
-  hi: { fontFamily: fonts.semibold, color: colors.text, fontSize: 20, marginTop: 8 },
-  sub: { fontFamily: fonts.regular, color: colors.text, fontSize: 15, marginTop: 4 },
+  hi: { fontFamily: fonts.semibold, color: colors.text, fontSize: 24, marginTop: 8 },
+  sub: { fontFamily: fonts.regular, color: colors.text, fontSize: 17, marginTop: 4 },
 
   panel: { flex: 1, backgroundColor: colors.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20 },
   body: { paddingHorizontal: 29, paddingTop: 12, paddingBottom: 120 },
-  label: { fontFamily: fonts.medium, color: colors.text, fontSize: 12.5, marginBottom: 10, marginTop: 26 },
+  label: { fontFamily: fonts.semibold, color: colors.text, fontSize: 16, marginBottom: 10, marginTop: 26 },
 
   upload: {
     borderWidth: 1.5,
@@ -124,11 +124,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 4,
   },
-  uploadTxt: { fontFamily: fonts.regular, color: colors.text, fontSize: 12.5 },
+  uploadTxt: { fontFamily: fonts.regular, color: colors.text, fontSize: 15 },
 
   browseScroll: { marginRight: -29 },
   browse: { gap: 8, paddingRight: 29 },
-  empty: { fontFamily: fonts.regular, color: colors.textMuted, fontSize: 13, textAlign: 'center', marginTop: 26, lineHeight: 19 },
+  empty: { fontFamily: fonts.regular, color: colors.textMuted, fontSize: 15, textAlign: 'center', marginTop: 26, lineHeight: 21 },
 
   changed: {
     flexDirection: 'row',
@@ -139,9 +139,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     marginTop: 44,
     marginHorizontal: 3,
-    height: 77,
+    height: 96,
   },
-  changedH: { fontFamily: fonts.bold, color: colors.text, fontSize: 14, lineHeight: 17 },
-  changedSub: { fontFamily: fonts.regular, color: colors.text, fontSize: 9.5, marginTop: 4 },
-  changedDog: { width: 68, height: 105, marginRight: 14, marginBottom: -12 },
+  changedH: { fontFamily: fonts.semibold, color: colors.text, fontSize: 17, lineHeight: 21 },
+  changedSub: { fontFamily: fonts.regular, color: colors.text, fontSize: 12, marginTop: 4 },
+  changedDog: { width: 74, height: 118, marginRight: 12, marginBottom: -12 },
 });
