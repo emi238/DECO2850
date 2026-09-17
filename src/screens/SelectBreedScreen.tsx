@@ -241,15 +241,30 @@ function petFor(b: BreedProfile, energy?: Energy) {
   };
 }
 
-// Facts from The Dog API plus the breed-bias disclaimer (spec P4.6).
+// A 1–5 dataset trait as a plain word.
+const word5 = (n?: number | null): string => (n == null ? '' : n <= 2 ? 'Low' : n >= 4 ? 'High' : 'Moderate');
+
+// Facts from the breed API plus the breed-bias disclaimer (spec P4.6).
 function BreedFacts({ breed }: { breed: BreedProfile }) {
+  const ninja = breed.provider === 'api-ninjas';
   const rows = [
     ['Temperament', breed.temperament],
     ['Bred for', breed.bredFor],
     ['Group', breed.group],
     ['Life span', breed.lifeSpan],
     ['Weight', breed.weightKg ? `about ${breed.weightKg} kg` : ''],
+    ['Height', breed.heightCm ? `about ${breed.heightCm} cm` : ''],
+    // Richer numeric traits — only API Ninjas supplies these.
+    ['Shedding', word5(breed.shedding)],
+    ['Trainability', word5(breed.trainability)],
+    ['Good with children', word5(breed.goodWithChildren)],
+    ['Good with other dogs', word5(breed.goodWithOtherDogs)],
   ].filter(([, v]) => !!v);
+  const sourceNote = ninja
+    ? ' Breed facts and trait scores from API Ninjas.'
+    : breed.source === 'api' || breed.temperament
+    ? ' Breed facts from The Dog API.'
+    : '';
   return (
     <View style={styles.facts}>
       <View style={styles.factsHead}>
@@ -271,7 +286,7 @@ function BreedFacts({ breed }: { breed: BreedProfile }) {
       <Text style={styles.biasNote}>
         Breed only explains part of an individual dog’s behaviour, every dog is different.
         {breed.traitsEstimated ? ' Energy and barking are estimated from the breed’s temperament.' : ''}
-        {breed.source === 'api' || breed.temperament ? ' Breed facts from The Dog API.' : ''}
+        {sourceNote}
       </Text>
     </View>
   );
