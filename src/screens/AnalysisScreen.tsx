@@ -184,9 +184,9 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
         )}
         {!hasPet && (
           <View style={styles.pickPrompt}>
-            <Text style={styles.pickTitle}>Choose a dog breed to start</Text>
+            <Text style={styles.pickTitle}>Choose a dog breed to run analysis!</Text>
             <Text style={styles.pickBody}>
-              The analysis depends on the dog’s size, energy and barking, so it runs once you pick a breed.
+              Pick a breed yourself, or answer a few quick questions to get suggestions, the analysis runs as soon as you select one or hit the re-run button anytime to re-analyse.
             </Text>
             <PrimaryButton label="Select breed" onPress={selectBreed} style={{ marginTop: 14, alignSelf: 'stretch' }} />
           </View>
