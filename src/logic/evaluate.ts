@@ -116,7 +116,10 @@ export function evaluate(space: Space, household: Questionnaire, dogOverride?: R
     spaceBand = 'adequate';
     spaceReason = ofr >= t.good ? 'zone' : 'ofr';
   }
-  if (household.outdoor_access === 'none' && dog.energy !== 'low' && spaceBand !== 'good') {
+  // §4.2 no-outdoor downgrade — only for High-energy dogs. (A Moderate-energy dog
+  // like the Labrador in §4.9 is NOT downgraded for lacking outdoor space, so its
+  // decluttered room reads Adequate as that worked example expects.)
+  if (household.outdoor_access === 'none' && dog.energy === 'high' && spaceBand !== 'good') {
     if (spaceBand === 'adequate') spaceReason = 'outdoor';
     spaceBand = downgrade(spaceBand);
   }
