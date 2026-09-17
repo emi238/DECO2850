@@ -33,9 +33,9 @@ export default function SpaceSavedScreen({ navigation }: ScreenProps<'SpaceSaved
   if (!space) return <View style={styles.root} />;
 
   const startAnalysis = () => {
-    // Analyse with the latest household answers.
+    // Opens the space; the analysis itself waits until a breed is picked there.
     patchSpace({ questionnaire: { ...useSession.getState().household }, result: null });
-    navigation.navigate('Analysis', { run: true });
+    navigation.navigate('Analysis');
   };
 
   return (

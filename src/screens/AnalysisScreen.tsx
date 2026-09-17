@@ -23,7 +23,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 
-import { TopBar, AvatarButton, Segmented } from '../components/kit';
+import { TopBar, AvatarButton, Segmented, PrimaryButton } from '../components/kit';
 import { FrameView, useFrameImageSize, imageToView } from '../components/FrameView';
 import { Room3DView } from '../components/Room3DView';
 import { LoadingView } from '../components/LoadingView';
@@ -45,7 +45,9 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
   const setResult = useSession((s) => s.setResult);
   const { width, height } = useWindowDimensions();
 
-  const needsRun = !!route.params?.run || !space?.result;
+  // The analysis only runs once a breed is chosen (without one it isn't accurate).
+  const hasPet = !!space?.pet?.breed;
+  const needsRun = hasPet && (!!route.params?.run || !space?.result);
   const [loading, setLoading] = useState(needsRun);
   const [loadDone, setLoadDone] = useState(false);
   const [view, setView] = useState<'2d' | '3d'>('2d');
@@ -76,21 +78,23 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
     }, wait);
   };
 
+  // Runs on first open (if a breed is set) and again whenever Select breed sends
+  // us back with `run` (a new breed means a new analysis).
   useEffect(() => {
-    if (needsRun) analyse();
-    return () => {
-      runRef.current++;
-    };
+    if (!needsRun) return;
+    if (route.params?.run) navigation.setParams({ run: undefined });
+    analyse();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [route.params?.run]);
+  useEffect(() => () => void runRef.current++, []);
 
-  // Coming back from Select breed with a new dog → show the report.
+  // Coming back from Select breed → show the report once the analysis is done.
   useEffect(() => {
-    if (route.params?.report) {
+    if (route.params?.report && !loading) {
       setReportOpen(true);
       navigation.setParams({ report: undefined });
     }
-  }, [route.params?.report, navigation]);
+  }, [route.params?.report, loading, navigation]);
 
   const result = space?.result ?? null;
   const evaluation = useMemo(() => (space ? evaluate(space, household) : null), [space, household]);
@@ -178,6 +182,15 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
             <Text style={styles.selectBreedTxt}>Select breed</Text>
           </Pressable>
         )}
+        {!hasPet && (
+          <View style={styles.pickPrompt}>
+            <Text style={styles.pickTitle}>Choose a dog breed to start</Text>
+            <Text style={styles.pickBody}>
+              The analysis depends on the dog’s size, energy and barking, so it runs once you pick a breed.
+            </Text>
+            <PrimaryButton label="Select breed" onPress={selectBreed} style={{ marginTop: 14, alignSelf: 'stretch' }} />
+          </View>
+        )}
         <Segmented
           value={view}
           onChange={setView}
@@ -216,7 +229,7 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
           />
         )}
 
-        {riskIndex == null && !reportOpen && (
+        {hasPet && riskIndex == null && !reportOpen && (
           <Pressable style={styles.fab} onPress={reanalyse} hitSlop={6}>
             <RefreshRingIcon size={22} />
             <Text style={styles.fabTxt}>Re-run</Text>
@@ -524,8 +537,11 @@ const styles = StyleSheet.create({
   breedPillTxt: { fontFamily: fonts.regular, fontSize: 12, color: colors.text },
 
   card: { flex: 1, borderTopLeftRadius: 22, borderTopRightRadius: 22, overflow: 'hidden', backgroundColor: colors.track },
-  selectBreed: { position: 'absolute', top: 11, left: 22, backgroundColor: colors.track, borderRadius: 10, height: 27, paddingHorizontal: 12, justifyContent: 'center', borderWidth: 1, borderColor: '#fff' },
-  selectBreedTxt: { fontFamily: fonts.regular, fontSize: 12, color: colors.text },
+  selectBreed: { position: 'absolute', top: 11, left: 16, backgroundColor: colors.track, borderRadius: 12, height: 36, paddingHorizontal: 16, justifyContent: 'center', borderWidth: 1, borderColor: '#fff' },
+  selectBreedTxt: { fontFamily: fonts.semibold, fontSize: 14, color: colors.text },
+  pickPrompt: { position: 'absolute', left: 24, right: 24, top: '30%', backgroundColor: 'rgba(255,255,255,0.94)', borderRadius: 20, padding: 20, alignItems: 'center' },
+  pickTitle: { fontFamily: fonts.semibold, fontSize: 17, color: colors.text, textAlign: 'center' },
+  pickBody: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.textMuted, textAlign: 'center', marginTop: 6 },
   mapToggle: { position: 'absolute', top: 11, right: 16, width: 127, height: 28, backgroundColor: colors.track, borderRadius: 10, borderWidth: 1, borderColor: '#fff' },
   mapToggleTxt: { fontSize: 10.5 },
 

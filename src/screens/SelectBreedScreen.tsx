@@ -77,7 +77,8 @@ export default function SelectBreedScreen({ navigation }: ScreenProps<'SelectBre
     }
   };
 
-  const done = () => navigation.popTo('Analysis', { report: true });
+  // A breed is set: go back, run the analysis for it, then show the report.
+  const done = () => navigation.popTo('Analysis', { run: true, report: true });
 
   const confirmInMind = () => {
     if (!breedId) return;
