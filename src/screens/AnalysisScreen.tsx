@@ -28,7 +28,7 @@ import { FrameView, useFrameImageSize, imageToView } from '../components/FrameVi
 import { Room3DView } from '../components/Room3DView';
 import { LoadingView } from '../components/LoadingView';
 import { SwipeUpNav } from '../components/SwipeUpNav';
-import { AlertIcon, ChevronIcon, CloseIcon, EditIcon, RefreshRingIcon } from '../components/icons';
+import { AlertIcon, ChevronIcon, CloseIcon, EditIcon, RefreshRingIcon, TrashIcon } from '../components/icons';
 import { HELP_TEXT } from './HomeScreen';
 import { colors, fonts } from '../theme';
 import { useSession, useCurrentSpace } from '../store/session';
@@ -113,6 +113,19 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
       { text: 'Re-analyse', onPress: analyse },
     ]);
   const goHome = () => navigation.popTo('Home');
+  const deleteSpace = () =>
+    Alert.alert(`Delete “${title}”?`, 'This removes the space, its photos, tags and analysis. This can’t be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          runRef.current++; // stop any analysis still running for this space
+          useSession.getState().removeSpace(space.id);
+          navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+        },
+      },
+    ]);
   const selectBreed = () => navigation.navigate('SelectBreed');
 
   return (
@@ -131,7 +144,12 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
             )
           }
         />
-        <Text style={styles.h1}>{title}</Text>
+        <View style={styles.titleRow}>
+          <Text style={styles.h1} numberOfLines={1}>{title}</Text>
+          <Pressable onPress={deleteSpace} hitSlop={10} style={styles.trash} accessibilityLabel="Delete space">
+            <TrashIcon size={22} color={colors.bad} />
+          </Pressable>
+        </View>
         <Text style={styles.sub}>Explore risks and{'\n'}improvements for your space</Text>
       </SafeAreaView>
 
@@ -496,7 +514,9 @@ function ReportRow({ heading, tag, band, line }: { heading: string; tag: string;
 const styles = StyleSheet.create({
   root: { flex: 1 },
   header: { paddingHorizontal: 22, paddingTop: 6, paddingBottom: 18 },
-  h1: { fontFamily: fonts.bold, color: colors.text, fontSize: 20, marginTop: 14 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', marginTop: 14, alignSelf: 'flex-start', maxWidth: '62%' },
+  trash: { marginLeft: 12 },
+  h1: { flexShrink: 1, fontFamily: fonts.bold, color: colors.text, fontSize: 20 },
   sub: { fontFamily: fonts.regular, color: colors.text, fontSize: 15, lineHeight: 21, marginTop: 6 },
 
   breedPill: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.orangeLight, borderRadius: 10, height: 27, paddingHorizontal: 12, marginTop: 0 },
