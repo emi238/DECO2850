@@ -401,11 +401,16 @@ function RiskSheet({
 // ---------------------------------------------------------------------------
 // Peeking dog avatar (static); its mood shows in the speech bubble and report.
 
+// The three cutout images are cropped differently, so the Collie and Labrador sit
+// a touch high next to the Frenchie — nudge just those two down to line them up.
+const DOG_NUDGE: Record<string, number> = { border_collie: 16, labrador_retriever: 16 };
+
 function DogAvatar({ evaluation, top, onPress }: { evaluation: Evaluation; top: number; onPress: () => void }) {
   const { mood, dog } = evaluation;
+  const nudge = (dog.breed?.id && DOG_NUDGE[dog.breed.id]) || 0;
 
   return (
-    <View style={[styles.dogWrap, { top }]} pointerEvents="box-none">
+    <View style={[styles.dogWrap, { top: top + nudge }]} pointerEvents="box-none">
       <Pressable onPress={onPress}>
         <View>
           {evaluation.dog.cutout ? (
@@ -543,7 +548,7 @@ const styles = StyleSheet.create({
   pickTitle: { fontFamily: fonts.semibold, fontSize: 17, color: colors.text, textAlign: 'center' },
   pickBody: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.textMuted, textAlign: 'center', marginTop: 6 },
   mapToggle: { position: 'absolute', top: 11, right: 16, width: 127, height: 28, backgroundColor: colors.track, borderRadius: 10, borderWidth: 1, borderColor: '#fff' },
-  mapToggleTxt: { fontSize: 10.5 },
+  mapToggleTxt: { fontFamily: fonts.semibold, fontSize: 10.5 },
 
   pin: { position: 'absolute', width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(251,171,75,0.35)', alignItems: 'center', justifyContent: 'center' },
   pinOn: { backgroundColor: 'rgba(251,171,75,0.7)', transform: [{ scale: 1.15 }] },
