@@ -39,6 +39,14 @@ export interface ApiBreed {
   origin: string;
   description: string;
   traitsEstimated: boolean; // energy/noise guessed from temperament & group
+  // Which dataset this breed came from, and the richer numeric facts that only
+  // API Ninjas (dogsApi.ts) provides — undefined for The Dog API rows.
+  provider?: 'thedogapi' | 'api-ninjas';
+  heightCm?: number | null;
+  shedding?: number | null; // 1–5
+  trainability?: number | null; // 1–5
+  goodWithChildren?: number | null; // 1–5
+  goodWithOtherDogs?: number | null; // 1–5
 }
 
 // ---- parsing (tolerant: the free and paid plans return different fields) ----
@@ -125,6 +133,7 @@ export function parseBreed(raw: any): ApiBreed | null {
     origin: String(raw.origin ?? ''),
     description: String(raw.description ?? ''),
     traitsEstimated: estimated,
+    provider: 'thedogapi',
   };
 }
 

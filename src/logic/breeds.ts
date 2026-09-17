@@ -9,6 +9,7 @@ import type { ImageSourcePropType } from 'react-native';
 import { IMAGES } from '../assets';
 import type { ApiBreed } from './dogApi';
 import { loadApiBreeds } from './dogApi';
+import { loadNinjaBreeds } from './dogsApi';
 
 export type SizeClass = 'small' | 'medium' | 'large';
 export type Energy = 'low' | 'moderate' | 'high';
@@ -25,13 +26,21 @@ export interface BreedProfile {
   sitting: ImageSourcePropType; // full-body image (breed cards)
   cutout: boolean; // true = transparent cartoon art; false = a regular photo
   source: 'builtin' | 'api';
-  // Facts from The Dog API (empty for built-ins until the API is loaded).
+  // Facts from the breed API (empty for built-ins until an API is loaded).
   temperament?: string;
   lifeSpan?: string;
   bredFor?: string;
   group?: string;
   description?: string;
   traitsEstimated?: boolean;
+  // Which dataset the facts came from, plus the richer numeric traits (1–5) that
+  // only API Ninjas supplies.
+  provider?: 'thedogapi' | 'api-ninjas';
+  heightCm?: number | null;
+  shedding?: number | null;
+  trainability?: number | null;
+  goodWithChildren?: number | null;
+  goodWithOtherDogs?: number | null;
 }
 
 export const BREEDS: BreedProfile[] = [
@@ -109,6 +118,29 @@ function fromApi(b: ApiBreed): BreedProfile {
     group: b.group,
     description: b.description,
     traitsEstimated: b.traitsEstimated,
+    provider: b.provider,
+    heightCm: b.heightCm,
+    shedding: b.shedding,
+    trainability: b.trainability,
+    goodWithChildren: b.goodWithChildren,
+    goodWithOtherDogs: b.goodWithOtherDogs,
+  };
+}
+
+// The facts an API row adds to a breed (leaving the spec traits + art untouched).
+function facts(a: ApiBreed): Partial<BreedProfile> {
+  return {
+    temperament: a.temperament || undefined,
+    lifeSpan: a.lifeSpan || undefined,
+    bredFor: a.bredFor || undefined,
+    group: a.group || undefined,
+    description: a.description || undefined,
+    provider: a.provider,
+    heightCm: a.heightCm,
+    shedding: a.shedding,
+    trainability: a.trainability,
+    goodWithChildren: a.goodWithChildren,
+    goodWithOtherDogs: a.goodWithOtherDogs,
   };
 }
 
@@ -117,7 +149,7 @@ function merge(api: ApiBreed[]): BreedProfile[] {
   const byName = new Map(api.map((b) => [norm(b.name), b]));
   const builtins = BREEDS.map((b) => {
     const a = byName.get(norm(b.name));
-    return a ? { ...b, temperament: a.temperament, lifeSpan: a.lifeSpan, bredFor: a.bredFor, group: a.group, description: a.description } : b;
+    return a ? { ...b, ...facts(a) } : b;
   });
   const builtinNames = new Set(BREEDS.map((b) => norm(b.name)));
   const rest = api.filter((b) => !builtinNames.has(norm(b.name))).map(fromApi);
@@ -125,6 +157,14 @@ function merge(api: ApiBreed[]): BreedProfile[] {
 }
 
 let catalogue: BreedProfile[] = BREEDS;
+
+// Prefer API Ninjas (real numeric traits → more accurate §4 logic); fall back to
+// The Dog API, then to just the built-ins. Whichever returns breeds wins.
+async function loadCatalogueBreeds(): Promise<ApiBreed[]> {
+  const ninja = await loadNinjaBreeds();
+  if (ninja.length) return ninja;
+  return loadApiBreeds();
+}
 
 export function findBreed(nameOrId?: string | null): BreedProfile | undefined {
   if (!nameOrId) return undefined;
@@ -139,7 +179,7 @@ export function useBreedCatalogue(): { breeds: BreedProfile[]; loading: boolean 
   const [loading, setLoading] = useState(catalogue === BREEDS);
   useEffect(() => {
     let alive = true;
-    loadApiBreeds().then((api) => {
+    loadCatalogueBreeds().then((api) => {
       if (api.length) catalogue = merge(api);
       if (alive) {
         setBreeds(catalogue);
