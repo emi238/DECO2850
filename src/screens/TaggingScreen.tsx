@@ -16,10 +16,8 @@ import {
   Modal,
   GestureResponderEvent,
   useWindowDimensions,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { TopBar, PrimaryButton, JoinedButtons, Segmented } from '../components/kit';
 import { FrameView, useFrameImageSize, viewToImage, imageToView } from '../components/FrameView';
@@ -37,6 +35,7 @@ export default function TaggingScreen({ navigation }: ScreenProps<'Tagging'>) {
   const removeTag = useSession((s) => s.removeTag);
 
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const cardW = width - 44;
   const FW = Math.round(cardW * 0.7);
   const FH = Math.round(FW * 1.45);
@@ -152,10 +151,11 @@ export default function TaggingScreen({ navigation }: ScreenProps<'Tagging'>) {
         </ScrollView>
       </SafeAreaView>
 
-      <Modal visible={!!draft} transparent animationType="slide" onRequestClose={() => setDraft(null)}>
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <Modal visible={!!draft} transparent animationType="fade" onRequestClose={() => setDraft(null)}>
+        {/* Sits at the top of the screen so the keyboard never covers it. */}
+        <View style={{ flex: 1 }}>
           <Pressable style={styles.backdrop} onPress={() => setDraft(null)} />
-          <View style={styles.sheet}>
+          <View style={[styles.sheet, { top: insets.top + 12 }]}>
             <Text style={styles.sheetTitle}>Flag this object</Text>
             <Text style={styles.sheetSub}>Frame {(draft?.frame ?? 0) + 1}</Text>
             <TextInput
@@ -183,7 +183,7 @@ export default function TaggingScreen({ navigation }: ScreenProps<'Tagging'>) {
               style={{ marginTop: 18 }}
             />
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </Modal>
     </View>
   );
@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
   remove: { fontFamily: fonts.semibold, color: colors.text, fontSize: 13 },
 
   backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.35)' },
-  sheet: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: colors.bg, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 22, paddingBottom: 36 },
+  sheet: { position: 'absolute', left: 12, right: 12, backgroundColor: colors.bg, borderRadius: 22, padding: 22, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 16, shadowOffset: { width: 0, height: 6 } },
   sheetTitle: { fontFamily: fonts.bold, color: colors.text, fontSize: 18 },
   sheetSub: { fontFamily: fonts.regular, color: colors.textMuted, fontSize: 12, marginTop: 2, marginBottom: 12 },
   input: { backgroundColor: colors.track, borderRadius: 12, height: 48, paddingHorizontal: 12, fontFamily: fonts.regular, fontSize: 14, color: colors.text },
