@@ -43,7 +43,9 @@ export function resolveDog(pet: Pet | null): ResolvedDog | null {
   if (!pet || !pet.breed) return null;
   const breed = findBreed(pet.breed);
   if (breed) {
-    return { name: breed.name, size: breed.size, energy: pet.energy ?? breed.energy, noise: breed.noise, happy: breed.happy, cutout: breed.cutout, breed };
+    // The user can override size and energy for their own dog (spec §1.2/§1.3);
+    // fall back to the breed's typical value when they haven't.
+    return { name: breed.name, size: pet.size ?? breed.size, energy: pet.energy ?? breed.energy, noise: breed.noise, happy: breed.happy, cutout: breed.cutout, breed };
   }
   // Not in the loaded catalogue (mixed breed, or an API breed before the list
   // has loaded): use the traits saved on the pet when it was chosen.
