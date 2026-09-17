@@ -81,7 +81,7 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
             <Text style={styles.empty}>No saved spaces yet. Tap “Upload New Space” to capture your first room.</Text>
           )}
 
-          <Pressable style={styles.changed} onPress={() => navigation.navigate('Household')}>
+          <Pressable style={styles.changed} onPress={() => navigation.navigate('Profile', { editHousehold: true })}>
             <View style={styles.changedText}>
               <Text style={styles.changedH}>Has your living{'\n'}situation changed? →</Text>
               <Text style={styles.changedSub}>Change your preferences and tell us what’s new!</Text>

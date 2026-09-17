@@ -9,7 +9,7 @@ export type RootStackParamList = {
   Login: undefined;
   ResetPassword: undefined;
   Household: { onboarding?: boolean } | undefined;
-  Profile: undefined;
+  Profile: { editHousehold?: boolean } | undefined; // true = open with the household section unlocked
   Home: undefined;
   Capture: { fresh?: boolean } | undefined;
   Tagging: undefined;
