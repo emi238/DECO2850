@@ -31,10 +31,10 @@ export default function CreateAccountScreen({ navigation }: ScreenProps<'CreateA
       footer={{ text: 'Already have an account?', link: 'Log In', onPress: () => navigation.navigate('Login') }}
     >
       <Image source={IMAGES.avatar} style={authStyles.avatar} resizeMode="contain" />
-      <Field label="First Name/Username" value={name} onChangeText={setName} autoCapitalize="words" style={authStyles.field} />
-      <Field label="Email Address" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" style={authStyles.field} />
-      <Field label="Password (min. 6 characters)" value={password} onChangeText={setPassword} secureTextEntry style={authStyles.field} />
-      <Field label="Confirm Password" value={confirm} onChangeText={setConfirm} secureTextEntry style={authStyles.field} />
+      <Field labelStyle={authStyles.label} inputStyle={authStyles.input} label="First Name/Username" value={name} onChangeText={setName} autoCapitalize="words" style={authStyles.field} />
+      <Field labelStyle={authStyles.label} inputStyle={authStyles.input} label="Email Address" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" style={authStyles.field} />
+      <Field labelStyle={authStyles.label} inputStyle={authStyles.input} label="Password (min. 6 characters)" value={password} onChangeText={setPassword} secureTextEntry style={authStyles.field} />
+      <Field labelStyle={authStyles.label} inputStyle={authStyles.input} label="Confirm Password" value={confirm} onChangeText={setConfirm} secureTextEntry style={authStyles.field} />
       <PrimaryButton label="Sign Up" onPress={signUp} style={authStyles.submit} textStyle={authStyles.submitTxt} />
       <Text style={authStyles.note}>By signing up, you agree to our Terms & Privacy Policy</Text>
     </AuthShell>

@@ -3,9 +3,9 @@
 
 import React, { useState } from 'react';
 
-import { AuthShell } from '../components/AuthShell';
+import { AuthShell, authStyles } from '../components/AuthShell';
 import { Field, PrimaryButton } from '../components/kit';
-import { colors, fonts } from '../theme';
+import { colors } from '../theme';
 import { useSession } from '../store/session';
 import type { ScreenProps } from '../navigation';
 
@@ -22,6 +22,8 @@ export default function ResetPasswordScreen({ navigation }: ScreenProps<'ResetPa
       footer={{ text: 'Already have an account?', link: 'Log In', onPress: back }}
     >
       <Field
+        labelStyle={authStyles.label}
+        inputStyle={authStyles.input}
         label="Email Address"
         variant="peach"
         value={email}
@@ -33,8 +35,8 @@ export default function ResetPasswordScreen({ navigation }: ScreenProps<'ResetPa
       <PrimaryButton
         label="Log In"
         onPress={back}
-        style={{ marginTop: 19 }}
-        textStyle={{ fontFamily: fonts.semibold, color: colors.bg, fontSize: 15 }}
+        style={authStyles.submit}
+        textStyle={authStyles.submitTxt}
       />
     </AuthShell>
   );

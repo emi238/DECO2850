@@ -154,16 +154,18 @@ export function Field({
   variant = 'gray',
   style,
   inputStyle,
+  labelStyle,
   ...props
 }: {
   label?: string;
+  labelStyle?: StyleProp<TextStyle>;
   variant?: 'gray' | 'white' | 'peach';
   style?: StyleProp<ViewStyle>;
   inputStyle?: StyleProp<TextStyle>;
 } & Omit<TextInputProps, 'style'>) {
   return (
     <View style={style}>
-      {!!label && <Text style={styles.fieldLabel}>{label}</Text>}
+      {!!label && <Text style={[styles.fieldLabel, labelStyle]}>{label}</Text>}
       <TextInput
         placeholderTextColor={colors.textFaint}
         style={[

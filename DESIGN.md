@@ -51,7 +51,8 @@ Fonts: **Mojiw Mochizuki** for the "PawSpace" wordmark and the Welcome headline 
 - Primary: orange fill, dark text, **semibold**. Stacked buttons have 16–20pt between them.
 - Joined pair (`JoinedButtons`): neutral left half + orange right half in one pill,
   both labels **semibold**.
-- Account screens (Sign Up / Log In): orange fill, white semibold text.
+- Account screens (Sign Up / Log In / Reset): orange fill, white semibold 18pt text, 54pt tall.
+  Title 36pt bold, field labels 16pt semibold, fields 52pt tall with 17pt text, 28pt side padding.
 
 ## Content
 
