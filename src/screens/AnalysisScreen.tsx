@@ -537,7 +537,7 @@ const styles = StyleSheet.create({
   breedPillTxt: { fontFamily: fonts.regular, fontSize: 12, color: colors.text },
 
   card: { flex: 1, borderTopLeftRadius: 22, borderTopRightRadius: 22, overflow: 'hidden', backgroundColor: colors.track },
-  selectBreed: { position: 'absolute', top: 11, left: 16, backgroundColor: colors.track, borderRadius: 12, height: 36, paddingHorizontal: 16, justifyContent: 'center', borderWidth: 1, borderColor: '#fff' },
+  selectBreed: { position: 'absolute', top: 11, left: 16, backgroundColor: colors.orange, borderRadius: 10, height: 28, paddingHorizontal: 14, justifyContent: 'center', borderWidth: 1, borderColor: '#fff' }, // same height as the 2D/3D toggle
   selectBreedTxt: { fontFamily: fonts.semibold, fontSize: 14, color: colors.text },
   pickPrompt: { position: 'absolute', left: 24, right: 24, top: '30%', backgroundColor: 'rgba(255,255,255,0.94)', borderRadius: 20, padding: 20, alignItems: 'center' },
   pickTitle: { fontFamily: fonts.semibold, fontSize: 17, color: colors.text, textAlign: 'center' },
