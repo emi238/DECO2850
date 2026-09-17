@@ -533,7 +533,7 @@ const styles = StyleSheet.create({
   h1: { flexShrink: 1, fontFamily: fonts.bold, color: colors.text, fontSize: 20 },
   sub: { fontFamily: fonts.regular, color: colors.text, fontSize: 15, lineHeight: 21, marginTop: 6 },
 
-  breedPill: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.orangeLight, borderRadius: 10, height: 27, paddingHorizontal: 12, marginTop: 0 },
+  breedPill: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.orange, borderRadius: 10, height: 27, paddingHorizontal: 12, marginTop: 0 },
   breedPillTxt: { fontFamily: fonts.regular, fontSize: 12, color: colors.text },
 
   card: { flex: 1, borderTopLeftRadius: 22, borderTopRightRadius: 22, overflow: 'hidden', backgroundColor: colors.track },
