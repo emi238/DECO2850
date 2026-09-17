@@ -173,11 +173,6 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
           <Room3DView result={result} frameCount={frames.length} />
         ) : null}
 
-        {hasDog && view === '2d' && riskIndex == null && !reportOpen && (
-          <Pressable style={styles.bubble} onPress={() => setReportOpen(true)}>
-            <Text style={styles.bubbleTxt}>{evaluation!.speech}</Text>
-          </Pressable>
-        )}
         {!hasDog && (
           <Pressable style={styles.selectBreed} onPress={selectBreed}>
             <Text style={styles.selectBreedTxt}>Select breed</Text>
@@ -231,6 +226,12 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
 
       {hasDog && (
         <DogAvatar evaluation={evaluation!} top={headerH - 116} onPress={() => setReportOpen(true)} />
+      )}
+      {/* Speech bubble beside the dog's ear, between the breed pill and the title; its sharp bottom-right corner points at the dog. */}
+      {hasDog && !reportOpen && (
+        <Pressable style={[styles.bubble, { top: headerH - 121 }]} onPress={() => setReportOpen(true)}>
+          <Text style={styles.bubbleTxt} numberOfLines={2}>{evaluation!.speech}</Text>
+        </Pressable>
       )}
 
       {riskIndex == null && !reportOpen && (
@@ -557,8 +558,8 @@ const styles = StyleSheet.create({
   dogWrap: { position: 'absolute', right: 28, alignItems: 'flex-end' },
   dogImg: { width: 140, height: 150 },
   dogPhoto: { width: 104, height: 104, borderRadius: 52, borderWidth: 4, borderColor: '#fff', marginTop: 12, marginBottom: 20, marginRight: 18, backgroundColor: colors.orangeLight }, // images are cropped tight; paws overlap the card by ~34pt
-  bubble: { position: 'absolute', left: 16, top: 38, maxWidth: 170, backgroundColor: colors.bg, borderRadius: 12, borderTopRightRadius: 2, paddingHorizontal: 10, paddingVertical: 6, zIndex: 3, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
-  bubbleTxt: { fontFamily: fonts.medium, fontSize: 11, color: colors.text },
+  bubble: { position: 'absolute', right: 172, maxWidth: 200, backgroundColor: colors.bg, borderRadius: 14, borderBottomRightRadius: 2, paddingHorizontal: 10, paddingVertical: 6, zIndex: 3, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
+  bubbleTxt: { fontFamily: fonts.medium, fontSize: 12.5, color: colors.text },
 
   // Same size as the map card, so it covers the 2D/3D toggle too.
   reportWrap: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 20 },
