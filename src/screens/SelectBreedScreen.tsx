@@ -85,7 +85,9 @@ export default function SelectBreedScreen({ navigation }: ScreenProps<'SelectBre
     if (mixed) {
       setPet({ species: 'Dog', breed: 'Mixed breed', size: size ?? 'medium', energy: energy ?? 'moderate' });
     } else if (breed) {
-      setPet(petFor(breed, energy && energy !== breed.energy ? energy : undefined));
+      const energyOverride = energy && energy !== breed.energy ? energy : undefined;
+      const sizeOverride = size && size !== breed.size ? size : undefined;
+      setPet(petFor(breed, energyOverride, sizeOverride));
     }
     setMode('pet_in_mind');
     done();
@@ -146,11 +148,14 @@ export default function SelectBreedScreen({ navigation }: ScreenProps<'SelectBre
               <Dropdown value={ENERGY_OPTIONS.find((o) => o.value === energy)?.label ?? ''} placeholder="Choose an energy level" onPress={() => setPicker('energy')} />
 
               <Text style={[styles.label, { marginTop: 22 }]}>Size:</Text>
-              <Text style={styles.hint}>Small, under 12kg / Medium, 12-25kg / Large, over 25kg</Text>
+              <Text style={styles.hint}>
+                {breed
+                  ? 'Pre-filled from the breed — change it to match your own dog.'
+                  : 'Small, under 12kg / Medium, 12-25kg / Large, over 25kg'}
+              </Text>
               <Dropdown
                 value={SIZE_OPTIONS.find((o) => o.value === size)?.label ?? ''}
-                placeholder={breed ? 'Set by the breed' : 'Choose a size'}
-                disabled={!!breed}
+                placeholder="Choose a size"
                 onPress={() => setPicker('size')}
               />
               </>
@@ -230,11 +235,13 @@ export default function SelectBreedScreen({ navigation }: ScreenProps<'SelectBre
 }
 
 // Traits saved on the pet so the evaluation works even before the API list loads.
-function petFor(b: BreedProfile, energy?: Energy) {
+// `energy`/`size` are the user's overrides for their own dog (undefined = use the
+// breed's typical value).
+function petFor(b: BreedProfile, energy?: Energy, size?: SizeClass) {
   return {
     species: 'Dog',
     breed: b.name,
-    size: b.size,
+    size: size ?? b.size,
     energy,
     noise: b.noise,
     imageUrl: typeof b.sitting === 'object' && b.sitting && 'uri' in b.sitting ? (b.sitting.uri as string) : undefined,
