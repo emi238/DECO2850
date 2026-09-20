@@ -43,7 +43,7 @@ export default function TaggingScreen({ navigation }: ScreenProps<'Tagging'>) {
   const [active, setActive] = useState(0);
   const [draft, setDraft] = useState<{ frame: number; x: number; y: number } | null>(null);
   const [label, setLabel] = useState('');
-  const [kind, setKind] = useState<'Valuable' | 'Fragile'>('Valuable');
+  const [kind, setKind] = useState<'Valuable' | 'Fragile' | 'Off-limits'>('Valuable');
 
   const frameIndex = Math.min(active, Math.max(0, frames.length - 1));
   const img = useFrameImageSize(frames[frameIndex]);
@@ -58,7 +58,7 @@ export default function TaggingScreen({ navigation }: ScreenProps<'Tagging'>) {
 
   const saveTag = () => {
     if (!draft || !label.trim()) return;
-    addTag({ label: label.trim(), note: kind, frame: draft.frame, x: draft.x, y: draft.y });
+    addTag({ label: label.trim(), note: kind, offLimits: kind === 'Off-limits', frame: draft.frame, x: draft.x, y: draft.y });
     setDraft(null);
   };
 
@@ -80,8 +80,8 @@ export default function TaggingScreen({ navigation }: ScreenProps<'Tagging'>) {
         <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
           <Text style={styles.h1}>Flag anything important</Text>
           <Text style={styles.sub}>
-            Tap the photo to mark an object. E.g a fragile vase, a sharp edge, any valuable items. This is optional but if
-            flagged, the AI will treat this as a top priority.
+            Tap the photo to mark an object or an off-limits area. E.g a fragile vase, a valuable, or a zone your dog isn’t
+            allowed in. This is optional but if flagged, the AI will treat it as a top priority.
           </Text>
 
           <View style={[styles.card, { width: cardW }]}>
@@ -171,9 +171,13 @@ export default function TaggingScreen({ navigation }: ScreenProps<'Tagging'>) {
             <Segmented
               value={kind}
               onChange={setKind}
-              options={[{ value: 'Valuable', label: 'Valuable' }, { value: 'Fragile', label: 'Fragile' }]}
+              options={[
+                { value: 'Valuable', label: 'Valuable' },
+                { value: 'Fragile', label: 'Fragile' },
+                { value: 'Off-limits', label: 'Off-limits' },
+              ]}
               height={48}
-              textStyle={{ fontFamily: fonts.semibold, fontSize: 15 }}
+              textStyle={{ fontFamily: fonts.semibold, fontSize: 13 }}
               style={{ marginTop: 12 }}
             />
             <JoinedButtons

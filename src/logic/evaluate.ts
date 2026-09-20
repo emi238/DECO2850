@@ -129,7 +129,7 @@ export function evaluate(space: Space, household: Questionnaire, dogOverride?: R
   // ---- §4.3 Safety ----
   const hz = hazardCount(space.result);
   const hazardBand: Band = hz >= 3 ? 'poor' : hz >= 1 ? 'adequate' : 'good';
-  const atRisk = space.tags.length; // tagged valuables/fragile items
+  const atRisk = space.tags.filter((t) => !t.offLimits).length; // tagged valuables/fragile items (off-limits zones don't count)
   const valuablesBand: Band = atRisk >= 4 ? 'poor' : atRisk >= 1 ? 'adequate' : 'good';
   const safety = worse(hazardBand, valuablesBand);
 

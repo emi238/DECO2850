@@ -62,6 +62,9 @@ export interface Tag {
   // Approximate normalised position on that frame [0,1], if placed by tap.
   x?: number;
   y?: number;
+  // An off-limits zone the owner marked (spec §2.4) rather than a valuable/fragile
+  // item — it does NOT count towards "valuables at risk" in the Safety band.
+  offLimits?: boolean;
 }
 
 // ---- AI assessment schema (PRD §7.2) ----

@@ -19,13 +19,15 @@ import {
   useWindowDimensions,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  GestureResponderEvent,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 
 import { TopBar, AvatarButton, Segmented, PrimaryButton } from '../components/kit';
-import { FrameView, useFrameImageSize, imageToView } from '../components/FrameView';
+import { FrameView, useFrameImageSize, imageToView, viewToImage } from '../components/FrameView';
 import { Room3DView } from '../components/Room3DView';
+import { ScanOverlay } from '../components/ScanOverlay';
 import { LoadingView } from '../components/LoadingView';
 import { SwipeUpNav } from '../components/SwipeUpNav';
 import { AlertIcon, ChevronIcon, CloseIcon, EditIcon, RefreshRingIcon, TrashIcon } from '../components/icons';
@@ -34,8 +36,11 @@ import { colors, fonts } from '../theme';
 import { useSession, useCurrentSpace } from '../store/session';
 import { runAssessment } from '../ai/assess';
 import { evaluate, type Band, type Evaluation } from '../logic/evaluate';
-import type { Frame, Hazard } from '../types';
+import { buildRecommendations, type Recommendation, type ShoppingItem } from '../logic/recommend';
+import type { Frame, Hazard, Tag } from '../types';
 import type { ScreenProps } from '../navigation';
+
+type Placing = { area: string } | null;
 
 const MIN_LOADING_MS = 2200;
 
@@ -53,8 +58,12 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
   const [view, setView] = useState<'2d' | '3d'>('2d');
   const [riskIndex, setRiskIndex] = useState<number | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
+  const [recOpen, setRecOpen] = useState(false); // Recommendations / shopping panel
+  const [placing, setPlacing] = useState<Placing>(null); // marking an off-limits area
   const [cardH, setCardH] = useState(Math.round(height * 0.65));
   const [headerH, setHeaderH] = useState(160);
+  const addTag = useSession((s) => s.addTag);
+  const removeTag = useSession((s) => s.removeTag);
 
   // ---- run the assessment when asked (or when there is no result yet) ----
   const runRef = useRef(0);
@@ -104,6 +113,16 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
     const hz = result?.hazards ?? [];
     return [...hz.filter((h) => h.scope === 'object' && h.location), ...hz.filter((h) => !(h.scope === 'object' && h.location))];
   }, [result]);
+
+  const recSet = useMemo(() => buildRecommendations(evaluation, result), [evaluation, result]);
+  const offLimits = useMemo(() => (space?.tags ?? []).filter((t) => t.offLimits), [space?.tags]);
+
+  // Drop an off-limits tag at a tapped point on the current frame.
+  const placeOffLimits = (frame: number, x: number, y: number) => {
+    if (!placing) return;
+    addTag({ label: placing.area || 'Off-limits', note: 'Off-limits', offLimits: true, frame, x, y });
+    setPlacing(null);
+  };
 
   if (loading || !space) return <LoadingView done={loadDone} />;
 
@@ -168,13 +187,58 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
           <PhotoMap
             frames={frames}
             risks={risks}
+            offLimits={offLimits}
             width={width}
             height={cardH}
             selectedId={riskIndex != null ? risks[riskIndex]?.id : undefined}
             onPin={(id) => setRiskIndex(risks.findIndex((r) => r.id === id))}
+            placing={!!placing}
+            onPlace={placeOffLimits}
+            onRemoveTag={removeTag}
           />
         ) : result ? (
-          <Room3DView result={result} frameCount={frames.length} />
+          <View style={StyleSheet.absoluteFill}>
+            <Room3DView result={result} frameCount={frames.length} />
+            {riskIndex == null && !reportOpen && !recOpen && !placing && (
+              <ScanOverlay
+                risks={risks}
+                width={width}
+                height={cardH}
+                onOpenRisk={(id) => setRiskIndex(risks.findIndex((r) => r.id === id))}
+              />
+            )}
+
+            {/* Off-limits zones placed in 3D (frame === -1, positioned in view space). */}
+            {offLimits
+              .filter((t) => t.frame === -1)
+              .map((t) => (
+                <Pressable
+                  key={t.id}
+                  onPress={() => removeTag(t.id)}
+                  hitSlop={6}
+                  style={[styles.offTag, { left: (t.x ?? 0.5) * width - 52, top: (t.y ?? 0.5) * cardH - 15 }]}
+                >
+                  <Text style={styles.offTagTxt} numberOfLines={1}>⃠ {t.label}</Text>
+                </Pressable>
+              ))}
+
+            {/* Tap-to-place capture while marking an off-limits zone. */}
+            {placing && (
+              <Pressable
+                style={StyleSheet.absoluteFill}
+                onPress={(e) => placeOffLimits(-1, e.nativeEvent.locationX / width, e.nativeEvent.locationY / cardH)}
+              >
+                <View style={styles.placingVeil} pointerEvents="none" />
+              </Pressable>
+            )}
+
+            {/* Add off-limits zone (3D). */}
+            {!placing && riskIndex == null && !reportOpen && !recOpen && (
+              <Pressable style={styles.addZoneBtn} onPress={() => setPlacing({ area: 'Off-limits zone' })}>
+                <Text style={styles.addZoneTxt}>⃠  Add off-limits zone</Text>
+              </Pressable>
+            )}
+          </View>
         ) : null}
 
         {!hasDog && (
@@ -198,6 +262,28 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
           style={[styles.mapToggle, hasDog && { top: 38 }]}
           textStyle={styles.mapToggleTxt}
         />
+
+        {/* Recommendations tab — top-left, level with the 2D/3D toggle. */}
+        {hasDog && riskIndex == null && !reportOpen && (
+          <Pressable style={[styles.recTab, hasDog && { top: 34 }]} onPress={() => setRecOpen(true)}>
+            <Text style={styles.recTabTxt}>Recommendations</Text>
+            {recSet.recommendations.length > 0 && (
+              <View style={styles.recCount}>
+                <Text style={styles.recCountTxt}>{recSet.recommendations.length}</Text>
+              </View>
+            )}
+          </Pressable>
+        )}
+
+        {/* Off-limits placing hint (spec §2.4). */}
+        {placing && (
+          <View style={styles.placingHint} pointerEvents="box-none">
+            <Text style={styles.placingTxt}>Tap the {view === '2d' ? 'map' : 'space'} to mark “{placing.area}” off-limits</Text>
+            <Pressable onPress={() => setPlacing(null)} hitSlop={8}>
+              <Text style={styles.placingCancel}>Cancel</Text>
+            </Pressable>
+          </View>
+        )}
 
         {!!space.resultNote && view === '2d' && riskIndex == null && !reportOpen && (
           <View style={[styles.note, hasDog && { top: 76 }]} pointerEvents="none">
@@ -229,7 +315,20 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
           />
         )}
 
-        {hasPet && riskIndex == null && !reportOpen && (
+        {recOpen && (
+          <RecommendPanel
+            recSet={recSet}
+            offLimits={offLimits}
+            onFenceOff={(area) => {
+              setRecOpen(false);
+              setView('2d');
+              setPlacing({ area });
+            }}
+            onClose={() => setRecOpen(false)}
+          />
+        )}
+
+        {hasPet && riskIndex == null && !reportOpen && !recOpen && !placing && (
           <Pressable style={styles.fab} onPress={reanalyse} hitSlop={6}>
             <RefreshRingIcon size={22} />
             <Text style={styles.fabTxt}>Re-run</Text>
@@ -265,23 +364,37 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
 function PhotoMap({
   frames,
   risks,
+  offLimits,
   width,
   height,
   selectedId,
   onPin,
+  placing,
+  onPlace,
+  onRemoveTag,
 }: {
   frames: Frame[];
   risks: Hazard[];
+  offLimits: Tag[];
   width: number;
   height: number;
   selectedId?: string;
   onPin: (id: string) => void;
+  placing: boolean;
+  onPlace: (frame: number, x: number, y: number) => void;
+  onRemoveTag: (id: string) => void;
 }) {
   const [page, setPage] = useState(0);
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => setPage(Math.round(e.nativeEvent.contentOffset.x / width));
   return (
     <View style={StyleSheet.absoluteFill}>
-      <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} onMomentumScrollEnd={onScroll}>
+      <ScrollView
+        horizontal
+        pagingEnabled
+        scrollEnabled={!placing}
+        showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={onScroll}
+      >
         {frames.map((f, i) => (
           <MapPage
             key={i}
@@ -289,8 +402,12 @@ function PhotoMap({
             width={width}
             height={height}
             risks={risks.filter((r) => r.location?.frame_index === i)}
+            offLimits={offLimits.filter((t) => t.frame === i)}
             selectedId={selectedId}
             onPin={onPin}
+            placing={placing}
+            onPlace={(x, y) => onPlace(i, x, y)}
+            onRemoveTag={onRemoveTag}
           />
         ))}
       </ScrollView>
@@ -310,20 +427,34 @@ function MapPage({
   width,
   height,
   risks,
+  offLimits,
   selectedId,
   onPin,
+  placing,
+  onPlace,
+  onRemoveTag,
 }: {
   frame: Frame;
   width: number;
   height: number;
   risks: Hazard[];
+  offLimits: Tag[];
   selectedId?: string;
   onPin: (id: string) => void;
+  placing: boolean;
+  onPlace: (x: number, y: number) => void;
+  onRemoveTag: (id: string) => void;
 }) {
   const img = useFrameImageSize(frame);
+  const onPress = (e: GestureResponderEvent) => {
+    if (!placing) return;
+    const p = viewToImage(img, width, height, e.nativeEvent.locationX, e.nativeEvent.locationY);
+    onPlace(p.x, p.y);
+  };
   return (
-    <View style={{ width, height }}>
+    <Pressable style={{ width, height }} onPress={onPress} disabled={!placing}>
       <FrameView frame={frame} width={width} height={height} />
+      {placing && <View style={styles.placingVeil} pointerEvents="none" />}
       {risks.map((h) => {
         const p = imageToView(img, width, height, h.location!.x, h.location!.y);
         const on = h.id === selectedId;
@@ -332,13 +463,28 @@ function MapPage({
             key={h.id}
             onPress={() => onPin(h.id)}
             hitSlop={8}
+            disabled={placing}
             style={[styles.pin, { left: p.x - 19, top: p.y - 19 }, on && styles.pinOn]}
           >
             <AlertIcon size={22} />
           </Pressable>
         );
       })}
-    </View>
+      {offLimits.map((t) => {
+        const p = imageToView(img, width, height, t.x ?? 0.5, t.y ?? 0.5);
+        return (
+          <Pressable
+            key={t.id}
+            onPress={() => onRemoveTag(t.id)}
+            hitSlop={6}
+            disabled={placing}
+            style={[styles.offTag, { left: p.x - 52, top: p.y - 15 }]}
+          >
+            <Text style={styles.offTagTxt} numberOfLines={1}>⃠ {t.label}</Text>
+          </Pressable>
+        );
+      })}
+    </Pressable>
   );
 }
 
@@ -530,6 +676,99 @@ function ReportRow({ heading, tag, band, line }: { heading: string; tag: string;
   );
 }
 
+// ---------------------------------------------------------------------------
+// Recommendations + shopping list (spec §6.3 / §8). Reached from the top-left tab.
+
+const SEV_COLOR: Record<Recommendation['severity'], string> = { high: '#E4572E', medium: colors.orange, low: '#5FAE7F' };
+const SEV_WORD: Record<Recommendation['severity'], string> = { high: 'Priority', medium: 'Worth doing', low: 'Nice to have' };
+
+function RecommendPanel({
+  recSet,
+  offLimits,
+  onFenceOff,
+  onClose,
+}: {
+  recSet: { recommendations: Recommendation[]; shopping: ShoppingItem[] };
+  offLimits: Tag[];
+  onFenceOff: (area: string) => void;
+  onClose: () => void;
+}) {
+  const [tab, setTab] = useState<'improve' | 'shop'>('improve');
+  const { recommendations, shopping } = recSet;
+  return (
+    <View style={styles.sheetWrap}>
+      <BlurView intensity={40} tint="light" style={styles.sheet}>
+        <View style={styles.sheetHead}>
+          <Text style={styles.sheetTitle}>Recommendations</Text>
+          <Pressable onPress={onClose} hitSlop={10}>
+            <CloseIcon size={14} />
+          </Pressable>
+        </View>
+
+        <Segmented
+          value={tab}
+          onChange={setTab}
+          options={[{ value: 'improve', label: `Improve (${recommendations.length})` }, { value: 'shop', label: `Shopping (${shopping.length})` }]}
+          height={40}
+          activeColor={colors.orange}
+          style={{ marginBottom: 12 }}
+          textStyle={{ fontFamily: fonts.semibold, fontSize: 12 }}
+        />
+
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 30 }} showsVerticalScrollIndicator={false}>
+          {tab === 'improve' ? (
+            recommendations.length === 0 ? (
+              <Text style={styles.recEmpty}>No changes needed — this space already suits your dog. Nice work!</Text>
+            ) : (
+              recommendations.map((r) => (
+                <View key={r.id} style={styles.recCard}>
+                  <View style={styles.recCardHead}>
+                    <Text style={styles.recCardTitle}>{r.title}</Text>
+                    <View style={[styles.recSev, { backgroundColor: SEV_COLOR[r.severity] }]}>
+                      <Text style={styles.recSevTxt}>{SEV_WORD[r.severity]}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.recArea}>{r.area}</Text>
+                  <Text style={styles.recDetail}>{r.detail}</Text>
+                  {r.offLimits && (
+                    <Pressable style={styles.recFenceBtn} onPress={() => onFenceOff(r.area)}>
+                      <Text style={styles.recFenceTxt}>⃠  Mark this area off-limits</Text>
+                    </Pressable>
+                  )}
+                </View>
+              ))
+            )
+          ) : shopping.length === 0 ? (
+            <Text style={styles.recEmpty}>Nothing to buy — no hazards or gaps found for your dog.</Text>
+          ) : (
+            <>
+              {shopping.map((s) => (
+                <View key={s.id} style={styles.shopCard}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.shopItem}>{s.item}</Text>
+                    <Text style={styles.shopWhy}>{s.why}</Text>
+                  </View>
+                  {s.offLimits && (
+                    <Pressable style={styles.shopTagBtn} onPress={() => onFenceOff(s.area || s.item)}>
+                      <Text style={styles.shopTagTxt}>Fence off</Text>
+                    </Pressable>
+                  )}
+                </View>
+              ))}
+              <Text style={styles.disclosure}>
+                {offLimits.length > 0
+                  ? `${offLimits.length} off-limits ${offLimits.length === 1 ? 'zone' : 'zones'} marked. `
+                  : ''}
+                Products are generic suggestions tied to what was flagged, not specific brands.
+              </Text>
+            </>
+          )}
+        </ScrollView>
+      </BlurView>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   root: { flex: 1 },
   header: { paddingHorizontal: 22, paddingTop: 6, paddingBottom: 18 },
@@ -549,6 +788,39 @@ const styles = StyleSheet.create({
   pickBody: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.textMuted, textAlign: 'center', marginTop: 6 },
   mapToggle: { position: 'absolute', top: 11, right: 16, width: 127, height: 28, backgroundColor: colors.track, borderRadius: 10, borderWidth: 1, borderColor: '#fff' },
   mapToggleTxt: { fontFamily: fonts.semibold, fontSize: 10.5 },
+
+  // Recommendations tab (top-left, level with the 2D/3D toggle).
+  recTab: { position: 'absolute', top: 11, left: 16, height: 36, flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 14, borderWidth: 1, borderColor: colors.orange },
+  recTabTxt: { fontFamily: fonts.semibold, fontSize: 14, color: colors.text },
+  recCount: { minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 5, backgroundColor: colors.orange, alignItems: 'center', justifyContent: 'center' },
+  recCountTxt: { fontFamily: fonts.bold, fontSize: 11.5, color: '#fff' },
+
+  // Off-limits placing hint + veil + tag marker (spec §2.4).
+  placingHint: { position: 'absolute', top: 76, left: 16, right: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, backgroundColor: '#E4572E', borderRadius: 10, paddingVertical: 9, paddingHorizontal: 12 },
+  placingTxt: { flex: 1, fontFamily: fonts.semibold, fontSize: 12.5, color: '#fff' },
+  placingCancel: { fontFamily: fonts.bold, fontSize: 12.5, color: '#fff', textDecorationLine: 'underline' },
+  placingVeil: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(228,87,46,0.14)' },
+  offTag: { position: 'absolute', width: 104, height: 30, borderRadius: 8, backgroundColor: 'rgba(228,87,46,0.92)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6, borderWidth: 1.5, borderColor: '#fff' },
+  offTagTxt: { fontFamily: fonts.semibold, fontSize: 11, color: '#fff' },
+  addZoneBtn: { position: 'absolute', left: 16, bottom: 118, flexDirection: 'row', alignItems: 'center', backgroundColor: '#E4572E', borderRadius: 22, paddingVertical: 12, paddingHorizontal: 16, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
+  addZoneTxt: { fontFamily: fonts.semibold, fontSize: 13.5, color: '#fff' },
+
+  // Recommendations panel cards.
+  recEmpty: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.textMuted, textAlign: 'center', marginTop: 30 },
+  recCard: { backgroundColor: '#fff', borderRadius: 14, padding: 14, marginBottom: 10 },
+  recCardHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  recCardTitle: { flex: 1, fontFamily: fonts.semibold, fontSize: 15, color: colors.text },
+  recSev: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
+  recSevTxt: { fontFamily: fonts.semibold, fontSize: 10, color: '#fff' },
+  recArea: { fontFamily: fonts.semibold, fontSize: 11.5, color: colors.orangeDeep, marginTop: 4 },
+  recDetail: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.text, marginTop: 4 },
+  recFenceBtn: { alignSelf: 'flex-start', marginTop: 10, backgroundColor: '#FDE7DE', borderRadius: 9, paddingVertical: 8, paddingHorizontal: 12 },
+  recFenceTxt: { fontFamily: fonts.semibold, fontSize: 12.5, color: '#E4572E' },
+  shopCard: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', borderRadius: 14, padding: 14, marginBottom: 10 },
+  shopItem: { fontFamily: fonts.semibold, fontSize: 14.5, color: colors.text },
+  shopWhy: { fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 17, color: colors.textMuted, marginTop: 2 },
+  shopTagBtn: { backgroundColor: '#E4572E', borderRadius: 9, paddingVertical: 8, paddingHorizontal: 12 },
+  shopTagTxt: { fontFamily: fonts.semibold, fontSize: 12, color: '#fff' },
 
   pin: { position: 'absolute', width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(251,171,75,0.35)', alignItems: 'center', justifyContent: 'center' },
   pinOn: { backgroundColor: 'rgba(251,171,75,0.7)', transform: [{ scale: 1.15 }] },
