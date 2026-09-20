@@ -56,6 +56,9 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
             <Text style={styles.uploadTxt}>Upload New Space</Text>
             <UploadIcon size={26} />
           </Pressable>
+          <Pressable style={({ pressed }) => [styles.liveScan, pressed && { opacity: 0.7 }]} onPress={() => navigation.navigate('LiveScan')}>
+            <Text style={styles.liveScanTxt}>📷  Live AR scan (beta)</Text>
+          </Pressable>
 
           {featured && (
             <Pressable onPress={() => openSpace(featured)}>
@@ -125,6 +128,8 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   uploadTxt: { fontFamily: fonts.regular, color: colors.text, fontSize: 15 },
+  liveScan: { marginTop: 10, alignSelf: 'center', paddingVertical: 8, paddingHorizontal: 12 },
+  liveScanTxt: { fontFamily: fonts.semibold, color: colors.orangeDeep, fontSize: 14 },
 
   browseScroll: { marginRight: -29 },
   browse: { gap: 8, paddingRight: 29 },

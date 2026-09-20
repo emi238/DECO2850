@@ -16,6 +16,7 @@ export type RootStackParamList = {
   SpaceSaved: undefined;
   Analysis: { run?: boolean; report?: boolean } | undefined;
   SelectBreed: undefined;
+  LiveScan: undefined; // live camera + YOLO scan (dev build only)
 };
 
 export type ScreenProps<T extends keyof RootStackParamList> = NativeStackScreenProps<
