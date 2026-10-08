@@ -34,7 +34,7 @@ import { colors, fonts } from '../theme';
 import { useSession, useCurrentSpace } from '../store/session';
 import { runAssessment } from '../ai/assess';
 import { evaluate, type Band, type Evaluation } from '../logic/evaluate';
-import type { Frame, Hazard } from '../types';
+import type { Frame, Hazard, Tag } from '../types';
 import type { ScreenProps } from '../navigation';
 
 const MIN_LOADING_MS = 2200;
@@ -208,6 +208,7 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
         {riskIndex != null && risks[riskIndex] && (
           <RiskSheet
             hazard={risks[riskIndex]}
+            tagged={isUserTag(risks[riskIndex], space.tags)}
             index={riskIndex}
             total={risks.length}
             onPrev={() => setRiskIndex((i) => ((i ?? 0) - 1 + risks.length) % risks.length)}
@@ -347,8 +348,18 @@ function MapPage({
 
 const SEVERITY_WORD: Record<Hazard['severity'], string> = { high: 'Needs attention', medium: 'Worth fixing', low: 'Minor' };
 
+// Items the user tagged (Valuable / Fragile) are things to protect, not hazards,
+// so their card says "Be careful" instead of an alarming severity word.
+// The mock titles them "Flagged: …"; the AI may not, so also match the tag's name.
+function isUserTag(h: Hazard, tags: Tag[]): boolean {
+  if (h.title.startsWith('Flagged:')) return true;
+  const title = h.title.toLowerCase();
+  return tags.some((t) => !!t.label.trim() && title.includes(t.label.trim().toLowerCase()));
+}
+
 function RiskSheet({
   hazard,
+  tagged,
   index,
   total,
   onPrev,
@@ -356,6 +367,7 @@ function RiskSheet({
   onClose,
 }: {
   hazard: Hazard;
+  tagged: boolean;
   index: number;
   total: number;
   onPrev: () => void;
@@ -382,9 +394,15 @@ function RiskSheet({
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 30 }} showsVerticalScrollIndicator={false}>
           <View style={styles.riskTitleRow}>
             <Text style={styles.riskTitle}>{hazard.title}</Text>
-            <View style={[styles.sevChip, hazard.severity === 'high' && { backgroundColor: colors.orange }]}>
-              <Text style={styles.sevTxt}>{SEVERITY_WORD[hazard.severity]}</Text>
-            </View>
+            {tagged ? (
+              <View style={[styles.sevChip, { backgroundColor: colors.track }]}>
+                <Text style={styles.sevTxt}>Be careful</Text>
+              </View>
+            ) : (
+              <View style={[styles.sevChip, hazard.severity === 'high' && { backgroundColor: colors.orange }]}>
+                <Text style={styles.sevTxt}>{SEVERITY_WORD[hazard.severity]}</Text>
+              </View>
+            )}
           </View>
           <Text style={styles.riskBody}>{hazard.why_it_matters}</Text>
           <Text style={styles.riskLabel}>What might help</Text>

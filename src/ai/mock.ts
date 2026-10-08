@@ -61,7 +61,7 @@ export function generateMockAssessment(session: Space): Assessment {
       risk_to: 'both',
       severity: /fragile|valuable|antique|open|toxic|chemical/i.test(t.note) ? 'high' : 'medium',
       evidence: `You flagged "${t.label}"${t.note ? ` — "${t.note}"` : ''}.`,
-      why_it_matters: `You marked this as needing attention around ${petLabel}.`,
+      why_it_matters: `You tagged this as ${t.note ? t.note.toLowerCase() : 'important'}, so keep it out of ${petLabel}'s reach.`,
       recommendation: 'Secure, relocate, or make this item/zone off-limits before adopting.',
     });
   });
