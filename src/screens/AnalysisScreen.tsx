@@ -280,9 +280,17 @@ function PhotoMap({
 }) {
   const [page, setPage] = useState(0);
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => setPage(Math.round(e.nativeEvent.contentOffset.x / width));
+  // When a risk is picked (pin tap or the sheet's < >), jump to the photo it's on.
+  const scrollRef = useRef<ScrollView>(null);
+  const selectedFrame = risks.find((r) => r.id === selectedId)?.location?.frame_index;
+  useEffect(() => {
+    if (selectedFrame == null) return;
+    scrollRef.current?.scrollTo({ x: selectedFrame * width, animated: true });
+    setPage(selectedFrame);
+  }, [selectedFrame, width]);
   return (
     <View style={StyleSheet.absoluteFill}>
-      <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} onMomentumScrollEnd={onScroll}>
+      <ScrollView ref={scrollRef} horizontal pagingEnabled showsHorizontalScrollIndicator={false} onMomentumScrollEnd={onScroll}>
         {frames.map((f, i) => (
           <MapPage
             key={i}
@@ -322,26 +330,47 @@ function MapPage({
   onPin: (id: string) => void;
 }) {
   const img = useFrameImageSize(frame);
+  // The photo is cover-cropped, so a pin near its edge can fall outside the card;
+  // keep every pin inside the visible area so nothing flagged is cut off.
+  const PIN_INSET = 24;
+  const pinAt = (h: Hazard) => {
+    const p = imageToView(img, width, height, h.location!.x, h.location!.y);
+    return {
+      x: Math.max(PIN_INSET, Math.min(width - PIN_INSET, p.x)),
+      y: Math.max(PIN_INSET + 40, Math.min(height - PIN_INSET, p.y)), // clear of the 2D/3D toggle
+    };
+  };
+  // The risk sheet covers the bottom of the card; slide the photo up so the
+  // selected pin sits in the visible part above it.
+  const selected = risks.find((h) => h.id === selectedId);
+  const visibleH = height * (1 - SHEET_SHARE);
+  const selY = selected ? pinAt(selected).y : 0;
+  const shift = selected && selY > visibleH - 50 ? Math.max(-(height * SHEET_SHARE), visibleH / 2 - selY) : 0;
   return (
-    <View style={{ width, height }}>
-      <FrameView frame={frame} width={width} height={height} />
-      {risks.map((h) => {
-        const p = imageToView(img, width, height, h.location!.x, h.location!.y);
-        const on = h.id === selectedId;
-        return (
-          <Pressable
-            key={h.id}
-            onPress={() => onPin(h.id)}
-            hitSlop={8}
-            style={[styles.pin, { left: p.x - 19, top: p.y - 19 }, on && styles.pinOn]}
-          >
-            <AlertIcon size={22} />
-          </Pressable>
-        );
-      })}
+    <View style={{ width, height, overflow: 'hidden' }}>
+      <View style={{ width, height, transform: [{ translateY: shift }] }}>
+        <FrameView frame={frame} width={width} height={height} />
+        {risks.map((h) => {
+          const p = pinAt(h);
+          const on = h.id === selectedId;
+          return (
+            <Pressable
+              key={h.id}
+              onPress={() => onPin(h.id)}
+              hitSlop={8}
+              style={[styles.pin, { left: p.x - 19, top: p.y - 19 }, on && styles.pinOn]}
+            >
+              <AlertIcon size={22} />
+            </Pressable>
+          );
+        })}
+      </View>
     </View>
   );
 }
+
+// Share of the map card the "Potential Risks!" sheet covers (matches styles.sheetWrap).
+const SHEET_SHARE = 0.44;
 
 // ---------------------------------------------------------------------------
 // "Potential Risks!" frosted sheet: what's flagged, why, and the fix (P4.2).
@@ -581,7 +610,7 @@ const styles = StyleSheet.create({
   note: { position: 'absolute', left: 16, right: 16, top: 50, backgroundColor: 'rgba(255,255,255,0.88)', borderRadius: 10, padding: 8 },
   noteTxt: { fontFamily: fonts.regular, fontSize: 10.5, color: colors.text },
 
-  sheetWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, height: '44%', borderTopLeftRadius: 22, borderTopRightRadius: 22, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.8)' },
+  sheetWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, height: `${SHEET_SHARE * 100}%`, borderTopLeftRadius: 22, borderTopRightRadius: 22, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.8)' },
   sheet: { flex: 1, backgroundColor: 'rgba(255,255,255,0.72)', paddingHorizontal: 27, paddingTop: 22 },
   sheetHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   sheetTitle: { fontFamily: fonts.bold, fontSize: 19, color: colors.text, flexShrink: 1 },
