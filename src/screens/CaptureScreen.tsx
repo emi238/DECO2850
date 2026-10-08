@@ -23,6 +23,7 @@ import * as Haptics from 'expo-haptics';
 
 import { TopBar, JoinedButtons, PrimaryButton } from '../components/kit';
 import { FrameView } from '../components/FrameView';
+import { ZoomBox } from '../components/ZoomBox';
 import { SwipeUpNav } from '../components/SwipeUpNav';
 import { ChevronIcon } from '../components/icons';
 import { colors, fonts } from '../theme';
@@ -177,7 +178,9 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
                 >
                   {captured.map((f, i) => (
                     <View key={i} style={{ width: cardW, alignItems: 'center' }}>
-                      <FrameView frame={f} width={itemW} height={itemH} radius={12} />
+                      <ZoomBox width={itemW} height={itemH}>
+                        <FrameView frame={f} width={itemW} height={itemH} radius={12} />
+                      </ZoomBox>
                     </View>
                   ))}
                 </ScrollView>

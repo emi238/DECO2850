@@ -22,6 +22,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { TopBar, PrimaryButton, JoinedButtons, Segmented } from '../components/kit';
 import { FrameView, useFrameImageSize, viewToImage, imageToView } from '../components/FrameView';
 import { ChevronIcon } from '../components/icons';
+import { ZoomBox } from '../components/ZoomBox';
 import { ProgressBars } from './CaptureScreen';
 import { colors, fonts } from '../theme';
 import { useSession, useCurrentSpace } from '../store/session';
@@ -87,17 +88,19 @@ export default function TaggingScreen({ navigation }: ScreenProps<'Tagging'>) {
           <View style={[styles.card, { width: cardW }]}>
             <ProgressBars count={frames.length} active={frameIndex} onSelect={goToFrame} />
             <View style={styles.frames}>
-              <Pressable onPress={onFramePress}>
-                <FrameView frame={frames[frameIndex]} width={FW} height={FH} radius={12} />
-                {pins.map((t) => {
-                  const p = imageToView(img, FW, FH, t.x as number, t.y as number);
-                  return (
-                    <View key={t.id} pointerEvents="none" style={[styles.pin, { left: p.x - 11, top: p.y - 11 }]}>
-                      <Text style={styles.pinTxt}>★</Text>
-                    </View>
-                  );
-                })}
-              </Pressable>
+              <ZoomBox key={frameIndex} width={FW} height={FH}>
+                <Pressable onPress={onFramePress}>
+                  <FrameView frame={frames[frameIndex]} width={FW} height={FH} radius={12} />
+                  {pins.map((t) => {
+                    const p = imageToView(img, FW, FH, t.x as number, t.y as number);
+                    return (
+                      <View key={t.id} pointerEvents="none" style={[styles.pin, { left: p.x - 11, top: p.y - 11 }]}>
+                        <Text style={styles.pinTxt}>★</Text>
+                      </View>
+                    );
+                  })}
+                </Pressable>
+              </ZoomBox>
               {/* Side arrows (same as Review) show there are more frames that way. */}
               {frameIndex > 0 && (
                 <Pressable onPress={() => goToFrame(frameIndex - 1)} hitSlop={8} accessibilityLabel="Previous photo" style={[styles.sideArrow, { left: (cardW - FW) / 4 - 16, top: FH / 2 - 16 }]}>
