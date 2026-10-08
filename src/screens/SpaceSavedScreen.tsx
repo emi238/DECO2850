@@ -5,7 +5,7 @@ import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Pressable, TextInput, ScrollView, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { TopBar, JoinedButtons, Chip } from '../components/kit';
+import { TopBar, PrimaryButton, Chip } from '../components/kit';
 import { FrameView } from '../components/FrameView';
 import { EditIcon } from '../components/icons';
 import { colors, fonts } from '../theme';
@@ -85,12 +85,14 @@ export default function SpaceSavedScreen({ navigation }: ScreenProps<'SpaceSaved
             ))}
           </View>
 
-          <JoinedButtons
-            left={{ label: 'Edit Questionnaire', onPress: () => navigation.navigate('Household') }}
-            right={{ label: 'Start Space Analysis', onPress: startAnalysis }}
-            leftBg={colors.midGray}
-            style={{ marginTop: 24 }}
+          {/* Separate steps: optional questionnaire check first, then the main action last. */}
+          <Text style={styles.prompt}>Last step, any changes to the Questionnaire? If not, tap here to</Text>
+          <PrimaryButton
+            label="Edit Questionnaire"
+            onPress={() => navigation.navigate('Household')}
+            style={{ marginTop: 10, backgroundColor: colors.bg }}
           />
+          <PrimaryButton label="Start Space Analysis" onPress={startAnalysis} style={{ marginTop: 32 }} />
           <Pressable onPress={() => navigation.reset({ index: 0, routes: [{ name: 'Home' }] })} style={styles.home} hitSlop={8}>
             <Text style={styles.homeTxt}>Go Home Instead</Text>
           </Pressable>
@@ -114,6 +116,7 @@ const styles = StyleSheet.create({
   pencil: { position: 'absolute', right: 14 },
   chips: { flexDirection: 'row', gap: 10 },
   chip: { flex: 1, height: 44, borderRadius: 12 },
+  prompt: { fontFamily: fonts.semibold, color: colors.text, fontSize: 16, lineHeight: 22, marginTop: 28 },
   home: { alignSelf: 'center', marginTop: 18 },
   homeTxt: { fontFamily: fonts.medium, color: colors.text, fontSize: 15, textDecorationLine: 'underline' },
 });
