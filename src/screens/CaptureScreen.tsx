@@ -201,8 +201,8 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
 
             {/* Two separate buttons: neutral Retake, orange Continue. */}
             <View style={styles.reviewActions}>
-              <PrimaryButton label="Retake Images" onPress={retake} style={[styles.reviewBtn, { backgroundColor: colors.bg }]} />
-              <PrimaryButton label="Continue" onPress={proceed} disabled={n === 0} style={styles.reviewBtn} />
+              <PrimaryButton label="Retake Images" onPress={retake} style={[styles.retakeBtn, { backgroundColor: colors.bg }]} />
+              <PrimaryButton label="Continue" onPress={proceed} disabled={n === 0} style={styles.continueBtn} />
             </View>
           </View>
         </SafeAreaView>
@@ -352,7 +352,8 @@ const styles = StyleSheet.create({
   countPill: { position: 'absolute', top: 12, alignSelf: 'center', backgroundColor: colors.orangeLight, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6 },
   countTxt: { fontFamily: fonts.semibold, color: colors.text, fontSize: 13 },
   reviewActions: { flexDirection: 'row', gap: 12, marginTop: 24 },
-  reviewBtn: { flex: 1 },
+  retakeBtn: { width: '38%' },
+  continueBtn: { flex: 1 }, // takes the remaining, larger share
   footer: { marginTop: 'auto', marginBottom: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' },
   reset: { position: 'absolute', right: 24, bottom: 34, height: 36, paddingHorizontal: 14, borderRadius: 10, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' },
   resetTxt: { fontFamily: fonts.semibold, color: colors.text, fontSize: 12.5 },
