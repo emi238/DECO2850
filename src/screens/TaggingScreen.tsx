@@ -113,21 +113,7 @@ export default function TaggingScreen({ navigation }: ScreenProps<'Tagging'>) {
           </View>
 
           <View style={styles.selector}>
-            <Pressable
-              onPress={() => setActive(Math.max(0, frameIndex - 1))}
-              disabled={frameIndex === 0}
-              style={[styles.arrow, frameIndex > 0 && styles.arrowOn]}
-            >
-              <ChevronIcon size={13} dir="left" weight={1.8} />
-            </Pressable>
             <Text style={styles.frameLabel}>Frame {frameIndex + 1} of {frames.length}</Text>
-            <Pressable
-              onPress={() => setActive(Math.min(frames.length - 1, frameIndex + 1))}
-              disabled={frameIndex === frames.length - 1}
-              style={[styles.arrow, frameIndex < frames.length - 1 && styles.arrowOn]}
-            >
-              <ChevronIcon size={13} dir="right" weight={1.8} />
-            </Pressable>
           </View>
 
           {tags.length === 0 ? (
@@ -218,8 +204,6 @@ const styles = StyleSheet.create({
   pinTxt: { color: '#fff', fontSize: 10 },
 
   selector: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 9 },
-  arrow: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: '#D9D9D9', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg2 },
-  arrowOn: { borderColor: colors.orange },
   frameLabel: { fontFamily: fonts.regular, color: colors.text, fontSize: 15, minWidth: 90, textAlign: 'center' },
 
   empty: { fontFamily: fonts.regular, color: colors.text, fontSize: 15, textAlign: 'center', lineHeight: 21, marginTop: 44, marginBottom: 26 },
