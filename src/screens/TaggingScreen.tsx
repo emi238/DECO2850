@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
   selector: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 9 },
   frameLabel: { fontFamily: fonts.regular, color: colors.text, fontSize: 15, minWidth: 90, textAlign: 'center' },
 
-  empty: { fontFamily: fonts.regular, color: colors.text, fontSize: 15, textAlign: 'center', lineHeight: 21, marginTop: 44, marginBottom: 26 },
+  empty: { fontFamily: fonts.regular, color: colors.text, fontSize: 15, textAlign: 'center', lineHeight: 21, marginTop: 16, marginBottom: 26 },
   list: { gap: 8, marginTop: 15, marginBottom: 18 },
   tagRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.bg, borderRadius: 12, paddingHorizontal: 14, minHeight: 58, paddingVertical: 8 },
   tagLabel: { fontFamily: fonts.semibold, color: colors.text, fontSize: 15 },
