@@ -443,6 +443,7 @@ function DogAvatar({ evaluation, top, onPress }: { evaluation: Evaluation; top: 
 // then the room's lines on the cramped↔spacious / hazardous↔safe spectrum.
 
 const BAND_COLOR: Record<Band, string> = { poor: '#E4572E', adequate: colors.orange, good: '#5FAE7F' };
+const BAND_MARK: Record<Band, string> = { poor: '✕', adequate: '!', good: '✓' };
 
 function ReportOverlay({
   evaluation: e,
@@ -504,15 +505,19 @@ function ReportOverlay({
             </View>
           )}
 
-          <ReportRow heading="Noise fit, whole home" tag={e.labels.noise} band={e.noise} line={e.lines.noise} />
-
-          <Text style={styles.roomHead}>{roomName}</Text>
-          <View style={styles.toneRow}>
-            <View style={[styles.toneDot, { backgroundColor: BAND_COLOR[e.tone] }]} />
-            <Text style={styles.toneTxt}>{e.labels.tone}</Text>
+          {/* Plain verdict first (user testing asked for a clear good-fit / bad-fit answer). */}
+          <View style={[styles.verdict, { backgroundColor: BAND_COLOR[e.verdict] }]}>
+            {/* Dark text on the light orange, white on green/red, for contrast. */}
+            <Text style={[styles.verdictTitle, e.verdict === 'adequate' && { color: colors.text }]}>
+              {BAND_MARK[e.verdict]}  {e.verdictTitle}
+            </Text>
+            <Text style={[styles.verdictRoom, e.verdict === 'adequate' && { color: colors.text }]}>{roomName}</Text>
+            <Text style={[styles.verdictLine, e.verdict === 'adequate' && { color: colors.text }]}>{e.verdictLine}</Text>
           </View>
+
           <ReportRow heading="Space" tag={e.labels.space} band={e.space} line={e.lines.space} />
           <ReportRow heading="Safety" tag={e.labels.safety} band={e.safety} line={e.lines.safety} />
+          <ReportRow heading="Neighbours" tag={e.labels.noise} band={e.noise} line={e.lines.noise} />
 
           {riskCount > 0 && (
             <Pressable style={styles.reportBtn} onPress={() => dismiss(onRisks)}>
@@ -535,7 +540,7 @@ function ReportRow({ heading, tag, band, line }: { heading: string; tag: string;
       <View style={styles.reportRowHead}>
         <Text style={styles.reportRowTitle}>{heading}</Text>
         <View style={[styles.bandChip, { borderColor: BAND_COLOR[band] }]}>
-          <Text style={[styles.bandTxt, { color: BAND_COLOR[band] }]}>{tag}</Text>
+          <Text style={[styles.bandTxt, { color: BAND_COLOR[band] }]}>{BAND_MARK[band]} {tag}</Text>
         </View>
       </View>
       <Text style={styles.reportLine}>“{line}”</Text>
@@ -602,10 +607,10 @@ const styles = StyleSheet.create({
   grabber: { alignSelf: 'center', width: 44, height: 5, borderRadius: 3, backgroundColor: 'rgba(0,0,0,0.18)', marginBottom: 14 },
   advisory: { backgroundColor: '#FDE3D6', borderRadius: 12, padding: 12, marginBottom: 12 },
   advisoryHead: { fontFamily: fonts.bold, fontSize: 13, color: colors.orangeDeep, marginBottom: 4 },
-  roomHead: { fontFamily: fonts.bold, fontSize: 17, color: colors.text, marginTop: 16 },
-  toneRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4, marginBottom: 4 },
-  toneDot: { width: 9, height: 9, borderRadius: 5 },
-  toneTxt: { fontFamily: fonts.medium, fontSize: 12.5, color: colors.text },
+  verdict: { borderRadius: 12, padding: 14, marginBottom: 6 },
+  verdictTitle: { fontFamily: fonts.bold, fontSize: 18, color: '#fff' },
+  verdictRoom: { fontFamily: fonts.medium, fontSize: 12.5, color: '#fff', marginTop: 2, opacity: 0.9 },
+  verdictLine: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 19, color: '#fff', marginTop: 6 },
   reportRow: { backgroundColor: colors.bg, borderRadius: 12, padding: 12, marginTop: 8 },
   reportRowHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
   reportRowTitle: { fontFamily: fonts.semibold, fontSize: 13, color: colors.text },
