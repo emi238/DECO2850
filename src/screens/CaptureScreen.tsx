@@ -252,6 +252,17 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
                   </Text>
                 </View>
               )}
+              {/* Bottom right of the camera, opposite the latest-photo thumbnail. */}
+              {captured.length > 0 && !preparing && (
+                <Pressable
+                  onPress={clearPhotos}
+                  hitSlop={8}
+                  accessibilityLabel="Reset photos"
+                  style={({ pressed }) => [styles.reset, pressed && { opacity: 0.7 }]}
+                >
+                  <Text style={styles.resetTxt}>Reset</Text>
+                </Pressable>
+              )}
             </View>
           </View>
 
@@ -264,13 +275,6 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
           />
 
           <View style={styles.footer}>
-            {captured.length > 0 && !preparing ? (
-              <Pressable onPress={clearPhotos} hitSlop={10}>
-                <Text style={styles.link}>Start over</Text>
-              </Pressable>
-            ) : (
-              <View />
-            )}
             <PrimaryButton
               label="Next"
               onPress={finishPhotos}
@@ -319,8 +323,9 @@ const styles = StyleSheet.create({
   grantTxt: { fontFamily: fonts.semibold, color: colors.text, fontSize: 14 },
   countPill: { position: 'absolute', top: 12, alignSelf: 'center', backgroundColor: colors.orangeLight, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6 },
   countTxt: { fontFamily: fonts.semibold, color: colors.text, fontSize: 13 },
-  footer: { marginTop: 'auto', marginBottom: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  link: { fontFamily: fonts.medium, color: colors.orangeDeep, fontSize: 12 },
+  footer: { marginTop: 'auto', marginBottom: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' },
+  reset: { position: 'absolute', right: 24, bottom: 34, height: 36, paddingHorizontal: 14, borderRadius: 10, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' },
+  resetTxt: { fontFamily: fonts.semibold, color: colors.text, fontSize: 12.5 },
   next: { width: 140 },
   shutterRow: { position: 'absolute', left: 0, right: 0, bottom: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24 },
   thumbSlot: { width: 44, height: 44 },
