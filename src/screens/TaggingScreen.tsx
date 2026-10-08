@@ -47,7 +47,7 @@ export default function TaggingScreen({ navigation }: ScreenProps<'Tagging'>) {
 
   const frameIndex = Math.min(active, Math.max(0, frames.length - 1));
   const img = useFrameImageSize(frames[frameIndex]);
-  const next = frames[frameIndex + 1];
+  const goToFrame = (i: number) => setActive(Math.max(0, Math.min(frames.length - 1, i)));
 
   const onFramePress = (e: GestureResponderEvent) => {
     const p = viewToImage(img, FW, FH, e.nativeEvent.locationX, e.nativeEvent.locationY);
@@ -85,7 +85,7 @@ export default function TaggingScreen({ navigation }: ScreenProps<'Tagging'>) {
           </Text>
 
           <View style={[styles.card, { width: cardW }]}>
-            <ProgressBars count={frames.length} active={frameIndex} />
+            <ProgressBars count={frames.length} active={frameIndex} onSelect={goToFrame} />
             <View style={styles.frames}>
               <Pressable onPress={onFramePress}>
                 <FrameView frame={frames[frameIndex]} width={FW} height={FH} radius={12} />
@@ -98,13 +98,17 @@ export default function TaggingScreen({ navigation }: ScreenProps<'Tagging'>) {
                   );
                 })}
               </Pressable>
-              <Pressable
-                disabled={!next}
-                onPress={() => setActive(frameIndex + 1)}
-                style={[styles.peek, { height: FH }]}
-              >
-                {next && <FrameView frame={next} width={cardW - FW - 42} height={FH} radius={12} />}
-              </Pressable>
+              {/* Side arrows (same as Review) show there are more frames that way. */}
+              {frameIndex > 0 && (
+                <Pressable onPress={() => goToFrame(frameIndex - 1)} hitSlop={8} accessibilityLabel="Previous photo" style={[styles.sideArrow, { left: (cardW - FW) / 4 - 16, top: FH / 2 - 16 }]}>
+                  <ChevronIcon dir="left" size={12} />
+                </Pressable>
+              )}
+              {frameIndex < frames.length - 1 && (
+                <Pressable onPress={() => goToFrame(frameIndex + 1)} hitSlop={8} accessibilityLabel="Next photo" style={[styles.sideArrow, { right: (cardW - FW) / 4 - 16, top: FH / 2 - 16 }]}>
+                  <ChevronIcon dir="right" size={12} />
+                </Pressable>
+              )}
             </View>
           </View>
 
@@ -198,8 +202,8 @@ const styles = StyleSheet.create({
   sub: { fontFamily: fonts.regular, color: colors.text, fontSize: 15, lineHeight: 21, marginTop: 6 },
 
   card: { backgroundColor: colors.bg, borderRadius: 20, paddingTop: 13, paddingBottom: 22, marginTop: 16 },
-  frames: { flexDirection: 'row', paddingHorizontal: 12, gap: 18, overflow: 'hidden' },
-  peek: { flex: 1, borderRadius: 12, backgroundColor: colors.track, overflow: 'hidden' },
+  frames: { alignItems: 'center' }, // one whole frame, centred; no clipped neighbour
+  sideArrow: { position: 'absolute', width: 32, height: 32, borderRadius: 16, backgroundColor: colors.bg2, alignItems: 'center', justifyContent: 'center' },
   pin: {
     position: 'absolute',
     width: 22,
