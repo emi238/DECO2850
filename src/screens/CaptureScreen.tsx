@@ -1,6 +1,7 @@
 // Capture a space: take as many photos as you like with the camera (you press
 // the shutter for each one), or upload photos or a video (the Simulator has no
-// camera). Then "Review your space" shows the frames in a
+// camera). Photos and uploads collect on this screen; the orange Next button
+// (bottom right) opens "Review your space", which shows the frames in a
 // carousel before continuing to tagging.
 
 import React, { useCallback, useRef, useState } from 'react';
@@ -20,7 +21,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 
-import { TopBar, JoinedButtons } from '../components/kit';
+import { TopBar, JoinedButtons, PrimaryButton } from '../components/kit';
 import { FrameView } from '../components/FrameView';
 import { SwipeUpNav } from '../components/SwipeUpNav';
 import { colors, fonts } from '../theme';
@@ -57,7 +58,7 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
     setPhase('review');
   };
 
-  // Shutter: one photo per tap, no limit. Photos collect until "Done".
+  // Shutter: one photo per tap, no limit. Photos collect until "Next".
   const takePhoto = useCallback(async () => {
     if (busy.current || !cameraRef.current) return;
     busy.current = true;
@@ -106,8 +107,10 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
         Alert.alert('Nothing to use', 'No usable frames were found. Try different photos or a clearer video.');
         return;
       }
+      // Uploads join any photos already taken; Next moves on to the review.
+      framesRef.current = [...framesRef.current, ...res.frames];
+      setCaptured([...framesRef.current]);
       setSource('upload');
-      toReview(res.frames);
     } catch (e) {
       Alert.alert('Upload failed', e instanceof Error ? e.message : 'Could not import from your library.');
     } finally {
@@ -225,13 +228,6 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
               )}
               {granted && !preparing && (
                 <>
-                  {captured.length > 0 && (
-                    <View style={styles.countPill} pointerEvents="none">
-                      <Text style={styles.countTxt}>
-                        {captured.length} {captured.length === 1 ? 'photo' : 'photos'}
-                      </Text>
-                    </View>
-                  )}
                   <View style={styles.shutterRow}>
                     <View style={styles.thumbSlot}>
                       {captured.length > 0 && (
@@ -249,22 +245,39 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
                   </View>
                 </>
               )}
+              {captured.length > 0 && !preparing && (
+                <View style={styles.countPill} pointerEvents="none">
+                  <Text style={styles.countTxt}>
+                    {captured.length} {captured.length === 1 ? 'photo' : 'photos'}
+                  </Text>
+                </View>
+              )}
             </View>
           </View>
 
-          {captured.length > 0 && source === 'camera' ? (
-            <JoinedButtons
-              left={{ label: 'Start Over', onPress: clearPhotos }}
-              right={{ label: `Done (${captured.length})`, onPress: finishPhotos }}
-              style={{ marginTop: 20 }}
+          {/* Both upload options are neutral (white); only Next is orange. */}
+          <JoinedButtons
+            left={{ label: 'Upload Video', onPress: () => runUpload(pickVideoFrames, 'video') }}
+            right={{ label: 'Upload Photos', onPress: () => runUpload(pickPhotos, 'photos') }}
+            rightBg={colors.bg}
+            style={{ marginTop: 20 }}
+          />
+
+          <View style={styles.footer}>
+            {captured.length > 0 && !preparing ? (
+              <Pressable onPress={clearPhotos} hitSlop={10}>
+                <Text style={styles.link}>Start over</Text>
+              </Pressable>
+            ) : (
+              <View />
+            )}
+            <PrimaryButton
+              label="Next"
+              onPress={finishPhotos}
+              disabled={captured.length === 0 || !!preparing}
+              style={styles.next}
             />
-          ) : (
-            <JoinedButtons
-              left={{ label: 'Upload Video', onPress: () => runUpload(pickVideoFrames, 'video') }}
-              right={{ label: 'Upload Photos', onPress: () => runUpload(pickPhotos, 'photos') }}
-              style={{ marginTop: 20 }}
-            />
-          )}
+          </View>
         </View>
       </SafeAreaView>
     </View>
@@ -306,6 +319,9 @@ const styles = StyleSheet.create({
   grantTxt: { fontFamily: fonts.semibold, color: colors.text, fontSize: 14 },
   countPill: { position: 'absolute', top: 12, alignSelf: 'center', backgroundColor: colors.orangeLight, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6 },
   countTxt: { fontFamily: fonts.semibold, color: colors.text, fontSize: 13 },
+  footer: { marginTop: 'auto', marginBottom: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  link: { fontFamily: fonts.medium, color: colors.orangeDeep, fontSize: 12 },
+  next: { width: 140 },
   shutterRow: { position: 'absolute', left: 0, right: 0, bottom: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24 },
   thumbSlot: { width: 44, height: 44 },
   shutter: { width: 72, height: 72, borderRadius: 36, borderWidth: 4, borderColor: '#fff', alignItems: 'center', justifyContent: 'center' },
