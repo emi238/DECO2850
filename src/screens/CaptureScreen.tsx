@@ -199,11 +199,11 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
               <Text style={styles.warn}>Only {n} {n === 1 ? 'frame' : 'frames'}, a few more angles give a better read of the room.</Text>
             )}
 
-            <JoinedButtons
-              left={{ label: 'Retake Images', onPress: retake }}
-              right={{ label: 'Continue', onPress: proceed, disabled: n === 0 }}
-              style={{ marginTop: 24 }}
-            />
+            {/* Two separate buttons: neutral Retake, orange Continue. */}
+            <View style={styles.reviewActions}>
+              <PrimaryButton label="Retake Images" onPress={retake} style={[styles.reviewBtn, { backgroundColor: colors.bg }]} />
+              <PrimaryButton label="Continue" onPress={proceed} disabled={n === 0} style={styles.reviewBtn} />
+            </View>
           </View>
         </SafeAreaView>
         <SwipeUpNav onSpaces={close} onCapture={retake} />
@@ -351,6 +351,8 @@ const styles = StyleSheet.create({
   grantTxt: { fontFamily: fonts.semibold, color: colors.text, fontSize: 14 },
   countPill: { position: 'absolute', top: 12, alignSelf: 'center', backgroundColor: colors.orangeLight, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6 },
   countTxt: { fontFamily: fonts.semibold, color: colors.text, fontSize: 13 },
+  reviewActions: { flexDirection: 'row', gap: 12, marginTop: 24 },
+  reviewBtn: { flex: 1 },
   footer: { marginTop: 'auto', marginBottom: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' },
   reset: { position: 'absolute', right: 24, bottom: 34, height: 36, paddingHorizontal: 14, borderRadius: 10, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' },
   resetTxt: { fontFamily: fonts.semibold, color: colors.text, fontSize: 12.5 },
