@@ -22,6 +22,10 @@ const OUTDOOR: { value: Questionnaire['outdoor_access']; label: string }[] = [
 // Dogs only (Prototype 1): existing pets are the household's current dogs,
 // picked from the breed catalogue (The Dog API when a key is set).
 const MIXED = 'Mixed breed';
+
+// The questions a new user must answer at onboarding (existing dogs is optional).
+export const REQUIRED_QUESTIONS = ['dwelling', 'rental', 'neighbours', 'outdoor_access'] as const;
+export type RequiredQuestion = (typeof REQUIRED_QUESTIONS)[number];
 const petLabel = (p: ExistingPet) => p.breed || 'Dog';
 
 export function HouseholdForm({
@@ -29,10 +33,13 @@ export function HouseholdForm({
   onChange,
   disabled,
   compact,
+  blank,
 }: {
   value: Questionnaire;
   onChange: (patch: Partial<Questionnaire>) => void;
   disabled?: boolean;
+  blank?: ReadonlySet<RequiredQuestion>; // shown with nothing selected until answered (onboarding)
+
   compact?: boolean; // tighter spacing between questions inside the Profile card
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -57,7 +64,7 @@ export function HouseholdForm({
         <SectionLabel style={label}>Dwelling Type</SectionLabel>
         <Segmented
           disabled={disabled}
-          value={q.dwelling}
+          value={blank?.has('dwelling') ? null : q.dwelling}
           onChange={(v) => onChange({ dwelling: v })}
           options={[{ value: 'apartment', label: 'Apartment' }, { value: 'house', label: 'House' }]}
           style={big ? styles.segBig : styles.seg}
@@ -70,7 +77,7 @@ export function HouseholdForm({
         <SectionLabel style={label}>Is this a rental?</SectionLabel>
         <Segmented
           disabled={disabled}
-          value={q.rental ? 'yes' : 'no'}
+          value={blank?.has('rental') ? null : q.rental ? 'yes' : 'no'}
           onChange={(v) => onChange({ rental: v === 'yes' })}
           options={[{ value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }]}
           style={big ? styles.segBig : styles.seg}
@@ -83,7 +90,7 @@ export function HouseholdForm({
         <SectionLabel style={label}>How close are your nearest neighbours?</SectionLabel>
         <Segmented
           disabled={disabled}
-          value={q.neighbours}
+          value={blank?.has('neighbours') ? null : q.neighbours}
           onChange={(v) => onChange({ neighbours: v })}
           options={[
             { value: 'attached', label: 'Attached walls' },
@@ -104,7 +111,7 @@ export function HouseholdForm({
               key={o.value}
               disabled={disabled}
               label={o.label}
-              selected={q.outdoor_access === o.value}
+              selected={!blank?.has('outdoor_access') && q.outdoor_access === o.value}
               onPress={() => onChange({ outdoor_access: o.value })}
               style={big && styles.chipBig}
               textStyle={big && styles.chipTxtBig}
