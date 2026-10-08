@@ -24,6 +24,7 @@ import * as Haptics from 'expo-haptics';
 import { TopBar, JoinedButtons, PrimaryButton } from '../components/kit';
 import { FrameView } from '../components/FrameView';
 import { SwipeUpNav } from '../components/SwipeUpNav';
+import { ChevronIcon } from '../components/icons';
 import { colors, fonts } from '../theme';
 import { useSession } from '../store/session';
 import { pickPhotos, pickVideoFrames, type PickResult } from '../capture/upload';
@@ -49,7 +50,7 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
   const cardW = width - 44;
   const itemW = Math.round(cardW * 0.7);
   const itemH = Math.round(itemW * 1.45);
-  const itemGap = 18;
+  const reviewRef = useRef<ScrollView>(null);
 
   const toReview = (frames: Frame[]) => {
     framesRef.current = frames;
@@ -137,9 +138,15 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
     navigation.navigate('Tagging');
   };
 
+  // Review carousel: one whole frame per page (no clipped neighbour peeking in).
   const onCarousel = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const i = Math.round(e.nativeEvent.contentOffset.x / (itemW + itemGap));
+    const i = Math.round(e.nativeEvent.contentOffset.x / cardW);
     if (i !== page) setPage(Math.max(0, Math.min(captured.length - 1, i)));
+  };
+  const goToFrame = (i: number) => {
+    const next = Math.max(0, Math.min(captured.length - 1, i));
+    reviewRef.current?.scrollTo({ x: next * cardW, animated: true });
+    setPage(next);
   };
 
   const close = () => navigation.navigate('Home');
@@ -158,21 +165,34 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
             <Text style={styles.sub}>{subtitle}</Text>
 
             <View style={[styles.card, { width: cardW }]}>
-              <ProgressBars count={n} active={page} />
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                snapToInterval={itemW + itemGap}
-                decelerationRate="fast"
-                onScroll={onCarousel}
-                scrollEventThrottle={32}
-                contentContainerStyle={{ paddingHorizontal: 12, gap: itemGap }}
-              >
-                {captured.map((f, i) => (
-                  <FrameView key={i} frame={f} width={itemW} height={itemH} radius={12} />
-                ))}
-                {n === 1 && <View style={[styles.ghostFrame, { width: cardW - itemW - 42, height: itemH }]} />}
-              </ScrollView>
+              <ProgressBars count={n} active={page} onSelect={goToFrame} />
+              <View>
+                <ScrollView
+                  ref={reviewRef}
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  onScroll={onCarousel}
+                  scrollEventThrottle={32}
+                >
+                  {captured.map((f, i) => (
+                    <View key={i} style={{ width: cardW, alignItems: 'center' }}>
+                      <FrameView frame={f} width={itemW} height={itemH} radius={12} />
+                    </View>
+                  ))}
+                </ScrollView>
+                {/* Arrows in the side margins show there are more frames that way. */}
+                {page > 0 && (
+                  <Pressable onPress={() => goToFrame(page - 1)} hitSlop={8} accessibilityLabel="Previous photo" style={[styles.arrow, { left: (cardW - itemW) / 4 - 16, top: itemH / 2 - 16 }]}>
+                    <ChevronIcon dir="left" size={12} />
+                  </Pressable>
+                )}
+                {page < n - 1 && (
+                  <Pressable onPress={() => goToFrame(page + 1)} hitSlop={8} accessibilityLabel="Next photo" style={[styles.arrow, { right: (cardW - itemW) / 4 - 16, top: itemH / 2 - 16 }]}>
+                    <ChevronIcon dir="right" size={12} />
+                  </Pressable>
+                )}
+              </View>
             </View>
 
             {n < 4 && (
@@ -289,14 +309,22 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
 }
 
 // Thin bars across the top of the carousel card; the orange one is the current frame.
-export function ProgressBars({ count, active }: { count: number; active: number }) {
+// With onSelect, tapping a bar jumps to its frame.
+export function ProgressBars({ count, active, onSelect }: { count: number; active: number; onSelect?: (i: number) => void }) {
   const bars = Math.max(3, Math.min(count, 8));
   const current = count > bars ? Math.round((active / Math.max(1, count - 1)) * (bars - 1)) : active;
+  const frameFor = (bar: number) => (count > bars ? Math.round((bar / (bars - 1)) * (count - 1)) : bar);
   return (
     <View style={styles.bars}>
-      {Array.from({ length: bars }, (_, i) => (
-        <View key={i} style={[styles.bar, { width: bars > 3 ? 32 : 58 }, i === current && { backgroundColor: colors.orange }]} />
-      ))}
+      {Array.from({ length: bars }, (_, i) => {
+        const bar = <View style={[styles.bar, { width: bars > 3 ? 32 : 58 }, i === current && { backgroundColor: colors.orange }]} />;
+        if (!onSelect || frameFor(i) >= count) return <View key={i}>{bar}</View>;
+        return (
+          <Pressable key={i} onPress={() => onSelect(frameFor(i))} hitSlop={{ top: 12, bottom: 12, left: 2, right: 2 }} accessibilityLabel={`Show photo ${frameFor(i) + 1}`}>
+            {bar}
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
@@ -312,7 +340,7 @@ const styles = StyleSheet.create({
   cameraCard: { paddingHorizontal: 12, paddingTop: 12, paddingBottom: 12 },
   bars: { flexDirection: 'row', justifyContent: 'center', gap: 5, marginBottom: 16 },
   bar: { height: 6, borderRadius: 3, backgroundColor: colors.dots },
-  ghostFrame: { backgroundColor: colors.track, borderRadius: 12 },
+  arrow: { position: 'absolute', width: 32, height: 32, borderRadius: 16, backgroundColor: colors.bg2, alignItems: 'center', justifyContent: 'center' },
   warn: { fontFamily: fonts.regular, color: colors.orangeDeep, fontSize: 12, marginTop: 10 },
 
   viewport: { height: 380, borderRadius: 12, overflow: 'hidden', backgroundColor: colors.track },
