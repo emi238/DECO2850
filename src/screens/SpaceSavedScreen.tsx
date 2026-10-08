@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
   body: { paddingHorizontal: 22, paddingBottom: 30 },
   h1: { fontFamily: fonts.bold, color: colors.text, fontSize: 20, marginTop: 14 },
   sub: { fontFamily: fonts.regular, color: colors.text, fontSize: 15, lineHeight: 21, marginTop: 6 },
-  card: { backgroundColor: colors.bg, borderRadius: 20, marginTop: 16, alignItems: 'center', justifyContent: 'center' },
+  card: { marginTop: 16, alignItems: 'center', justifyContent: 'center' }, // no white panel behind the photo
   tilt: { transform: [{ rotate: '-3deg' }] },
   label: { fontFamily: fonts.semibold, color: colors.text, fontSize: 16, marginTop: 20, marginBottom: 10 },
   nameBox: { backgroundColor: colors.bg, borderRadius: 12, height: 52, justifyContent: 'center' },
