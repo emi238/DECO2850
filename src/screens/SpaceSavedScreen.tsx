@@ -86,7 +86,7 @@ export default function SpaceSavedScreen({ navigation }: ScreenProps<'SpaceSaved
           </View>
 
           {/* Separate steps: optional questionnaire check first, then the main action last. */}
-          <Text style={styles.prompt}>Last step, any changes to the Questionnaire? If not, tap here to</Text>
+          <Text style={styles.prompt}>Do you have any changes to your situation? If so, update your details here:</Text>
           <PrimaryButton
             label="Edit Questionnaire"
             onPress={() => navigation.navigate('Household')}
