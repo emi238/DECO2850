@@ -12,11 +12,13 @@ export function ZoomBox({
   width,
   height,
   radius = 12,
+  locked = false,
   children,
 }: {
   width: number;
   height: number;
   radius?: number;
+  locked?: boolean; // true while something inside is being dragged
   children: React.ReactNode;
 }) {
   return (
@@ -30,6 +32,8 @@ export function ZoomBox({
       showsHorizontalScrollIndicator={false}
       showsVerticalScrollIndicator={false}
       scrollsToTop={false}
+      scrollEnabled={!locked}
+      pinchGestureEnabled={!locked}
     >
       {children}
     </ScrollView>
