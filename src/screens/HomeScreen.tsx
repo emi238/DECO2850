@@ -57,6 +57,16 @@ export default function HomeScreen({ navigation }: ScreenProps<'Home'>) {
             <UploadIcon size={26} />
           </Pressable>
 
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Try AR marker placement"
+            style={({ pressed }) => [styles.arButton, pressed && { opacity: 0.75 }]}
+            onPress={() => navigation.navigate('ARPlacement')}
+          >
+            <Text style={styles.arButtonTitle}>Try AR marker placement</Text>
+            <Text style={styles.arButtonBody}>Place a PawSpace marker on a detected floor</Text>
+          </Pressable>
+
           {featured && (
             <Pressable onPress={() => openSpace(featured)}>
               <Text style={styles.label}>Most Frequently Visited Space →</Text>
@@ -125,6 +135,17 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   uploadTxt: { fontFamily: fonts.regular, color: colors.text, fontSize: 15 },
+  arButton: {
+    marginTop: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    backgroundColor: colors.cream,
+    borderWidth: 1,
+    borderColor: colors.orangeLight,
+  },
+  arButtonTitle: { fontFamily: fonts.semibold, color: colors.text, fontSize: 15 },
+  arButtonBody: { fontFamily: fonts.regular, color: colors.textMuted, fontSize: 12, marginTop: 3 },
 
   browseScroll: { marginRight: -29 },
   browse: { gap: 8, paddingRight: 29 },

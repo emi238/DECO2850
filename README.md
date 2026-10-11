@@ -45,35 +45,76 @@ opens on a **Home hub**.
 Everything you enter is saved locally on the device, so it survives navigating back
 and forth.
 
+### AR placement preview (development build)
+
+The Home screen includes **Try AR marker placement**. It opens a native ARKit/ARCore
+view, detects horizontal floor planes, and lets you tap a plane to place a small
+PawSpace marker. The marker is local to that AR session; this preview does not scan
+or measure the room, save anchors, or detect hazards.
+
+ViroReact uses native code, so this screen does not run in Expo Go. Create an Android
+development APK once, then use the development client and Metro for later JavaScript
+changes:
+
+```powershell
+.\node_modules\.bin\eas.cmd login
+.\.toolchain\node\npm.cmd run build:android:dev
+```
+
+When EAS finishes, open its build link on your Android phone and install the APK.
+Enable **Install unknown apps** for the browser if Android asks. Then, from the repo
+on your computer, start Metro for the development client:
+
+```powershell
+.\scripts\start-android.ps1
+```
+
+Connect the phone and computer to the same Wi-Fi, scan the terminal QR code with the
+phone camera, and open PawSpace. Tap **Try AR marker placement**, grant camera
+permission, point the phone at a textured, well-lit floor, move it slowly until a
+plane is detected, then tap the floor. Use **Reset** to start a fresh AR session.
+The AR runtime needs a physical ARCore-supported Android device; it will not work in
+Expo Go or the Android emulator. Google's maintained compatibility list is at
+<https://developers.google.com/ar/devices>.
+
+Rebuild the APK after changing native dependencies or Expo config. TypeScript and UI
+changes can be loaded over Metro without rebuilding the native client.
+
 ### 3D room view (experimental — this branch)
 
 From the Results screen, **View in 3D** opens a generated, movable 3D room: drag to
 orbit, pinch to zoom, and the hazardous objects are highlighted with numbered risk
 markers — tap one to pop up its risk card. It's rendered with three.js in a WebView
 (needs an internet connection to load three.js), so it still runs in Expo Go with no
-native code. This is a stand-in for the LiDAR/RoomPlan 3D scan the PRD describes as a
-later stage (§3) — a *generated* room, not a photoreal reconstruction of your photos.
+native code. This is a stand-in for future room reconstruction — a *generated* room,
+not a photoreal reconstruction of your photos.
 
 ---
 
 ## Run it
 
-You need Node and the Xcode iOS Simulator (already set up on this machine).
+The repository includes a project-local Node.js setup for Windows, so a system-wide
+Node installation is not needed. From PowerShell at the repository root, run setup
+once to download the verified Node.js runtime and install the locked project tools:
 
-```bash
-npm install
+```powershell
+.\scripts\setup.ps1
 ```
 
-Then start it and open on iOS:
+Start the app on Android with:
 
-```bash
-npx expo start --ios
+```powershell
+.\scripts\start-android.ps1
 ```
 
-- **iOS Simulator:** the app opens in Expo Go. The Simulator has no camera, so use
-  the **"Use demo room"** button on the capture screen.
-- **Your own phone:** install **Expo Go** from the App Store / Play Store, run
-  `npx expo start`, and scan the QR code. The live camera sweep works here.
+Node is kept under the ignored `.toolchain/` folder and packages under ignored
+`node_modules/`; rerun setup to recreate them. The lockfile pins app dependencies.
+The native AR screen requires a development build; Expo Go remains suitable for
+app flows that do not use AR.
+
+For the AR APK, use the EAS cloud build command above. Commands such as
+`npm run android` or `npx expo run:android` build or launch through a local Android
+SDK and require Android Studio/ADB; they are not needed for the EAS workflow.
 
 ---
 
@@ -125,6 +166,6 @@ in [`proxy/`](proxy/README.md) and set `EXPO_PUBLIC_PROXY_URL` instead of the ke
 
 ## Not in this MVP (by design)
 
-LiDAR / true 3D reconstruction, accounts / cloud sync, and offline inference are out
+Automatic room reconstruction, accounts / cloud sync, and offline inference are out
 of scope for the demo (see PRD §2 and §3). Pin positions are approximate, as the PRD
 notes.

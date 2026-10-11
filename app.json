@@ -10,11 +10,14 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSCameraUsageDescription": "PawSpace uses the camera so you can sweep and capture the room you want to check for pet suitability.",
-        "NSPhotoLibraryUsageDescription": "PawSpace lets you pick photos or a video of your room from your library to build the room for assessment."
+        "NSCameraUsageDescription": "PawSpace uses the camera to capture rooms and place markers in augmented reality.",
+        "NSPhotoLibraryUsageDescription": "PawSpace lets you pick photos or a video of your room from your library to build the room for assessment.",
+        "NSPhotoLibraryAddUsageDescription": "Allow $(PRODUCT_NAME) to save photos",
+        "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to use your microphone"
       }
     },
     "android": {
+      "package": "com.pawspace.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -27,7 +30,23 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-font"
-    ]
+      "expo-font",
+      [
+        "@reactvision/react-viro",
+        {
+          "android": {
+            "xRMode": "AR"
+          },
+          "ios": {
+            "cameraUsagePermission": "PawSpace uses the camera to capture rooms and place markers in augmented reality."
+          }
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "9d463e02-4f7f-4cc9-a5cf-43e2cfde4f00"
+      }
+    }
   }
 }

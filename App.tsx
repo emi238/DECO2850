@@ -24,6 +24,7 @@ import TaggingScreen from './src/screens/TaggingScreen';
 import SpaceSavedScreen from './src/screens/SpaceSavedScreen';
 import AnalysisScreen from './src/screens/AnalysisScreen';
 import SelectBreedScreen from './src/screens/SelectBreedScreen';
+import ARPlacementScreen from './src/screens/ARPlacementScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -69,6 +70,7 @@ export default function App() {
               <Stack.Screen name="SpaceSaved" component={SpaceSavedScreen} />
               <Stack.Screen name="Analysis" component={AnalysisScreen} />
               <Stack.Screen name="SelectBreed" component={SelectBreedScreen} />
+              <Stack.Screen name="ARPlacement" component={ARPlacementScreen} />
             </Stack.Navigator>
           </NavigationContainer>
         )}

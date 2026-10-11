@@ -16,6 +16,7 @@ export type RootStackParamList = {
   SpaceSaved: undefined;
   Analysis: { run?: boolean; report?: boolean } | undefined;
   SelectBreed: undefined;
+  ARPlacement: undefined;
 };
 
 export type ScreenProps<T extends keyof RootStackParamList> = NativeStackScreenProps<
