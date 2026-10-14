@@ -34,7 +34,7 @@ import { colors, fonts } from '../theme';
 import { useSession, useCurrentSpace } from '../store/session';
 import { runAssessment } from '../ai/assess';
 import { evaluate, type Band, type Evaluation } from '../logic/evaluate';
-import type { Frame, Hazard, Tag } from '../types';
+import type { Frame, Hazard, Questionnaire, Space, Tag } from '../types';
 import type { ScreenProps } from '../navigation';
 
 const MIN_LOADING_MS = 2200;
@@ -53,28 +53,47 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
   const [view, setView] = useState<'2d' | '3d'>('2d');
   const [riskIndex, setRiskIndex] = useState<number | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
+  // After a Re-run: what changed since the previous result (shown at the top of the report).
+  const [changeNote, setChangeNote] = useState<string | null>(null);
   const [cardH, setCardH] = useState(Math.round(height * 0.65));
   const [headerH, setHeaderH] = useState(160);
 
   // ---- run the assessment when asked (or when there is no result yet) ----
   const runRef = useRef(0);
-  const analyse = async () => {
+  const analyse = async (opts?: { compare?: boolean }) => {
     const id = ++runRef.current;
     setLoading(true);
     setLoadDone(false);
     setRiskIndex(null);
+    setReportOpen(false);
+    setChangeNote(null);
     const started = Date.now();
     const cur = useSession.getState().current();
+    const before = opts?.compare && cur ? snapshot(cur, useSession.getState().household) : null;
+    let note: string | null = null;
     if (cur) {
       const r = await runAssessment({ ...cur, questionnaire: { ...useSession.getState().household } });
       if (id !== runRef.current) return;
       setResult(r.assessment, r.source, r.fallbackReason);
+      const after = useSession.getState().current();
+      if (before && after) {
+        note = describeChange(before, snapshot(after, useSession.getState().household));
+        if (r.source === 'mock' && r.fallbackReason) note += ` ${r.fallbackReason}`;
+      }
     }
     const wait = Math.max(0, MIN_LOADING_MS - (Date.now() - started));
     setTimeout(() => {
       if (id !== runRef.current) return;
       setLoadDone(true);
-      setTimeout(() => id === runRef.current && setLoading(false), 350);
+      setTimeout(() => {
+        if (id !== runRef.current) return;
+        setLoading(false);
+        // Re-run: open the report straight away so the updated result is visible.
+        if (note) {
+          setChangeNote(note);
+          setReportOpen(true);
+        }
+      }, 350);
     }, wait);
   };
 
@@ -114,7 +133,7 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
   const reanalyse = () =>
     Alert.alert('Re-analyse this space?', 'Runs the analysis again with your latest household answers and tags.', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Re-analyse', onPress: analyse },
+      { text: 'Re-analyse', onPress: () => analyse({ compare: true }) },
     ]);
   const goHome = () => navigation.popTo('Home');
   const deleteSpace = () =>
@@ -220,13 +239,17 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
         {reportOpen && evaluation && (
           <ReportOverlay
             evaluation={evaluation}
+            changeNote={changeNote}
             roomName={title}
             riskCount={risks.length}
             onRisks={() => {
               setReportOpen(false);
               if (risks.length) setRiskIndex(0);
             }}
-            onClose={() => setReportOpen(false)}
+            onClose={() => {
+              setReportOpen(false);
+              setChangeNote(null);
+            }}
           />
         )}
 
@@ -369,6 +392,45 @@ function MapPage({
   );
 }
 
+// ---------------------------------------------------------------------------
+// Re-run feedback: compare the verdict and flagged items before and after.
+
+interface Snapshot {
+  verdict: string | null;
+  flagged: string[]; // hazard titles, as shown on the risk cards
+}
+
+function snapshot(space: Space, household: Questionnaire): Snapshot {
+  return {
+    verdict: evaluate(space, household)?.verdictTitle ?? null,
+    flagged: (space.result?.hazards ?? []).map((h) => h.title.trim()),
+  };
+}
+
+function listNames(names: string[]): string {
+  const shown = names.slice(0, 3).map((n) => `“${n}”`);
+  const more = names.length > 3 ? ` and ${names.length - 3} more` : '';
+  return shown.join(', ') + more;
+}
+
+function describeChange(before: Snapshot, after: Snapshot): string {
+  const key = (s: string) => s.toLowerCase();
+  const was = new Set(before.flagged.map(key));
+  const now = new Set(after.flagged.map(key));
+  const added = after.flagged.filter((t) => !was.has(key(t)));
+  const removed = before.flagged.filter((t) => !now.has(key(t)));
+  const parts: string[] = [];
+  if (before.verdict && after.verdict && before.verdict !== after.verdict) {
+    parts.push(`Verdict changed from “${before.verdict}” to “${after.verdict}”.`);
+  }
+  if (added.length) parts.push(`Newly flagged: ${listNames(added)}.`);
+  if (removed.length) parts.push(`No longer flagged: ${listNames(removed)}.`);
+  if (!parts.length) {
+    return 'Same result as last time. To see a different result, update your questionnaire answers or tags, or capture new photos.';
+  }
+  return parts.join(' ');
+}
+
 // Share of the map card the "Potential Risks!" sheet covers (matches styles.sheetWrap).
 const SHEET_SHARE = 0.44;
 
@@ -476,12 +538,14 @@ const BAND_MARK: Record<Band, string> = { poor: '✕', adequate: '!', good: '✓
 
 function ReportOverlay({
   evaluation: e,
+  changeNote,
   roomName,
   riskCount,
   onRisks,
   onClose,
 }: {
   evaluation: Evaluation;
+  changeNote?: string | null;
   roomName: string;
   riskCount: number;
   onRisks: () => void;
@@ -527,6 +591,13 @@ function ReportOverlay({
         </View>
         </View>
         <ScrollView contentContainerStyle={{ paddingBottom: 90 }} showsVerticalScrollIndicator={false}>
+          {!!changeNote && (
+            <View style={styles.changeNote}>
+              <Text style={styles.changeHead}>Updated just now</Text>
+              <Text style={styles.changeTxt}>{changeNote}</Text>
+            </View>
+          )}
+
           {e.lines.advisory && (
             <View style={styles.advisory}>
               <Text style={styles.advisoryHead}>Not ready for this dog yet</Text>
@@ -635,6 +706,9 @@ const styles = StyleSheet.create({
   dragZone: { paddingTop: 2 },
   grabber: { alignSelf: 'center', width: 44, height: 5, borderRadius: 3, backgroundColor: 'rgba(0,0,0,0.18)', marginBottom: 14 },
   advisory: { backgroundColor: '#FDE3D6', borderRadius: 12, padding: 12, marginBottom: 12 },
+  changeNote: { backgroundColor: colors.bg, borderRadius: 12, padding: 12, marginBottom: 10, borderLeftWidth: 4, borderLeftColor: colors.orangeDeep },
+  changeHead: { fontFamily: fonts.semibold, fontSize: 13, color: colors.text },
+  changeTxt: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.text, marginTop: 3 },
   advisoryHead: { fontFamily: fonts.bold, fontSize: 13, color: colors.orangeDeep, marginBottom: 4 },
   verdict: { borderRadius: 12, padding: 14, marginBottom: 6 },
   verdictTitle: { fontFamily: fonts.bold, fontSize: 18, color: '#fff' },
