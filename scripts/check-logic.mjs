@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const out = mkdtempSync(join(tmpdir(), 'pawspace-logic-'));
-for (const file of ['src/ai/schema.ts', 'src/ai/normalise.ts', 'src/ai/prompt.ts', 'src/logic/suitability.ts']) {
+for (const file of ['src/ai/schema.ts', 'src/ai/normalise.ts', 'src/ai/prompt.ts', 'src/ai/config.ts', 'src/ai/gemini.ts', 'src/logic/suitability.ts']) {
   const { outputText } = ts.transpileModule(readFileSync(join(root, file), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
   });
@@ -27,6 +27,7 @@ const S = require(join(out, 'src/logic/suitability.js'));
 const { normaliseAssessment } = require(join(out, 'src/ai/normalise.js'));
 const { SYSTEM_PROMPT } = require(join(out, 'src/ai/prompt.js'));
 const { ROOM_RESPONSE_SCHEMA } = require(join(out, 'src/ai/schema.js'));
+const { callGemini } = require(join(out, 'src/ai/gemini.js'));
 
 // ---- fixtures ----
 
@@ -329,6 +330,33 @@ check('response schema: no score/verdict fields; every finding requires object_k
   const item = ROOM_RESPONSE_SCHEMA.properties.hazards.items;
   for (const k of ['object_key', 'confidence', 'location', 'source', 'hazard_type']) assert.ok(item.required.includes(k), k);
 });
+
+console.log('\nGemini request (fake API, no network)');
+{
+  const name = 'if the API rejects the schema (HTTP 400), the room call retries once without it';
+  const realFetch = globalThis.fetch;
+  const sent = [];
+  globalThis.fetch = async (_url, init) => {
+    const body = JSON.parse(init.body);
+    sent.push(!!body.generationConfig.responseSchema);
+    if (body.generationConfig.responseSchema) return new Response('{"error":{"code":400}}', { status: 400 });
+    const reply = { hazards: [hz({ object_key: 'cord' })], room_assessment: room(), improvements: ['Tidy the cord.'] };
+    return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(reply) }] } }] }), { status: 200 });
+  };
+  try {
+    const session = { ...space([], 1), capture: { frames: [{ uri: '', base64: 'AAAA', mime: 'image/jpeg' }] }, pet: null, mode: 'pet_in_mind', questionnaire: household() };
+    const a = await callGemini(session, null, new AbortController().signal);
+    assert.deepEqual(sent, [true, false]);
+    assert.equal(a.hazards[0].object_key, 'cord');
+    passed++;
+    console.log(`  ✓ ${name}`);
+  } catch (e) {
+    failures.push(name);
+    console.log(`  ✗ ${name}\n      ${String(e.message).split('\n')[0]}`);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+}
 
 console.log(`\n${passed} passed, ${failures.length} failed`);
 if (failures.length) process.exit(1);

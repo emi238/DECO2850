@@ -95,16 +95,26 @@ export async function callGemini(session: Space, dog: DogTraits | null, signal: 
     ...images.map((img) => ({ inline_data: img })),
   ];
 
-  const body = {
+  const body = (withSchema: boolean) => ({
     contents: [{ role: 'user', parts }],
     generationConfig: {
       responseMimeType: 'application/json',
-      responseSchema: ROOM_RESPONSE_SCHEMA, // the API only returns JSON matching this (W11)
+      // The API only returns JSON matching this (W11).
+      ...(withSchema ? { responseSchema: ROOM_RESPONSE_SCHEMA } : {}),
       temperature: 0.4,
     },
-  };
+  });
 
-  const text = await generateText(body, signal);
+  let text: string;
+  try {
+    text = await generateText(body(true), signal);
+  } catch (e) {
+    // If the API rejects the schema itself (HTTP 400, e.g. "too complex"), ask once
+    // more without it: the prompt describes the same shape, and normalise.ts checks
+    // every value either way. Other errors go to assess.ts's retries and fallback.
+    if (!(e instanceof Error) || !/HTTP 400/.test(e.message)) throw e;
+    text = await generateText(body(false), signal);
+  }
   const raw = extractJson(text);
   return normaliseAssessment(raw, session);
 }
