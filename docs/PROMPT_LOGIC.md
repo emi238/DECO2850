@@ -363,7 +363,7 @@ Safety load = Σ type_weight × severity_weight × size_scale × confidence_fact
 | clutter | 0.5 | | | | |
 | other | 0 (not a danger) | | | | |
 
-- **size_scale 1.3:** a large dog (or a medium high-energy one, see §4.4) on
+- **size_scale 1.3:** a large dog (by weight; energy doesn't change this one) on
   fragile/valuable, floor/stairs and escape/fall; a small dog on findings marked
   `small_dog_risk` (squeeze gaps, swallowable objects); otherwise 1.0.
 - **Counted:** every photo finding with a type above, whether pinned or whole-room.
