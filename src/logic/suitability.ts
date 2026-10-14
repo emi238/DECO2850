@@ -26,9 +26,10 @@ export type Bands = Record<SubScore, Band>;
 
 export const WEIGHTS: Record<SubScore, number> = { safety: 0.35, energy: 0.25, room: 0.15, household: 0.15, noise: 0.1 };
 export const BAND_VALUE: Record<Band, number> = { good: 1, adequate: 0.5, poor: 0 };
-// Blend → verdict: at least 0.8 is good, at least 0.55 is adequate, below is poor.
+// Blend → verdict: at least 0.8 is good, at least 0.45 is adequate, below is poor.
+// Every sub-score adequate (0.5) is adequate; it takes poor sub-scores to reach poor.
 export const VERDICT_GOOD_AT = 0.8;
-export const VERDICT_ADEQUATE_AT = 0.55;
+export const VERDICT_ADEQUATE_AT = 0.45;
 
 // §2.3 Safety load = Σ type_weight × severity_weight × size_scale × confidence_factor
 export const TYPE_WEIGHT: Record<HazardType, number> = {
@@ -43,9 +44,11 @@ export const TYPE_WEIGHT: Record<HazardType, number> = {
 export const SEVERITY_WEIGHT: Record<Severity, number> = { high: 3, medium: 2, low: 1 };
 export const CONFIDENCE_FACTOR: Record<Confidence, number> = { high: 1, medium: 0.8, low: 0.5 };
 export const SIZE_SCALE = 1.3;
-// Load 0 is good, under this is adequate, at or above it is poor. Three low-severity
-// cords (load 6) stay adequate; one high escape plus a medium cord (13) is poor.
-export const SAFETY_POOR_LOAD = 12;
+// Load 0 is good, under this is adequate, at or above it is poor. A typical room
+// with a few fixable things (a low cord, a medium plant and a medium balcony door,
+// 13 to 14) stays adequate; two high escape routes (18) or four or more medium
+// hazards are poor. Single serious risks are caught by the hard gates instead.
+export const SAFETY_POOR_LOAD = 15;
 
 // ---- Inputs ----
 
@@ -357,7 +360,7 @@ export function crossCheck(q: Questionnaire, result: Assessment | null, energyUn
 
 // What we couldn't check. Unknown sub-scores count as "adequate" in the blend, and
 // the verdict can't be "good" while anything is unknown: we don't claim a good fit
-// we haven't checked.
+// we haven't checked. Likewise a "poor" sub-score or a hard gate rules out "good".
 //   photos:  the result is the built-in sample, which can't see the photos
 //   room:    a photo result without a room assessment (saved before logic v2)
 //   routine: the routine questions are unanswered and could swing the energy fit
@@ -413,7 +416,8 @@ export function scoreSuitability(
   const blend = (Object.keys(WEIGHTS) as SubScore[]).reduce((sum, k) => sum + WEIGHTS[k] * BAND_VALUE[bands[k]], 0);
   const gates = hardGates(dog, q, seen);
   let verdict = verdictFromBlend(blend);
-  if ((gates.length || unknown.length) && verdict === 'good') verdict = 'adequate'; // cap at "needs changes"
+  const anyPoor = (Object.values(bands) as Band[]).includes('poor');
+  if ((gates.length || unknown.length || anyPoor) && verdict === 'good') verdict = 'adequate'; // cap at "needs changes"
   return {
     bands,
     blend,

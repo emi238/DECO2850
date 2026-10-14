@@ -175,6 +175,35 @@ check('decisive answers still decide when one is unanswered', () => {
   assert.equal(e.band, 'poor');
 });
 
+console.log('\nCalibration');
+check('a typical room with a few fixable things stays "adequate" Safety, even for a large dog', () => {
+  const r = result([
+    hz({ object_key: 'cord', severity: 'low' }),
+    hz({ object_key: 'plant', category: 'A', hazard_type: 'toxic_ingestible', severity: 'medium', confidence: 'medium' }),
+    hz({ object_key: 'balcony-door', category: 'G', hazard_type: 'escape_fall', severity: 'medium' }),
+  ]);
+  const s = S.scoreSuitability(lab, household(), r);
+  assert.ok(s.safety.load < S.SAFETY_POOR_LOAD, `load ${s.safety.load}`);
+  assert.equal(s.bands.safety, 'adequate');
+});
+check('two high escape routes make Safety "poor"', () => {
+  const r = result([
+    hz({ object_key: 'balcony', category: 'G', hazard_type: 'escape_fall', severity: 'high' }),
+    hz({ object_key: 'window', category: 'G', hazard_type: 'escape_fall', severity: 'high' }),
+  ]);
+  assert.equal(S.scoreSuitability(collie, household(), r).bands.safety, 'poor');
+});
+check('every sub-score "adequate" gives "Good fit with a few changes", not "poor"', () => {
+  assert.equal(S.verdictFromBlend(0.5), 'adequate');
+});
+check('a "poor" sub-score never sits under a "Good fit"', () => {
+  const r = result([], { room_assessment: room({ openness: 'cramped' }) });
+  const s = S.scoreSuitability(lab, household(), r); // room poor for a large dog, everything else good
+  assert.equal(s.bands.room, 'poor');
+  assert.ok(s.blend >= S.VERDICT_GOOD_AT, `blend ${s.blend} alone would be good`);
+  assert.equal(s.verdict, 'adequate');
+});
+
 console.log('\nUnknowns are never reported as good');
 check('unanswered routine questions or no room assessment can’t produce "Good fit"', () => {
   const routine = S.scoreSuitability(lab, household({ owner_activity: undefined, exercise_time: undefined, hours_alone: undefined }), result());
