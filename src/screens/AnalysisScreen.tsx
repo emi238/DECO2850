@@ -34,7 +34,7 @@ import { colors, fonts } from '../theme';
 import { useSession, useCurrentSpace } from '../store/session';
 import { runAssessment } from '../ai/assess';
 import { evaluate, type Band, type Evaluation } from '../logic/evaluate';
-import type { Frame, Hazard, OffLimitSuggestion, Questionnaire, Space, Tag } from '../types';
+import type { Frame, Hazard, OffLimitSuggestion, Tag } from '../types';
 import type { ScreenProps } from '../navigation';
 
 const MIN_LOADING_MS = 2200;
@@ -53,33 +53,23 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
   const [view, setView] = useState<'2d' | '3d'>('2d');
   const [riskIndex, setRiskIndex] = useState<number | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
-  // After a Re-run: what changed since the previous result (shown at the top of the report).
-  const [changeNote, setChangeNote] = useState<string | null>(null);
   const [cardH, setCardH] = useState(Math.round(height * 0.65));
   const [headerH, setHeaderH] = useState(160);
 
   // ---- run the assessment when asked (or when there is no result yet) ----
   const runRef = useRef(0);
-  const analyse = async (opts?: { compare?: boolean }) => {
+  const analyse = async (opts?: { openReport?: boolean }) => {
     const id = ++runRef.current;
     setLoading(true);
     setLoadDone(false);
     setRiskIndex(null);
     setReportOpen(false);
-    setChangeNote(null);
     const started = Date.now();
     const cur = useSession.getState().current();
-    const before = opts?.compare && cur ? snapshot(cur, useSession.getState().household) : null;
-    let note: string | null = null;
     if (cur) {
       const r = await runAssessment({ ...cur, questionnaire: { ...useSession.getState().household } });
       if (id !== runRef.current) return;
       setResult(r.assessment, r.source, r.fallbackReason);
-      const after = useSession.getState().current();
-      if (before && after) {
-        note = describeChange(before, snapshot(after, useSession.getState().household));
-        if (r.source === 'mock' && r.fallbackReason) note += ` ${r.fallbackReason}`;
-      }
     }
     const wait = Math.max(0, MIN_LOADING_MS - (Date.now() - started));
     setTimeout(() => {
@@ -89,10 +79,7 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
         if (id !== runRef.current) return;
         setLoading(false);
         // Re-run: open the report straight away so the updated result is visible.
-        if (note) {
-          setChangeNote(note);
-          setReportOpen(true);
-        }
+        if (opts?.openReport) setReportOpen(true);
       }, 350);
     }, wait);
   };
@@ -133,7 +120,7 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
   const reanalyse = () =>
     Alert.alert('Re-analyse this space?', 'Runs the analysis again with your latest household answers and tags.', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Re-analyse', onPress: () => analyse({ compare: true }) },
+      { text: 'Re-analyse', onPress: () => analyse({ openReport: true }) },
     ]);
   const goHome = () => navigation.popTo('Home');
   const deleteSpace = () =>
@@ -240,20 +227,15 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
         {reportOpen && evaluation && (
           <ReportOverlay
             evaluation={evaluation}
-            changeNote={changeNote}
             roomName={title}
             riskCount={risks.length}
             onRisks={() => {
               setReportOpen(false);
               if (risks.length) setRiskIndex(0);
             }}
-            onClose={() => {
-              setReportOpen(false);
-              setChangeNote(null);
-            }}
+            onClose={() => setReportOpen(false)}
             onEditProfile={() => {
               setReportOpen(false);
-              setChangeNote(null);
               navigation.navigate('Profile', { editHousehold: true });
             }}
           />
@@ -426,44 +408,6 @@ function MapPage({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Re-run feedback: compare the verdict and flagged items before and after.
-
-interface Snapshot {
-  verdict: string | null;
-  flagged: { key: string; title: string }[]; // object_key identifies the object; title is what's shown
-}
-
-function snapshot(space: Space, household: Questionnaire): Snapshot {
-  return {
-    verdict: evaluate(space, household)?.verdictTitle ?? null,
-    flagged: (space.result?.hazards ?? []).map((h) => ({ key: h.object_key ?? h.title.trim().toLowerCase(), title: h.title.trim() })),
-  };
-}
-
-function listNames(names: string[]): string {
-  const shown = names.slice(0, 3).map((n) => `“${n}”`);
-  const more = names.length > 3 ? ` and ${names.length - 3} more` : '';
-  return shown.join(', ') + more;
-}
-
-function describeChange(before: Snapshot, after: Snapshot): string {
-  const was = new Set(before.flagged.map((f) => f.key));
-  const now = new Set(after.flagged.map((f) => f.key));
-  const added = after.flagged.filter((f) => !was.has(f.key)).map((f) => f.title);
-  const removed = before.flagged.filter((f) => !now.has(f.key)).map((f) => f.title);
-  const parts: string[] = [];
-  if (before.verdict && after.verdict && before.verdict !== after.verdict) {
-    parts.push(`Verdict changed from “${before.verdict}” to “${after.verdict}”.`);
-  }
-  if (added.length) parts.push(`Newly flagged: ${listNames(added)}.`);
-  if (removed.length) parts.push(`No longer flagged: ${listNames(removed)}.`);
-  if (!parts.length) {
-    return 'Same result as last time. To see a different result, update your questionnaire answers or tags, or capture new photos.';
-  }
-  return parts.join(' ');
-}
-
 // Share of the map card the "Potential Risks!" sheet covers (matches styles.sheetWrap).
 const SHEET_SHARE = 0.44;
 
@@ -573,7 +517,6 @@ const BAND_MARK: Record<Band, string> = { poor: '✕', adequate: '!', good: '✓
 
 function ReportOverlay({
   evaluation: e,
-  changeNote,
   roomName,
   riskCount,
   onRisks,
@@ -581,7 +524,6 @@ function ReportOverlay({
   onEditProfile,
 }: {
   evaluation: Evaluation;
-  changeNote?: string | null;
   roomName: string;
   riskCount: number;
   onRisks: () => void;
@@ -628,13 +570,6 @@ function ReportOverlay({
         </View>
         </View>
         <ScrollView contentContainerStyle={{ paddingBottom: 90 }} showsVerticalScrollIndicator={false}>
-          {!!changeNote && (
-            <View style={styles.changeNote}>
-              <Text style={styles.changeHead}>Updated just now</Text>
-              <Text style={styles.changeTxt}>{changeNote}</Text>
-            </View>
-          )}
-
           {/* Plain verdict first (user testing asked for a clear good-fit / bad-fit answer). */}
           <View style={[styles.verdict, { backgroundColor: BAND_COLOR[e.verdict] }]}>
             {/* Dark text on the light orange, white on green/red, for contrast. */}
@@ -770,9 +705,6 @@ const styles = StyleSheet.create({
   report: { flex: 1, backgroundColor: 'rgba(255,255,255,0.72)', borderTopLeftRadius: 22, borderTopRightRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.8)', overflow: 'hidden', paddingHorizontal: 22, paddingTop: 10 },
   dragZone: { paddingTop: 2 },
   grabber: { alignSelf: 'center', width: 44, height: 5, borderRadius: 3, backgroundColor: 'rgba(0,0,0,0.18)', marginBottom: 14 },
-  changeNote: { backgroundColor: colors.bg, borderRadius: 12, padding: 12, marginBottom: 10, borderLeftWidth: 4, borderLeftColor: colors.orangeDeep },
-  changeHead: { fontFamily: fonts.semibold, fontSize: 13, color: colors.text },
-  changeTxt: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.text, marginTop: 3 },
   verdict: { borderRadius: 12, padding: 14, marginBottom: 6 },
   verdictTitle: { fontFamily: fonts.bold, fontSize: 18, color: '#fff' },
   verdictRoom: { fontFamily: fonts.medium, fontSize: 12.5, color: '#fff', marginTop: 2, opacity: 0.9 },
