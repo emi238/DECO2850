@@ -5,6 +5,14 @@ goes from room photos + questionnaire to "is this space suitable for this dog?",
 the model is asked, what the app does with the answer, and where the current setup is
 weak. Written against branch `feat/native-ar-foundation` (October 2026).
 
+**Changelog**
+- **14 Oct 2026 (user-testing round 2):** the questionnaire now asks about **children at
+  home** and **how long the dog is home alone**. Both prompts receive these answers and
+  have new guidance for weighing them (§2.3 "HOUSEHOLD FACTORS TO WEIGH", §3). The room
+  prompt now receives **only the questions the user actually answers** (fixes W3).
+  Re-run now shows what changed (§4.7). AR findings recorded in §8.
+- **11 Oct 2026:** first version.
+
 ---
 
 ## 1. The big picture
@@ -48,26 +56,27 @@ note tells the user.
 One request, all in a single `user` turn, in this order (`gemini.ts → callGemini`):
 
 1. **The system prompt** (full text in §2.3).
-2. **`CONTEXT:` + a JSON string**:
+2. **`CONTEXT:` + a JSON string** (built by `contextJson` / `householdContext` in `gemini.ts`):
    ```json
    {
      "mode": "pet_in_mind",
-     "pet": { "species": "Dog", "breed": "Labrador Retriever", "size": "large", "energy": "moderate", "noise": "quiet", "imageUrl": "…" },
-     "questionnaire": {
+     "pet": { "breed": "Labrador Retriever", "size": "large", "energy": "moderate", "noise": "quiet" },
+     "household": {
        "dwelling": "apartment", "rental": true, "neighbours": "attached",
-       "floor_level": null, "outdoor_access": "balcony",
-       "adults": 1, "children": 0, "children_ages": "", "infant_present": false,
-       "existing_pets": [], "off_limit_zones": [],
-       "activity_level": "medium", "wants_apartment_friendly": true
+       "outdoor_access": "balcony", "existing_dogs": [],
+       "children_at_home": "young",
+       "hours_alone": "4_to_8"
      },
      "tags": [ { "label": "Vase", "note": "Fragile", "frame": 0 } ]
    }
    ```
 3. **Up to 10 photos** as inline base64 JPEGs, about 1024px wide, in capture order.
 
-Only `dwelling`, `rental`, `neighbours`, `outdoor_access` and `existing_pets` are asked in
-the current questionnaire. Every other questionnaire field is a **default value the user
-never set** (see weakness W3).
+`household` holds exactly the seven questions the user answers. `children_at_home` is
+`none | young` (a child under 5) `| older` (5 or older). `hours_alone` is
+`under_4 | 4_to_8 | over_8` (a typical day). Users who set up before these two questions
+existed get `"not_answered"` until they edit Profile, and the prompt tells the model not
+to assume either way. The breed prompt receives the same `household` object.
 
 ### 2.2 What the app does with the reply
 
@@ -95,8 +104,14 @@ INPUTS YOU RECEIVE
 1. PHOTOS: several overlapping stills captured by sweeping a phone across one room, ordered left-to-right and 0-indexed. Treat them as partial views of the same space. For every object-level finding, note WHICH photo index it appears in and WHERE in that photo it sits, so it can be pinned onto a 2D room map. Reason only about what is visibly present or strongly implied. NEVER invent objects you cannot see. If something is ambiguous, lower your confidence rather than guessing.
 2. MODE: "pet_in_mind" (a species/breed is given) or "explore" (recommend pets for this space).
 3. PET (pet_in_mind only): species + breed. Consider that breed's typical adult size, energy/activity level, exercise needs, jumping/climbing ability, chewing tendency, escape behaviour, and temperature sensitivity — but assess THIS space and context. Do NOT reject or penalise a breed on stereotype alone; every judgement must be grounded in the actual space + context.
-4. HOUSEHOLD CONTEXT (questionnaire): dwelling type, rental status, floor level, outdoor access (balcony/yard/pool/none), number/ages of occupants, infants present, existing pets, off-limit/sensitive zones, household activity level, whether an apartment-friendly pet is wanted.
+4. HOUSEHOLD CONTEXT ("household" in the context JSON): dwelling (apartment/house), rental, neighbours (attached / close_separate / not_close), outdoor_access (none/balcony/shared yard/private yard/pool), existing_dogs, children_at_home (none / young = a child under 5 / older = 5 or older), and hours_alone (how long the dog would be home alone on a typical day: under_4 / 4_to_8 / over_8). These are the user's own answers: treat them as facts. A value of "not_answered" means unknown, so do not assume either way. Nothing else about the household is known.
 5. USER-TAGGED OBJECTS: objects the user manually flagged, each with a label + note (e.g., "antique vase — valuable & fragile"). Treat these as HIGH-PRIORITY, authoritative context and always address them.
+
+HOUSEHOLD FACTORS TO WEIGH
+- children_at_home = young: flag things that bring a dog and a small child together unsupervised (toys on the floor at dog height, food at child height, no spot for the dog to retreat to, no way to gate off a play or sleep area). Recommend a dog-only retreat and a baby gate where it fits the room. Use category J or M.
+- children_at_home = older: mention a dog-only retreat spot only if the room clearly lacks one.
+- hours_alone = 4_to_8 or over_8: a bored dog left alone chews, digs and tries to get out, so raise the severity of anything chewable or escapable within reach (cords, bins, shoes, cushions, plants, door gaps, low windows) by one step, and recommend a safe zone or crate area that can be cleared of hazards. Over 8 hours: also note in "improvements" that a dog walker or daycare would help.
+- hours_alone = under_4: no change.
 
 ASSESSMENT CHECKLIST — systematically check each of these and report those present, relevant, or notably missing when they should be present:
 A. Toxic/harmful plants (e.g., lilies for cats, sago palm)
@@ -176,17 +191,29 @@ RULES
    stripped from the text (so no numbers reach the screen), and fewer than 3 valid picks
    means the app falls back to the rules list.
 
+When the app falls back to the rules list (AI off or failed), each breed's "watch out"
+line now checks the new answers first: over 8 hours alone → "plan a walker or daycare";
+young children and a dog that isn't small → "supervise it around small children and give
+it a quiet retreat"; otherwise the existing safety / outdoor-space lines.
+
+> **Children and hours alone change only the AI's output, not the §4 rules.** Spec §4 has
+> no rule for them, so the Space, Safety and Neighbours bands ignore them. If the team
+> wants them to change the verdict (for example, over 8 hours alone + high energy →
+> Space one step worse), that needs a spec decision first.
+
 ```text
 You are PawSpace's dog-breed matchmaker. A person is checking whether their home suits a dog. Recommend dog breeds that would genuinely suit THIS home and household.
 
 You receive JSON with:
-- "household": dwelling type, rental, how close the neighbours are, outdoor access, existing dogs.
+- "household": dwelling type, rental, how close the neighbours are, outdoor access, existing dogs, children_at_home (none / young = under 5 / older = 5+ / not_answered) and hours_alone (how long the dog is home alone on a typical day: under_4 / 4_to_8 / over_8 / not_answered).
 - "room": a summary of the captured room, the number of physical hazards found, the number of valuables the user tagged, and the estimated open floor space.
 - "candidates": a shortlist of real breeds. Each has name, size (small <12kg, medium 12-25kg, large >25kg), energy (low/moderate/high), noise (quiet/moderate/vocal), temperament, breed group, and "rule_fit" — how PawSpace's space rules rate it for this room (space, safety, noise: poor/adequate/good).
 
 How to choose:
 - ONLY choose breeds from "candidates". Copy each name exactly.
 - Favour breeds whose rule_fit is good or adequate. Weigh: floor space vs size and energy; outdoor access vs energy (no outdoor space + high energy is a poor match); neighbour closeness vs noise (attached walls + vocal is a poor match); rentals favour smaller, quieter dogs; tagged valuables and hazards favour calmer, less destructive dogs; existing dogs favour sociable breeds.
+- Children: with young children, favour breeds whose temperament is gentle, patient or tolerant, and avoid very boisterous or easily-startled ones; mention supervision in "watch_out". Older children suit most friendly, playful breeds.
+- Time alone: with 4 to 8 hours alone, favour moderate or low energy breeds that are described as independent or calm. With over 8 hours alone, strongly favour low energy, independent, quieter breeds, avoid high energy or very people-focused breeds, and say in "watch_out" that a walker or daycare would help. Long hours alone plus attached walls makes a vocal breed a poor match.
 - Offer variety (different sizes and temperaments) when several breeds fit similarly.
 - Return up to 8 breeds, best match first.
 
@@ -272,6 +299,18 @@ threshold). With the fixed default room this works out to 0.75, so it never fire
   plus one plain sentence listing what to change. Tagged items show "Be careful" instead
   of a severity chip.
 
+### 4.7 Re-run
+
+Re-run sends the latest household answers and tags to the room prompt again. Before the
+change the map just reloaded, so users saw no feedback. Now the app takes a snapshot of
+the verdict and the flagged item titles before and after, opens the report automatically,
+and shows an **"Updated just now"** box: the verdict change, items "newly flagged" and
+"no longer flagged" (up to 3 named), or "Same result as last time" with a hint to change
+answers, tags or photos. If the photos aren't in memory (the app restarted since capture),
+the run uses the sample assessment and the box says so. Comparison is by hazard title, so
+an AI that renames the same hazard between runs shows it as removed + added; asking the
+model for stable titles (see W13) would make this cleaner.
+
 ---
 
 ## 5. Known weaknesses (what to fix with Opus)
@@ -291,10 +330,9 @@ discarded. Worse, it's asked for a 0–100 score that the product rules say must
 exist. *Fix:* drop those fields, or repurpose them (for example, `improvements` becomes
 the plain "what to change" list on the verdict card).
 
-**W3. The model sees questionnaire defaults as if they were real answers.** `adults: 1`,
-`children: 0`, `infant_present: false`, `activity_level: "medium"` and
-`wants_apartment_friendly: true` are never asked, yet they're sent. *Fix:* send only the
-five answered fields, or mark the rest `"not_asked"`.
+**W3. ~~The model sees questionnaire defaults as if they were real answers.~~ Fixed
+14 Oct 2026:** only the seven answered questions are sent; unanswered ones are
+`"not_answered"`.
 
 **W4. The prompt still covers cats and other pets.** "lilies for cats", "CRITICAL for
 cats", the whole of H (vertical space), and `explore` mode with `recommended_pets`, all
@@ -339,6 +377,10 @@ invalid enums get silently replaced by `normalise.ts` (unknown category → `I`,
 isn't counted as a hazard). *Fix:* send a Gemini `responseSchema`, or at least list every
 allowed value once.
 
+**W13. Hazard titles change between runs.** Re-run compares titles (§4.7), so "Fragile
+Vase" vs "Glass vase on low table" reads as a change. *Fix:* ask for a short, stable
+title naming the object ("Vase on side table"), or return a stable `object_key`.
+
 **W12. Tone of the text.** `why_it_matters` and `recommendation` appear on the risk cards
 as-is. User testing found urgent phrasing alarming. *Fix:* specify voice and length
 (warm, plain English, one sentence each, no ALL CAPS, no "immediately"), and say the dog
@@ -370,4 +412,22 @@ avatar speaks in first person elsewhere, so card text stays neutral.
 > (5) treats the given breed traits and questionnaire answers as ground truth and ignores
 > unasked fields, and (6) drops all numeric scoring. Keep the output keys listed in §6.
 > Return the new prompt, the new JSON schema, and a list of code changes needed in
-> `normalise.ts`, `types.ts` and `evaluate.ts`.
+> `normalise.ts`, `types.ts` and `evaluate.ts`. Keep the "HOUSEHOLD FACTORS TO WEIGH"
+> guidance for children_at_home and hours_alone (or improve it), and keep hazard titles
+> stable between runs (W13).
+
+## 8. AR: what user testing said (recorded, not built)
+
+From user testing, October 2026:
+- **AR would help with measuring the house area.** This is the gap in W1: the Space
+  band needs floor and furniture area, and nothing measures them today.
+- **AR wouldn't add much to hazard detection and suggestions**, because the photo and
+  video method already does that. Testers suggested **upgrading the photo/video method**
+  rather than adding a separate AR method.
+- **An animated dog wouldn't excite them.** They care about finding hazards and knowing
+  what to change; animation would make it feel like a game.
+
+**Implication for prompts:** if the team follows this, the next prompt upgrade is to have
+the room prompt estimate room size from the photos (W1) instead of relying on AR. The AR
+placement prototype on this branch (`ARPlacementScreen.tsx`, `NativeARPlacementScreen.tsx`)
+is unchanged.
