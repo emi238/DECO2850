@@ -1,5 +1,7 @@
 // Data model for a PawSpace session (PRD §6) and the AI assessment schema (PRD §7.2).
 
+import type { RunChanges, RunSnapshot } from './logic/changes';
+
 export type Mode = 'pet_in_mind' | 'explore';
 
 export type Severity = 'low' | 'medium' | 'high';
@@ -258,4 +260,8 @@ export interface Space {
   saved?: boolean; // finished the capture flow (hides half-made spaces on Home)
   visits?: number; // for "Most Frequently Visited Space"
   metrics?: SpaceMetrics;
+  // "What's new": what the user saw after the last run, and what the latest Re-run
+  // changed compared with the run before it (cleared by any other kind of run).
+  runSnapshot?: RunSnapshot;
+  lastChanges?: RunChanges;
 }

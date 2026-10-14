@@ -33,8 +33,19 @@ import { HELP_TEXT } from './HomeScreen';
 import { colors, fonts } from '../theme';
 import { useSession, useCurrentSpace } from '../store/session';
 import { runAssessment } from '../ai/assess';
-import { evaluate, type Band, type Evaluation, type SetupItem } from '../logic/evaluate';
-import type { Frame, Hazard, Tag } from '../types';
+import {
+  evaluate,
+  isTagEntry,
+  REPORT_ROWS,
+  runSnapshot,
+  SEVERITY_WORD,
+  TAG_WORD,
+  type Band,
+  type Evaluation,
+  type SetupItem,
+} from '../logic/evaluate';
+import { diffRuns, hasChanges, type RunChanges } from '../logic/changes';
+import type { Frame, Hazard } from '../types';
 import type { ScreenProps } from '../navigation';
 
 const MIN_LOADING_MS = 2200;
@@ -53,6 +64,8 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
   const [view, setView] = useState<'2d' | '3d'>('2d');
   const [riskIndex, setRiskIndex] = useState<number | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
+  // "What's new" starts open in the report shown straight after a Re-run.
+  const [whatsNewOpen, setWhatsNewOpen] = useState(false);
   // A "Suggested setup" item picked in the report, highlighted on the map.
   const [setupFocus, setSetupFocus] = useState<string | null>(null);
   const [cardH, setCardH] = useState(Math.round(height * 0.65));
@@ -69,9 +82,22 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
     const started = Date.now();
     const cur = useSession.getState().current();
     if (cur) {
-      const r = await runAssessment({ ...cur, questionnaire: { ...useSession.getState().household } });
+      const household = useSession.getState().household;
+      // What the user saw last time: saved after the previous run (so edited answers
+      // and tags count as changes too), or worked out now for older spaces.
+      const before = opts?.openReport ? cur.runSnapshot ?? runSnapshot(cur, household) : null;
+      const r = await runAssessment({ ...cur, questionnaire: { ...household } });
       if (id !== runRef.current) return;
       setResult(r.assessment, r.source, r.fallbackReason);
+      const after = useSession.getState().current();
+      if (after) {
+        const snap = runSnapshot(after, useSession.getState().household);
+        // Only a Re-run compares; a first run or a new breed starts fresh.
+        useSession.getState().patchSpace({
+          runSnapshot: snap,
+          lastChanges: before ? diffRuns(before, snap, new Date().toISOString()) : undefined,
+        });
+      }
     }
     const wait = Math.max(0, MIN_LOADING_MS - (Date.now() - started));
     setTimeout(() => {
@@ -81,6 +107,7 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
         if (id !== runRef.current) return;
         setLoading(false);
         // Re-run: open the report straight away so the updated result is visible.
+        setWhatsNewOpen(!!opts?.openReport);
         if (opts?.openReport) setReportOpen(true);
       }, 350);
     }, wait);
@@ -221,7 +248,7 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
         {riskIndex != null && risks[riskIndex] && (
           <RiskSheet
             hazard={risks[riskIndex]}
-            tagged={isUserTag(risks[riskIndex], space.tags)}
+            tagged={isTagEntry(risks[riskIndex], space.tags)}
             index={riskIndex}
             total={risks.length}
             onPrev={() => setRiskIndex((i) => ((i ?? 0) - 1 + risks.length) % risks.length)}
@@ -233,13 +260,18 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
         {reportOpen && evaluation && (
           <ReportOverlay
             evaluation={evaluation}
+            changes={space.lastChanges}
+            changesOpen={whatsNewOpen}
             roomName={title}
             riskCount={risks.length}
             onRisks={() => {
               setReportOpen(false);
               if (risks.length) setRiskIndex(0);
             }}
-            onClose={() => setReportOpen(false)}
+            onClose={() => {
+              setReportOpen(false);
+              setWhatsNewOpen(false); // later opens show it collapsed
+            }}
             onEditProfile={() => {
               setReportOpen(false);
               navigation.navigate('Profile', { editHousehold: true });
@@ -440,18 +472,7 @@ const SHEET_SHARE = 0.44;
 // ---------------------------------------------------------------------------
 // "Potential Risks!" frosted sheet: what's flagged, why, and the fix (P4.2).
 
-const SEVERITY_WORD: Record<Hazard['severity'], string> = { high: 'Needs attention', medium: 'Worth fixing', low: 'Minor' };
 
-// Items the user tagged (Valuable / Fragile) are things to protect, not hazards,
-// so their card says "Be careful" instead of an alarming severity word. New
-// results mark them source "user_tag"; for results saved before logic v2, fall
-// back on the old "Flagged: …" title or the tag's name in the title.
-function isUserTag(h: Hazard, tags: Tag[]): boolean {
-  if (h.source) return h.source === 'user_tag';
-  if (h.title.startsWith('Flagged:')) return true;
-  const title = h.title.toLowerCase();
-  return tags.some((t) => !!t.label.trim() && title.includes(t.label.trim().toLowerCase()));
-}
 
 function RiskSheet({
   hazard,
@@ -492,7 +513,7 @@ function RiskSheet({
             <Text style={styles.riskTitle}>{hazard.title}</Text>
             {tagged ? (
               <View style={[styles.sevChip, { backgroundColor: colors.track }]}>
-                <Text style={styles.sevTxt}>Be careful</Text>
+                <Text style={styles.sevTxt}>{TAG_WORD}</Text>
               </View>
             ) : (
               <View style={[styles.sevChip, hazard.severity === 'high' && { backgroundColor: colors.orange }]}>
@@ -543,6 +564,8 @@ const BAND_MARK: Record<Band, string> = { poor: '✕', adequate: '!', good: '✓
 
 function ReportOverlay({
   evaluation: e,
+  changes,
+  changesOpen,
   roomName,
   riskCount,
   onRisks,
@@ -551,6 +574,8 @@ function ReportOverlay({
   onShowSetup,
 }: {
   evaluation: Evaluation;
+  changes?: RunChanges;
+  changesOpen: boolean;
   roomName: string;
   riskCount: number;
   onRisks: () => void;
@@ -608,6 +633,8 @@ function ReportOverlay({
             <Text style={[styles.verdictLine, e.verdict === 'adequate' && { color: colors.text }]}>{e.verdictLine}</Text>
           </View>
 
+          {!!changes && <WhatsNew changes={changes} initiallyOpen={changesOpen} />}
+
           {e.changes.length > 0 && (
             <View style={styles.reportRow}>
               <Text style={styles.reportRowTitle}>What to change</Text>
@@ -651,11 +678,16 @@ function ReportOverlay({
             </View>
           )}
 
-          <ReportRow heading="Safety" tag={e.labels.safety} band={e.bands.safety} line={e.lines.safety} />
-          <ReportRow heading="Exercise & routine" tag={e.labels.energy} band={e.bands.energy} line={e.lines.energy} />
-          <ReportRow heading="Room to move" tag={e.labels.room} band={e.bands.room} line={e.lines.room} chips={e.roomChips} />
-          <ReportRow heading="Your household" tag={e.labels.household} band={e.bands.household} line={e.lines.household} />
-          <ReportRow heading="Neighbours" tag={e.labels.noise} band={e.bands.noise} line={e.lines.noise} />
+          {REPORT_ROWS.map((r) => (
+            <ReportRow
+              key={r.key}
+              heading={r.heading}
+              tag={e.labels[r.key]}
+              band={e.bands[r.key]}
+              line={e.lines[r.key]}
+              chips={r.key === 'room' ? e.roomChips : undefined}
+            />
+          ))}
 
           {/* What the photos suggest vs the profile: a gentle prompt, never an automatic change. */}
           {e.nudges.length > 0 && (
@@ -681,6 +713,70 @@ function ReportOverlay({
         </ScrollView>
       </BlurView>
     </Animated.View>
+  );
+}
+
+// "What's new since your last run": shown after a Re-run, grouped and collapsible.
+function WhatsNew({ changes: c, initiallyOpen }: { changes: RunChanges; initiallyOpen: boolean }) {
+  const [open, setOpen] = useState(initiallyOpen);
+  const when = new Date(c.at);
+  const time = isNaN(when.getTime())
+    ? ''
+    : when.toLocaleString(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+  const any = hasChanges(c);
+  const groups: { label: string; mark: string; color: string; items: string[] }[] = [
+    { label: 'Newly flagged', mark: '+', color: '#E4572E', items: c.added },
+    { label: 'No longer flagged', mark: '−', color: '#5FAE7F', items: c.removed },
+    { label: 'Changed', mark: '~', color: colors.orangeDeep, items: c.changed.map((x) => `${x.title}: ${x.from} → ${x.to}`) },
+    { label: 'New suggestions', mark: '+', color: colors.text, items: c.setupAdded },
+    { label: 'Suggestions removed', mark: '−', color: colors.textMuted, items: c.setupRemoved },
+  ];
+  return (
+    <View style={[styles.reportRow, styles.whatsNew]}>
+      <Pressable onPress={() => setOpen((o) => !o)} hitSlop={6} style={styles.whatsNewHead} accessibilityRole="button">
+        <View style={{ flex: 1 }}>
+          <Text style={styles.reportRowTitle}>What’s new since your last run</Text>
+          {!!time && <Text style={styles.whatsNewTime}>Re-run {time}</Text>}
+        </View>
+        <View style={{ transform: [{ rotate: open ? '90deg' : '0deg' }] }}>
+          <ChevronIcon size={12} dir="right" />
+        </View>
+      </Pressable>
+      {open &&
+        (!any ? (
+          <Text style={[styles.reportLine, { marginTop: 6 }]}>
+            No changes. To see a different result, update your profile answers or tags, or capture new photos.
+          </Text>
+        ) : (
+          <View style={{ marginTop: 4 }}>
+            {!!c.verdict && (
+              <Text style={[styles.reportLine, { marginTop: 4 }]}>
+                <Text style={{ fontFamily: fonts.semibold }}>Verdict: </Text>
+                {c.verdict.from} → {c.verdict.to}
+              </Text>
+            )}
+            {c.rows.map((r) => (
+              <Text key={r.heading} style={[styles.reportLine, { marginTop: 4 }]}>
+                <Text style={{ fontFamily: fonts.semibold }}>{r.heading}: </Text>
+                {r.from} → {r.to}
+              </Text>
+            ))}
+            {groups
+              .filter((g) => g.items.length)
+              .map((g) => (
+                <View key={g.label} style={{ marginTop: 8 }}>
+                  <Text style={styles.setupGroupTxt}>{g.label}</Text>
+                  {g.items.map((t, i) => (
+                    <View key={i} style={styles.changeItem}>
+                      <Text style={[styles.reportLine, { color: g.color, fontFamily: fonts.semibold, width: 10 }]}>{g.mark}</Text>
+                      <Text style={[styles.reportLine, { flex: 1 }]}>{t}</Text>
+                    </View>
+                  ))}
+                </View>
+              ))}
+          </View>
+        ))}
+    </View>
   );
 }
 
@@ -793,6 +889,9 @@ const styles = StyleSheet.create({
   setupGroupHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   setupGroupTxt: { fontFamily: fonts.semibold, fontSize: 12, color: colors.textMuted },
   setupItem: { marginTop: 5, marginLeft: 14 },
+  whatsNew: { borderLeftWidth: 4, borderLeftColor: colors.orangeDeep },
+  whatsNewHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  whatsNewTime: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textMuted, marginTop: 2 },
   reportBtn: { backgroundColor: colors.orange, borderRadius: 12, height: 48, alignItems: 'center', justifyContent: 'center', marginTop: 14 },
   reportBtnTxt: { fontFamily: fonts.semibold, fontSize: 15, color: colors.text },
 });

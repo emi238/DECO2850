@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const out = mkdtempSync(join(tmpdir(), 'pawspace-logic-'));
-for (const file of ['src/ai/schema.ts', 'src/ai/normalise.ts', 'src/ai/prompt.ts', 'src/ai/config.ts', 'src/ai/gemini.ts', 'src/logic/suitability.ts']) {
+for (const file of ['src/ai/schema.ts', 'src/ai/normalise.ts', 'src/ai/prompt.ts', 'src/ai/config.ts', 'src/ai/gemini.ts', 'src/logic/suitability.ts', 'src/logic/changes.ts']) {
   const { outputText } = ts.transpileModule(readFileSync(join(root, file), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
   });
@@ -28,6 +28,7 @@ const { normaliseAssessment } = require(join(out, 'src/ai/normalise.js'));
 const { SYSTEM_PROMPT } = require(join(out, 'src/ai/prompt.js'));
 const { ROOM_RESPONSE_SCHEMA } = require(join(out, 'src/ai/schema.js'));
 const { callGemini } = require(join(out, 'src/ai/gemini.js'));
+const { diffRuns, hasChanges } = require(join(out, 'src/logic/changes.js'));
 
 // ---- fixtures ----
 
@@ -366,6 +367,49 @@ check('suggestions never change the verdict', () => {
   assert.equal(withSetup.blend, plain.blend);
   assert.equal(withSetup.verdict, plain.verdict);
 });
+
+console.log("\nWhat's new after a Re-run");
+{
+  const before = {
+    verdict: 'Good fit with a few changes',
+    rows: [{ heading: 'Safety', label: 'Move 2 things' }, { heading: 'Neighbours', label: 'No problem' }],
+    flagged: [
+      { key: 'tv-cord', title: 'Cord behind the TV', level: 'Minor' },
+      { key: 'pothos', title: 'Pothos on low shelf', level: 'Worth fixing' },
+      { key: 'tag:vase', title: 'Vase', level: 'Be careful' },
+    ],
+    setup: [{ key: 'dog_spot:dog bed', title: 'Dog bed' }],
+  };
+  check('reports verdict, row, added, removed, changed and setup differences', () => {
+    const after = {
+      verdict: 'Not a good fit yet',
+      rows: [{ heading: 'Safety', label: 'Not safe yet' }, { heading: 'Neighbours', label: 'No problem' }],
+      flagged: [
+        { key: 'tv-cord', title: 'Cord behind the TV', level: 'Worth fixing' },
+        { key: 'tag:vase', title: 'Vase', level: 'Be careful' },
+        { key: 'balcony-door', title: 'Open balcony door', level: 'Needs attention' },
+      ],
+      setup: [{ key: 'dog_spot:dog bed', title: 'Dog bed' }, { key: 'add:add a railing', title: 'Add a railing' }],
+    };
+    const c = diffRuns(before, after, '2026-10-15T03:00:00Z');
+    assert.deepEqual(c.verdict, { from: 'Good fit with a few changes', to: 'Not a good fit yet' });
+    assert.deepEqual(c.rows, [{ heading: 'Safety', from: 'Move 2 things', to: 'Not safe yet' }]);
+    assert.deepEqual(c.added, ['Open balcony door']);
+    assert.deepEqual(c.removed, ['Pothos on low shelf']);
+    assert.deepEqual(c.changed, [{ title: 'Cord behind the TV', from: 'Minor', to: 'Worth fixing' }]);
+    assert.deepEqual(c.setupAdded, ['Add a railing']);
+    assert.deepEqual(c.setupRemoved, []);
+    assert.ok(hasChanges(c));
+  });
+  check('the same object with a reworded title is not reported as removed + added', () => {
+    const after = { ...before, flagged: before.flagged.map((f) => (f.key === 'tv-cord' ? { ...f, title: 'TV power cable' } : f)) };
+    const c = diffRuns(before, after, 'x');
+    assert.deepEqual([c.added, c.removed, c.changed], [[], [], []]);
+  });
+  check('an identical run reports no changes', () => {
+    assert.equal(hasChanges(diffRuns(before, structuredClone(before), 'x')), false);
+  });
+}
 
 console.log('\nPrompt and schema');
 check('room prompt has no cat-assessment content and asks for no score or verdict', () => {
