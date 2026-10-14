@@ -26,6 +26,12 @@ export const CLEAR_PATH = ['good', 'partial', 'poor'] as const;
 export const FLOOR_TYPES = ['hard', 'mixed', 'soft', 'unknown'] as const;
 export const ESCAPE_TYPES = ['balcony', 'window', 'door', 'fence', 'stairs'] as const;
 export const OFF_LIMIT_ZONES = ['kitchen', 'balcony', 'nursery', 'office', 'stairs', 'other'] as const;
+export const DOG_SPOT_PURPOSES = ['bed', 'crate', 'food_water', 'play'] as const;
+export const SAFETY_ADDITION_TYPES = ['gate', 'railing', 'netting', 'window_guard', 'pen', 'cord_cover', 'non_slip_mat', 'other'] as const;
+// Most suggestions of each kind kept (the prompt asks for the same limits).
+export const MAX_OFF_LIMITS = 3;
+export const MAX_DOG_SPOTS = 3;
+export const MAX_SAFETY_ADDITIONS = 5;
 export const SIGNAL_PETS = ['dog', 'cat', 'multiple', 'none', 'unknown'] as const;
 export const SIGNAL_CHILDREN = ['yes', 'no', 'unknown'] as const;
 export const SIGNAL_DWELLING = ['apartment', 'house', 'unknown'] as const;
@@ -117,6 +123,27 @@ export const ROOM_RESPONSE_SCHEMA = obj({
       zone: oneOf(OFF_LIMIT_ZONES),
       reason: str(),
       frame_index: int(),
+      x: num('where the area is, 0 to 1 across the photo'),
+      y: num('0 to 1 down the photo'),
+    })
+  ),
+  dog_spots: list(
+    obj({
+      purpose: oneOf(DOG_SPOT_PURPOSES),
+      reason: str(),
+      frame_index: int(),
+      x: num('where it would go, 0 to 1 across the photo'),
+      y: num('0 to 1 down the photo'),
+    })
+  ),
+  safety_additions: list(
+    obj({
+      type: oneOf(SAFETY_ADDITION_TYPES),
+      detail: str('what exactly, e.g. "a pressure-fit gate across the kitchen doorway"'),
+      reason: str(),
+      frame_index: int(),
+      x: num('where it would go, 0 to 1 across the photo'),
+      y: num('0 to 1 down the photo'),
     })
   ),
   detected_signals: obj({

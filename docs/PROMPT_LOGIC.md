@@ -6,6 +6,10 @@ what the model is asked, what the app does with the answer, and what is still we
 Current version: **logic v2** (CHANGE PRD 15 Oct 2026), branch `feat/native-ar-foundation`.
 
 **Changelog**
+- **15 Oct 2026, Suggested setup:** the room prompt now also suggests where to keep the
+  dog out, good spots for its bed/crate/bowls/play, and safety to add (gates, railings,
+  netting, window guards…), each placed on the photo. Shown as a "Suggested setup" card
+  in the report and as labelled pins on the map (§2.2, §4.10). Doesn't affect the verdict.
 - **15 Oct 2026, later:** removed the "Updated just now" box from the report at the
   team's request. Re-run now just reopens the updated report (§4.11).
 - **15 Oct 2026, logic v2** (from `PawSpace_CHANGE_PRD_logic_v2.md`): the fixed-room
@@ -128,7 +132,9 @@ value is defined once in `schema.ts` and used by both the request and the normal
 | `hazards[]` | `object_key`, `title`, `source` (photo / user_tag), `hazard_type` (escape_fall / toxic_ingestible / electrical_thermal / floor_stairs / fragile_valuable / clutter / other), `category` (A–N), `scope`, `location`, `risk_to`, `severity`, `confidence`, `small_dog_risk`, `easy_fix`, `tag_id`, `evidence`, `why_it_matters`, `recommendation` | Map pins, risk cards, Safety load, gates |
 | `room_assessment` | `openness` (open/moderate/cramped), `retreat_spot` (present/possible/absent), `clear_path`, `floor_type`, `floor_area_m2` {value, confidence} | Room score, Household (retreat), report chips |
 | `escape_routes[]` | type (balcony/window/door/fence/stairs), position, severity, confidence | Safety load, escape gate |
-| `off_limit_suggestions[]` | zone (kitchen/balcony/nursery/office/stairs/other), reason, frame | "What to change", map callouts |
+| `off_limit_suggestions[]` (up to 3) | zone (kitchen/balcony/nursery/office/stairs/other), reason, frame, x, y | Suggested setup: "Keep the dog out" |
+| `dog_spots[]` (up to 3) | purpose (bed/crate/food_water/play), reason, frame, x, y | Suggested setup: "Good spots for the dog" |
+| `safety_additions[]` (up to 5) | type (gate/railing/netting/window_guard/pen/cord_cover/non_slip_mat/other), detail, reason, frame, x, y | Suggested setup: "Safety to add" |
 | `detected_signals` | existing_pets, children, dwelling_cue, outdoor_access_cue | Profile nudges; fills an unanswered "has a cat" |
 | `improvements[]` | up to 5 strings | "What to change" |
 | `space_summary`, `confidence`, `notes` | text | 3D view summary, breed prompt |
@@ -159,6 +165,9 @@ normaliser checks every value either way. A fake-API check covers this.
   `risk_to: "home"`, pinned at the tag's own x, y. A tag the model left out is added. A
   photo finding that is really the tagged item (same key, or a fragile/valuable finding
   within 0.12 of the tag on the same photo) is folded into it.
+- **Suggested setup** entries need an allowed kind and a reason (others are dropped),
+  are capped at 3 / 3 / 5, and keep their x, y only if the model gave both; without a
+  position they're listed in the report but not pinned.
 - `easy_fix` counts as "no easy fix" **only when the model says so explicitly**. This
   keeps the toxic gate from firing on missing data.
 
@@ -226,7 +235,11 @@ room_assessment: the room as a place for this dog to live.
 
 escape_routes: every way out or fall point you can see (balcony, window, door, fence, stairs), with the same object_key as its hazards entry, type, detail, frame_index, x, y, severity, confidence and small_dog_risk. Each one also appears in hazards with hazard_type "escape_fall" (or "floor_stairs" for stairs).
 
-off_limit_suggestions: areas visible in the photos that this dog should be kept out of (kitchen, balcony, nursery, office, stairs, other), each with a one-sentence reason and the photo where it shows.
+SUGGESTED SETUP: practical suggestions for setting this room up for this dog, each placed where it applies: frame_index plus x and y (0 to 1 across the original photo) at the spot itself. Only suggest places and fixes you can see in the photos.
+- off_limit_suggestions (up to 3): areas this dog should be kept out of (kitchen, balcony, nursery, office, stairs, other), each with a one-sentence reason.
+- dog_spots (up to 3): good places for the dog's things. purpose: bed (a quiet corner away from doors, foot traffic, hazards, heaters and direct sun), crate (the same, out of the way but within sight of the family), food_water (a wipe-clean floor, away from the bed), play (clear open floor away from fragile things). Suggest a bed spot even when retreat_spot is "possible", and say why that spot works.
+- safety_additions (up to 5): things to add or fit, each tied to something you can see: gate (doorways, stairs, kitchen, or to separate a young child's play area), railing (to close gaps in a railing or an open edge the dog could fall from), netting (balcony gaps a dog could squeeze through), window_guard (low or openable windows), pen (a safe zone for time alone), cord_cover (exposed cords), non_slip_mat (slippery floors in the dog's path), other. detail says exactly what and where, such as "clear acrylic panels along the lower half of the balcony railing". If household.rental is true, prefer options that need no drilling (pressure-fit gates, removable netting, adhesive cord covers).
+Each reason is one sentence of at most 25 words.
 
 detected_signals: what the photos suggest about the household, used only to cross-check the owner's answers.
 - existing_pets: dog / cat / multiple / none / unknown (food bowls, beds, litter trays, pet hair, toys).
@@ -477,8 +490,13 @@ the household check.
 - **What to change:**
   1. A plan for exercise and company when the energy gate fires.
   2. Up to 3 of the model's `improvements`.
-  3. Up to 2 off-limit suggestions ("Keep the dog out of the kitchen: …").
-  4. For results without these, the fixes of the highest-scoring hazards.
+  3. For results without these, the fixes of the highest-scoring hazards.
+- **Suggested setup** card, in three groups: "Keep the dog out" (red), "Good spots for
+  the dog" (green), "Safety to add" (dark). Items with a position have a "Show on map"
+  link that opens the 2D map on that photo and highlights the pin. Suggestions never
+  change the verdict. The sample assessment (AI off) gives a few general suggestions
+  from the answers only (a quiet bed spot; a gate with young children; a playpen for
+  4+ hours alone; balcony netting), without positions.
 - **Five rows** in weight order:
   - Safety: Safe / Mostly safe / Move N things / Not safe yet / Not checked.
   - Exercise & routine: Well matched / Needs a plan / Hard to keep up / Not enough info.
@@ -487,8 +505,8 @@ the household check.
   - Your household: Suits your home / Some care needed / Tricky fit.
   - Neighbours: No problem / Some barking / Likely issue.
 - **Nudges** box with "Update profile".
-- **Map:** "Off-limits: Kitchen" style callouts on the photo they belong to; tap one for
-  the reason.
+- **Map:** labelled pins at each Suggested setup spot ("Keep out", "Dog bed", "Gate",
+  "Railing"…), coloured by group; tap one for what and why.
 - **Risk cards:** user tags say "Be careful"; real hazards keep their severity word.
 - **Removed:** the old "Not ready for this dog yet" box (it came from the retired
   floor-space rule).

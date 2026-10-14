@@ -67,6 +67,22 @@ export function generateMockAssessment(session: Space): Assessment {
     improvements.push('A dog walker or daycare would help on long days alone.');
   }
 
+  // General setup suggestions from the answers only: no positions, because the
+  // sample hasn't seen the room.
+  const dog_spots = [
+    { purpose: 'bed', reason: 'Put the bed in a quiet corner away from doors, foot traffic and heaters.' },
+  ];
+  const safety_additions: { type: string; detail: string; reason: string }[] = [];
+  if (q.children_at_home === 'young') {
+    safety_additions.push({ type: 'gate', detail: 'A baby gate between the children’s play area and the dog’s space.', reason: 'Keeps the dog and small children apart when you can’t supervise.' });
+  }
+  if (q.hours_alone === '4_to_8' || q.hours_alone === 'over_8') {
+    safety_additions.push({ type: 'pen', detail: 'A playpen or crate area cleared of cords, shoes and plants.', reason: 'Gives the dog a safe zone while you’re out.' });
+  }
+  if (q.outdoor_access === 'balcony') {
+    safety_additions.push({ type: 'netting', detail: 'Netting or clear panels if the balcony railing has gaps.', reason: 'Stops the dog squeezing through or falling.' });
+  }
+
   const assessment = normaliseAssessment(
     {
       space_summary:
@@ -75,6 +91,8 @@ export function generateMockAssessment(session: Space): Assessment {
       hazards: findings,
       escape_routes: [],
       off_limit_suggestions: [],
+      dog_spots,
+      safety_additions,
       detected_signals: { existing_pets: 'unknown', children: 'unknown', dwelling_cue: 'unknown', outdoor_access_cue: 'unknown' },
       improvements,
       notes:

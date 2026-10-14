@@ -4,7 +4,7 @@
 // sub-score, "What to change", and profile nudges. No number is ever shown.
 
 import type { ImageSourcePropType } from 'react-native';
-import type { Pet, Questionnaire, RoomAssessment, Space } from '../types';
+import type { Assessment, DogSpot, OffLimitSuggestion, Pet, Questionnaire, RoomAssessment, SafetyAddition, Space } from '../types';
 import { findBreed, type BreedProfile, type Energy, type Noise, type SizeClass } from './breeds';
 import { IMAGES } from '../assets';
 import {
@@ -70,6 +70,7 @@ export interface Evaluation {
   verdictTitle: string;
   verdictLine: string;
   changes: string[]; // "What to change"
+  setup: SetupItem[]; // "Suggested setup": keep-out areas, dog spots, safety additions
   nudges: Nudge[]; // "add it to your profile?" prompts
   score: SuitabilityResult; // internal detail (ranking, checks); never shown
 }
@@ -127,6 +128,7 @@ export function evaluate(space: Space, household: Questionnaire, dogOverride?: R
         : { poor: 'Not a good fit yet', adequate: 'Good fit with a few changes', good: 'Good fit' }[verdict],
     verdictLine: verdictLine(verdict, dog.name, gates, changes.length, unknown),
     changes,
+    setup: suggestedSetup(result),
     nudges: s.nudges,
     score: s,
   };
@@ -174,20 +176,88 @@ const ZONE_WORD: Record<string, string> = {
   other: 'this area',
 };
 
+// ---- Suggested setup: where to keep the dog out, where its things could go, and
+// what to add for safety. Each item keeps its photo position for the map.
+
+export interface SetupItem {
+  key: string;
+  kind: 'keep_out' | 'dog_spot' | 'add';
+  title: string; // "Keep out of the kitchen", "Dog bed", "Add a gate"
+  pin: string; // short label on the map: "Keep out", "Dog bed", "Gate"
+  detail: string; // what exactly and why
+  frame_index: number;
+  x?: number;
+  y?: number;
+}
+
+const SPOT_WORD: Record<DogSpot['purpose'], string> = {
+  bed: 'Dog bed',
+  crate: 'Crate',
+  food_water: 'Food and water',
+  play: 'Play area',
+};
+
+const ADD_WORD: Record<SafetyAddition['type'], { title: string; pin: string }> = {
+  gate: { title: 'Add a gate', pin: 'Gate' },
+  railing: { title: 'Add a railing', pin: 'Railing' },
+  netting: { title: 'Add netting', pin: 'Netting' },
+  window_guard: { title: 'Add a window guard', pin: 'Window guard' },
+  pen: { title: 'Add a playpen', pin: 'Playpen' },
+  cord_cover: { title: 'Cover the cords', pin: 'Cord cover' },
+  non_slip_mat: { title: 'Add non-slip mats', pin: 'Non-slip mat' },
+  other: { title: 'Add for safety', pin: 'Add' },
+};
+
+function suggestedSetup(result: Assessment | null): SetupItem[] {
+  const keepOut = (o: OffLimitSuggestion, i: number): SetupItem => ({
+    key: `keep_out_${i}`,
+    kind: 'keep_out',
+    title: `Keep out of ${ZONE_WORD[o.zone] ?? 'this area'}`,
+    pin: 'Keep out',
+    detail: sentence(o.reason),
+    frame_index: o.frame_index,
+    x: o.x,
+    y: o.y,
+  });
+  const dogSpot = (d: DogSpot, i: number): SetupItem => ({
+    key: `dog_spot_${i}`,
+    kind: 'dog_spot',
+    title: SPOT_WORD[d.purpose],
+    pin: SPOT_WORD[d.purpose],
+    detail: sentence(d.reason),
+    frame_index: d.frame_index,
+    x: d.x,
+    y: d.y,
+  });
+  const add = (a: SafetyAddition, i: number): SetupItem => ({
+    key: `add_${i}`,
+    kind: 'add',
+    title: ADD_WORD[a.type].title,
+    pin: ADD_WORD[a.type].pin,
+    detail: [a.detail, a.reason].filter((t) => t.trim()).map(sentence).join(' '),
+    frame_index: a.frame_index,
+    x: a.x,
+    y: a.y,
+  });
+  return [
+    ...(result?.off_limit_suggestions ?? []).map(keepOut),
+    ...(result?.dog_spots ?? []).map(dogSpot),
+    ...(result?.safety_additions ?? []).map(add),
+  ];
+}
+
 const sentence = (t: string) => {
   const s = t.trim();
   return /[.!?]$/.test(s) ? s : `${s}.`;
 };
 
-// "What to change" = the model's improvements + its off-limit suggestions (§5).
-// When neither is there (older results), fall back on the counted hazards' fixes.
+// "What to change" = the model's improvements (off-limit areas are in the Suggested
+// setup instead). When there are none (older results), fall back on the counted
+// hazards' fixes.
 function whatToChange(space: Space, s: SuitabilityResult): string[] {
   const out: string[] = [];
   if (s.gates.includes('energy')) out.push('Plan daily exercise, and a dog walker or daycare for long days alone.');
   for (const i of (space.result?.improvements ?? []).slice(0, 3)) out.push(sentence(i));
-  for (const o of (space.result?.off_limit_suggestions ?? []).slice(0, 2)) {
-    out.push(`Keep the dog out of ${ZONE_WORD[o.zone] ?? 'this area'}: ${sentence(o.reason.charAt(0).toLowerCase() + o.reason.slice(1))}`);
-  }
   if (!out.length) {
     const byKey = new Map(s.safety.counted.map((c) => [c.key, c]));
     const fixes = (space.result?.hazards ?? [])
