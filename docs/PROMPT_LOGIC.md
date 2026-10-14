@@ -411,8 +411,9 @@ info" and asks the user to answer).
 | cramped | adequate | poor |
 
 - **Retreat spot:** `retreat_spot: absent` lowers the band one step.
-- **Floor area:** `floor_area_m2` under 10 m² lowers a large dog's band one step, but
-  **only with medium or high confidence** (photo measurements are unreliable).
+- **Floor area:** `floor_area_m2` under 10 m² lowers the band one step for a large (or
+  medium high-energy) dog, but **only with medium or high confidence** (photo
+  measurements are unreliable).
 - **No room assessment** (sample assessment, or results saved before 15 Oct) →
   adequate and marked **unknown**.
 
