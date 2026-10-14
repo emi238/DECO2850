@@ -152,10 +152,32 @@ export interface EscapeRoute {
   small_dog_risk: boolean;
 }
 
+// Suggested setup (15 Oct 2026): where to keep the dog out, where the dog's things
+// could go, and what to add for safety. x,y (0-1 of the photo) mark the spot on the
+// map; without them the suggestion is listed but not pinned.
 export interface OffLimitSuggestion {
   zone: 'kitchen' | 'balcony' | 'nursery' | 'office' | 'stairs' | 'other';
   reason: string;
   frame_index: number;
+  x?: number;
+  y?: number;
+}
+
+export interface DogSpot {
+  purpose: 'bed' | 'crate' | 'food_water' | 'play';
+  reason: string;
+  frame_index: number;
+  x?: number;
+  y?: number;
+}
+
+export interface SafetyAddition {
+  type: 'gate' | 'railing' | 'netting' | 'window_guard' | 'pen' | 'cord_cover' | 'non_slip_mat' | 'other';
+  detail: string; // what exactly, e.g. "a pressure-fit gate across the kitchen doorway"
+  reason: string;
+  frame_index: number;
+  x?: number;
+  y?: number;
 }
 
 // What the photos suggest about the household, to cross-check the questionnaire.
@@ -194,6 +216,8 @@ export interface Assessment {
   room_assessment?: RoomAssessment;
   escape_routes?: EscapeRoute[];
   off_limit_suggestions?: OffLimitSuggestion[];
+  dog_spots?: DogSpot[];
+  safety_additions?: SafetyAddition[];
   detected_signals?: DetectedSignals;
 }
 

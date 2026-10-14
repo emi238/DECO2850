@@ -33,8 +33,8 @@ import { HELP_TEXT } from './HomeScreen';
 import { colors, fonts } from '../theme';
 import { useSession, useCurrentSpace } from '../store/session';
 import { runAssessment } from '../ai/assess';
-import { evaluate, type Band, type Evaluation } from '../logic/evaluate';
-import type { Frame, Hazard, OffLimitSuggestion, Tag } from '../types';
+import { evaluate, type Band, type Evaluation, type SetupItem } from '../logic/evaluate';
+import type { Frame, Hazard, Tag } from '../types';
 import type { ScreenProps } from '../navigation';
 
 const MIN_LOADING_MS = 2200;
@@ -53,6 +53,8 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
   const [view, setView] = useState<'2d' | '3d'>('2d');
   const [riskIndex, setRiskIndex] = useState<number | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
+  // A "Suggested setup" item picked in the report, highlighted on the map.
+  const [setupFocus, setSetupFocus] = useState<string | null>(null);
   const [cardH, setCardH] = useState(Math.round(height * 0.65));
   const [headerH, setHeaderH] = useState(160);
 
@@ -174,11 +176,15 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
           <PhotoMap
             frames={frames}
             risks={risks}
-            offLimits={result?.off_limit_suggestions ?? []}
+            setup={evaluation?.setup ?? []}
+            setupFocus={setupFocus}
             width={width}
             height={cardH}
             selectedId={riskIndex != null ? risks[riskIndex]?.id : undefined}
-            onPin={(id) => setRiskIndex(risks.findIndex((r) => r.id === id))}
+            onPin={(id) => {
+              setSetupFocus(null);
+              setRiskIndex(risks.findIndex((r) => r.id === id));
+            }}
           />
         ) : result ? (
           <Room3DView result={result} frameCount={frames.length} />
@@ -238,6 +244,11 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
               setReportOpen(false);
               navigation.navigate('Profile', { editHousehold: true });
             }}
+            onShowSetup={(key) => {
+              setReportOpen(false);
+              setView('2d');
+              setSetupFocus(key);
+            }}
           />
         )}
 
@@ -277,7 +288,8 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
 function PhotoMap({
   frames,
   risks,
-  offLimits,
+  setup,
+  setupFocus,
   width,
   height,
   selectedId,
@@ -285,7 +297,8 @@ function PhotoMap({
 }: {
   frames: Frame[];
   risks: Hazard[];
-  offLimits: OffLimitSuggestion[];
+  setup: SetupItem[];
+  setupFocus: string | null;
   width: number;
   height: number;
   selectedId?: string;
@@ -301,6 +314,15 @@ function PhotoMap({
     scrollRef.current?.scrollTo({ x: selectedFrame * width, animated: true });
     setPage(selectedFrame);
   }, [selectedFrame, width]);
+  // Same for a Suggested setup item picked in the report.
+  const focusFrame = setup.find((s) => s.key === setupFocus)?.frame_index;
+  useEffect(() => {
+    if (focusFrame == null) return;
+    scrollRef.current?.scrollTo({ x: focusFrame * width, animated: true });
+    setPage(focusFrame);
+  }, [focusFrame, setupFocus, width]);
+  // Only suggestions with a position go on the map; the rest are listed in the report.
+  const pinned = setup.filter((s) => s.x != null && s.y != null);
   return (
     <View style={StyleSheet.absoluteFill}>
       <ScrollView ref={scrollRef} horizontal pagingEnabled showsHorizontalScrollIndicator={false} onMomentumScrollEnd={onScroll}>
@@ -311,7 +333,8 @@ function PhotoMap({
             width={width}
             height={height}
             risks={risks.filter((r) => r.location?.frame_index === i)}
-            offLimits={offLimits.filter((o) => o.frame_index === i)}
+            setup={pinned.filter((s) => s.frame_index === i)}
+            setupFocus={setupFocus}
             selectedId={selectedId}
             onPin={onPin}
           />
@@ -328,21 +351,17 @@ function PhotoMap({
   );
 }
 
-const ZONE_LABEL: Record<OffLimitSuggestion['zone'], string> = {
-  kitchen: 'Kitchen',
-  balcony: 'Balcony',
-  nursery: 'Nursery',
-  office: 'Office',
-  stairs: 'Stairs',
-  other: 'This area',
-};
+// Suggested setup colours: keep out (red), dog spots (green), safety to add (dark).
+const SETUP_COLOR: Record<SetupItem['kind'], string> = { keep_out: '#E4572E', dog_spot: '#5FAE7F', add: colors.text };
+const SETUP_PIN_W = 120;
 
 function MapPage({
   frame,
   width,
   height,
   risks,
-  offLimits,
+  setup,
+  setupFocus,
   selectedId,
   onPin,
 }: {
@@ -350,7 +369,8 @@ function MapPage({
   width: number;
   height: number;
   risks: Hazard[];
-  offLimits: OffLimitSuggestion[];
+  setup: SetupItem[];
+  setupFocus: string | null;
   selectedId?: string;
   onPin: (id: string) => void;
 }) {
@@ -389,21 +409,27 @@ function MapPage({
             </Pressable>
           );
         })}
+        {/* Suggested setup: labelled pills at the spot they apply to; tap for the reason. */}
+        {setup.map((s) => {
+          const p = imageToView(img, width, height, s.x!, s.y!);
+          const cx = Math.max(SETUP_PIN_W / 2 + 6, Math.min(width - SETUP_PIN_W / 2 - 6, p.x));
+          const cy = Math.max(PIN_INSET + 40, Math.min(height - PIN_INSET, p.y));
+          const on = s.key === setupFocus;
+          const c = SETUP_COLOR[s.kind];
+          return (
+            <View key={s.key} style={[styles.setupPinWrap, { left: cx - SETUP_PIN_W / 2, top: cy - 14 }]} pointerEvents="box-none">
+              <Pressable
+                onPress={() => Alert.alert(s.title, s.detail)}
+                hitSlop={6}
+                style={[styles.setupPin, { borderColor: c }, on && { backgroundColor: c, transform: [{ scale: 1.12 }] }]}
+              >
+                <View style={[styles.setupDot, { backgroundColor: on ? '#fff' : c }]} />
+                <Text style={[styles.setupPinTxt, { color: on ? '#fff' : c }]} numberOfLines={1}>{s.pin}</Text>
+              </Pressable>
+            </View>
+          );
+        })}
       </View>
-      {/* Areas the model suggests keeping the dog out of, shown on the photo they're in. */}
-      {offLimits.length > 0 && (
-        <View style={styles.zones}>
-          {offLimits.map((o, i) => (
-            <Pressable
-              key={i}
-              style={styles.zonePill}
-              onPress={() => Alert.alert(`Keep the dog out: ${ZONE_LABEL[o.zone].toLowerCase()}`, o.reason)}
-            >
-              <Text style={styles.zoneTxt}>Off-limits: {ZONE_LABEL[o.zone]}</Text>
-            </Pressable>
-          ))}
-        </View>
-      )}
     </View>
   );
 }
@@ -522,6 +548,7 @@ function ReportOverlay({
   onRisks,
   onClose,
   onEditProfile,
+  onShowSetup,
 }: {
   evaluation: Evaluation;
   roomName: string;
@@ -529,6 +556,7 @@ function ReportOverlay({
   onRisks: () => void;
   onClose: () => void;
   onEditProfile: () => void;
+  onShowSetup: (key: string) => void;
 }) {
   // Slides up from the bottom of the map card; slides back down before closing.
   const slide = useRef(new Animated.Value(0)).current;
@@ -592,6 +620,37 @@ function ReportOverlay({
             </View>
           )}
 
+          {e.setup.length > 0 && (
+            <View style={styles.reportRow}>
+              <Text style={styles.reportRowTitle}>Suggested setup</Text>
+              {SETUP_GROUPS.map((g) => {
+                const items = e.setup.filter((s) => s.kind === g.kind);
+                if (!items.length) return null;
+                return (
+                  <View key={g.kind} style={{ marginTop: 8 }}>
+                    <View style={styles.setupGroupHead}>
+                      <View style={[styles.setupDot, { backgroundColor: SETUP_COLOR[g.kind] }]} />
+                      <Text style={styles.setupGroupTxt}>{g.label}</Text>
+                    </View>
+                    {items.map((s) => (
+                      <View key={s.key} style={styles.setupItem}>
+                        <Text style={styles.reportLine}>
+                          <Text style={{ fontFamily: fonts.semibold }}>{s.title}. </Text>
+                          {s.detail}
+                        </Text>
+                        {s.x != null && s.y != null && (
+                          <Pressable onPress={() => dismiss(() => onShowSetup(s.key))} hitSlop={8} style={{ alignSelf: 'flex-start', marginTop: 2 }}>
+                            <Text style={styles.nudgeLink}>Show on map</Text>
+                          </Pressable>
+                        )}
+                      </View>
+                    ))}
+                  </View>
+                );
+              })}
+            </View>
+          )}
+
           <ReportRow heading="Safety" tag={e.labels.safety} band={e.bands.safety} line={e.lines.safety} />
           <ReportRow heading="Exercise & routine" tag={e.labels.energy} band={e.bands.energy} line={e.lines.energy} />
           <ReportRow heading="Room to move" tag={e.labels.room} band={e.bands.room} line={e.lines.room} chips={e.roomChips} />
@@ -624,6 +683,12 @@ function ReportOverlay({
     </Animated.View>
   );
 }
+
+const SETUP_GROUPS: { kind: SetupItem['kind']; label: string }[] = [
+  { kind: 'keep_out', label: 'Keep the dog out' },
+  { kind: 'dog_spot', label: 'Good spots for the dog' },
+  { kind: 'add', label: 'Safety to add' },
+];
 
 function ReportRow({ heading, tag, band, line, chips }: { heading: string; tag: string; band: Band; line: string; chips?: string[] }) {
   return (
@@ -721,9 +786,13 @@ const styles = StyleSheet.create({
   rowChipTxt: { fontFamily: fonts.medium, fontSize: 11, color: colors.text },
   nudge: { borderLeftWidth: 4, borderLeftColor: colors.orange },
   nudgeLink: { fontFamily: fonts.semibold, fontSize: 12.5, color: colors.orangeDeep, textDecorationLine: 'underline' },
-  zones: { position: 'absolute', left: 16, top: 12, gap: 6, alignItems: 'flex-start', maxWidth: '55%' },
-  zonePill: { backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: colors.orangeDeep },
-  zoneTxt: { fontFamily: fonts.semibold, fontSize: 11.5, color: colors.orangeDeep },
+  setupPinWrap: { position: 'absolute', width: SETUP_PIN_W, alignItems: 'center' },
+  setupPin: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 28, maxWidth: SETUP_PIN_W, backgroundColor: 'rgba(255,255,255,0.94)', borderRadius: 10, borderWidth: 1.5, paddingHorizontal: 9 },
+  setupDot: { width: 8, height: 8, borderRadius: 4 },
+  setupPinTxt: { fontFamily: fonts.semibold, fontSize: 11.5, flexShrink: 1 },
+  setupGroupHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  setupGroupTxt: { fontFamily: fonts.semibold, fontSize: 12, color: colors.textMuted },
+  setupItem: { marginTop: 5, marginLeft: 14 },
   reportBtn: { backgroundColor: colors.orange, borderRadius: 12, height: 48, alignItems: 'center', justifyContent: 'center', marginTop: 14 },
   reportBtnTxt: { fontFamily: fonts.semibold, fontSize: 15, color: colors.text },
 });

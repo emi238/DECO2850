@@ -64,7 +64,11 @@ room_assessment: the room as a place for this dog to live.
 
 escape_routes: every way out or fall point you can see (balcony, window, door, fence, stairs), with the same object_key as its hazards entry, type, detail, frame_index, x, y, severity, confidence and small_dog_risk. Each one also appears in hazards with hazard_type "escape_fall" (or "floor_stairs" for stairs).
 
-off_limit_suggestions: areas visible in the photos that this dog should be kept out of (kitchen, balcony, nursery, office, stairs, other), each with a one-sentence reason and the photo where it shows.
+SUGGESTED SETUP: practical suggestions for setting this room up for this dog, each placed where it applies: frame_index plus x and y (0 to 1 across the original photo) at the spot itself. Only suggest places and fixes you can see in the photos.
+- off_limit_suggestions (up to 3): areas this dog should be kept out of (kitchen, balcony, nursery, office, stairs, other), each with a one-sentence reason.
+- dog_spots (up to 3): good places for the dog's things. purpose: bed (a quiet corner away from doors, foot traffic, hazards, heaters and direct sun), crate (the same, out of the way but within sight of the family), food_water (a wipe-clean floor, away from the bed), play (clear open floor away from fragile things). Suggest a bed spot even when retreat_spot is "possible", and say why that spot works.
+- safety_additions (up to 5): things to add or fit, each tied to something you can see: gate (doorways, stairs, kitchen, or to separate a young child's play area), railing (to close gaps in a railing or an open edge the dog could fall from), netting (balcony gaps a dog could squeeze through), window_guard (low or openable windows), pen (a safe zone for time alone), cord_cover (exposed cords), non_slip_mat (slippery floors in the dog's path), other. detail says exactly what and where, such as "clear acrylic panels along the lower half of the balcony railing". If household.rental is true, prefer options that need no drilling (pressure-fit gates, removable netting, adhesive cord covers).
+Each reason is one sentence of at most 25 words.
 
 detected_signals: what the photos suggest about the household, used only to cross-check the owner's answers.
 - existing_pets: dog / cat / multiple / none / unknown (food bowls, beds, litter trays, pet hair, toys).

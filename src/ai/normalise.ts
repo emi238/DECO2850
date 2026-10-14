@@ -12,12 +12,14 @@ import type {
   Assessment,
   Confidence,
   DetectedSignals,
+  DogSpot,
   EscapeRoute,
   Hazard,
   HazardCategory,
   HazardType,
   OffLimitSuggestion,
   RoomAssessment,
+  SafetyAddition,
   Severity,
   Space,
   Tag,
@@ -26,13 +28,18 @@ import {
   CATEGORIES,
   CLEAR_PATH,
   CONFIDENCES,
+  DOG_SPOT_PURPOSES,
   ESCAPE_TYPES,
   FLOOR_TYPES,
   HAZARD_TYPES,
+  MAX_DOG_SPOTS,
+  MAX_OFF_LIMITS,
+  MAX_SAFETY_ADDITIONS,
   OFF_LIMIT_ZONES,
   OPENNESS,
   RETREAT,
   RISK_TO,
+  SAFETY_ADDITION_TYPES,
   SEVERITIES,
   SIGNAL_CHILDREN,
   SIGNAL_DWELLING,
@@ -254,6 +261,35 @@ function normaliseEscapeRoute(r: any, i: number, frameCount: number): EscapeRout
   };
 }
 
+// A suggestion's spot on the map: kept only when the model gave both x and y.
+function spot(o: any, frameCount: number): { frame_index: number; x?: number; y?: number } {
+  const hasPoint = isFinite(parseFloat(o?.x)) && isFinite(parseFloat(o?.y));
+  return {
+    frame_index: frameIndex(o?.frame_index, frameCount),
+    ...(hasPoint ? { x: clamp01(o.x, 0.5), y: clamp01(o.y, 0.5) } : {}),
+  };
+}
+
+const hasText = (v: unknown): v is string => typeof v === 'string' && !!v.trim();
+
+// Suggested setup: entries need an allowed kind and a reason; unknown kinds are dropped.
+function normaliseSetup(raw: any, frameCount: number) {
+  const items = (v: unknown): any[] => (Array.isArray(v) ? v : []);
+  const off_limit_suggestions: OffLimitSuggestion[] = items(raw?.off_limit_suggestions)
+    .filter((o) => isOneOf(OFF_LIMIT_ZONES, o?.zone) && hasText(o?.reason))
+    .slice(0, MAX_OFF_LIMITS)
+    .map((o) => ({ zone: o.zone, reason: o.reason.trim(), ...spot(o, frameCount) }));
+  const dog_spots: DogSpot[] = items(raw?.dog_spots)
+    .filter((o) => isOneOf(DOG_SPOT_PURPOSES, o?.purpose) && hasText(o?.reason))
+    .slice(0, MAX_DOG_SPOTS)
+    .map((o) => ({ purpose: o.purpose, reason: o.reason.trim(), ...spot(o, frameCount) }));
+  const safety_additions: SafetyAddition[] = items(raw?.safety_additions)
+    .filter((o) => isOneOf(SAFETY_ADDITION_TYPES, o?.type) && hasText(o?.reason))
+    .slice(0, MAX_SAFETY_ADDITIONS)
+    .map((o) => ({ type: o.type, detail: str(o?.detail, '').trim(), reason: o.reason.trim(), ...spot(o, frameCount) }));
+  return { off_limit_suggestions, dog_spots, safety_additions };
+}
+
 function normaliseRoom(r: any): RoomAssessment {
   const v = Number(r?.floor_area_m2?.value);
   return {
@@ -293,15 +329,7 @@ export function normaliseAssessment(raw: any, session: Space): Assessment {
       )
     : [];
 
-  const off_limit_suggestions: OffLimitSuggestion[] = Array.isArray(raw?.off_limit_suggestions)
-    ? raw.off_limit_suggestions
-        .filter((o: any) => typeof o?.reason === 'string' && o.reason.trim())
-        .map((o: any) => ({
-          zone: pick(OFF_LIMIT_ZONES, o?.zone, 'other'),
-          reason: o.reason.trim(),
-          frame_index: frameIndex(o?.frame_index, frameCount),
-        }))
-    : [];
+  const setup = normaliseSetup(raw, frameCount);
 
   const improvements: string[] = Array.isArray(raw?.improvements)
     ? raw.improvements.filter((s: any) => typeof s === 'string' && s.trim()).slice(0, 5)
@@ -318,7 +346,7 @@ export function normaliseAssessment(raw: any, session: Space): Assessment {
     notes: str(raw?.notes, ''),
     room_assessment: normaliseRoom(raw?.room_assessment),
     escape_routes,
-    off_limit_suggestions,
+    ...setup,
     detected_signals: normaliseSignals(raw?.detected_signals),
   };
 }

@@ -317,6 +317,56 @@ check('unknown values are dropped or defaulted, never silently mapped to "I"', (
   assert.equal(a.suitability, null);
 });
 
+console.log('\nSuggested setup');
+check('keep-out areas, dog spots and safety additions are kept with their spot on the photo', () => {
+  const a = normaliseAssessment(
+    {
+      off_limit_suggestions: [{ zone: 'kitchen', reason: 'Food and bins are within reach.', frame_index: 1, x: 0.2, y: 0.7 }],
+      dog_spots: [{ purpose: 'bed', reason: 'Quiet corner away from the door.', frame_index: 2, x: 1.4, y: 0.8 }],
+      safety_additions: [{ type: 'railing', detail: 'Clear panels along the balcony railing.', reason: 'The gaps are wide enough to slip through.', frame_index: 0, x: 0.6, y: 0.5 }],
+    },
+    space()
+  );
+  assert.deepEqual([a.off_limit_suggestions[0].frame_index, a.off_limit_suggestions[0].x], [1, 0.2]);
+  assert.equal(a.dog_spots[0].x, 1); // clamped to the photo
+  assert.equal(a.safety_additions[0].type, 'railing');
+});
+check('suggestions without a position are kept (listed, not pinned); unknown kinds and empty reasons are dropped', () => {
+  const a = normaliseAssessment(
+    {
+      dog_spots: [{ purpose: 'bed', reason: 'Somewhere quiet.' }, { purpose: 'sofa', reason: 'x' }, { purpose: 'crate', reason: '  ' }],
+      safety_additions: [{ type: 'moat', reason: 'x' }, { type: 'gate', detail: '', reason: 'Keeps the dog out of the kitchen.' }],
+      off_limit_suggestions: [{ zone: 'garage', reason: 'x' }],
+    },
+    space()
+  );
+  assert.equal(a.dog_spots.length, 1);
+  assert.equal(a.dog_spots[0].x, undefined);
+  assert.equal(a.safety_additions.length, 1);
+  assert.equal(a.off_limit_suggestions.length, 0);
+});
+check('at most 3 keep-out areas, 3 dog spots and 5 safety additions', () => {
+  const many = (n, make) => Array.from({ length: n }, (_, i) => make(i));
+  const a = normaliseAssessment(
+    {
+      off_limit_suggestions: many(6, () => ({ zone: 'other', reason: 'r' })),
+      dog_spots: many(6, () => ({ purpose: 'play', reason: 'r' })),
+      safety_additions: many(9, () => ({ type: 'gate', reason: 'r' })),
+    },
+    space()
+  );
+  assert.deepEqual([a.off_limit_suggestions.length, a.dog_spots.length, a.safety_additions.length], [3, 3, 5]);
+});
+check('suggestions never change the verdict', () => {
+  const plain = S.scoreSuitability(lab, household(), result());
+  const withSetup = S.scoreSuitability(lab, household(), result([], {
+    dog_spots: [{ purpose: 'bed', reason: 'r', frame_index: 0 }],
+    safety_additions: [{ type: 'gate', detail: '', reason: 'r', frame_index: 0 }],
+  }));
+  assert.equal(withSetup.blend, plain.blend);
+  assert.equal(withSetup.verdict, plain.verdict);
+});
+
 console.log('\nPrompt and schema');
 check('room prompt has no cat-assessment content and asks for no score or verdict', () => {
   for (const bad of [/for cats/i, /vertical territory/i, /CRITICAL/, /recommended_pets/, /score_0_100/, /"suitability"/, /explore/i]) {
@@ -329,6 +379,10 @@ check('response schema: no score/verdict fields; every finding requires object_k
   for (const bad of ['score_0_100', 'suitability', 'recommended_pets']) assert.ok(!json.includes(bad), bad);
   const item = ROOM_RESPONSE_SCHEMA.properties.hazards.items;
   for (const k of ['object_key', 'confidence', 'location', 'source', 'hazard_type']) assert.ok(item.required.includes(k), k);
+  for (const k of ['off_limit_suggestions', 'dog_spots', 'safety_additions']) {
+    const req = ROOM_RESPONSE_SCHEMA.properties[k].items.required;
+    assert.ok(req.includes('x') && req.includes('y') && req.includes('reason'), `${k} needs x, y, reason`);
+  }
 });
 
 console.log('\nGemini request (fake API, no network)');
