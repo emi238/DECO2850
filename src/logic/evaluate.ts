@@ -86,12 +86,16 @@ export interface Evaluation {
   safety: Band;
   noise: Band;
   tone: Band; // worse of space + safety
+  verdict: Band; // plain overall answer: worse of space, safety and noise
   advisory: boolean; // §4.5 not-ready-yet (prospective owners only)
   currentOwner: boolean;
   mood: 'sad' | 'neutral' | 'happy';
   speech: string;
   lines: { space: string; safety: string; noise: string; advisory?: string };
   labels: { space: string; safety: string; noise: string; tone: string };
+  // Plain-language headline for the report (user testing: band words alone were unclear).
+  verdictTitle: string;
+  verdictLine: string;
 }
 
 export function evaluate(space: Space, household: Questionnaire, dogOverride?: ResolvedDog): Evaluation | null {
@@ -132,13 +136,14 @@ export function evaluate(space: Space, household: Questionnaire, dogOverride?: R
   const noise = NOISE[dog.noise][household.neighbours];
 
   const tone = worse(spaceBand, safety);
+  const verdict = worse(tone, noise);
 
   // ---- §4.5 advisory: prospective only, space-only, decluttered still short ----
   const currentOwner = household.existing_pets.some((p) => /dog/i.test(p.species));
   const declutteredOfr = m.floor_m2 > 0 ? (m.floor_m2 - m.fixed_m2) / m.floor_m2 : 0;
   const advisory = !currentOwner && spaceBand === 'poor' && declutteredOfr < t.poor;
 
-  const mood: Evaluation['mood'] = advisory || tone === 'poor' ? 'sad' : tone === 'adequate' ? 'neutral' : 'happy';
+  const mood: Evaluation['mood'] = advisory || verdict === 'poor' ? 'sad' : verdict === 'adequate' ? 'neutral' : 'happy';
 
   return {
     dog,
@@ -148,6 +153,7 @@ export function evaluate(space: Space, household: Questionnaire, dogOverride?: R
     safety,
     noise,
     tone,
+    verdict,
     advisory,
     currentOwner,
     mood,
@@ -161,12 +167,30 @@ export function evaluate(space: Space, household: Questionnaire, dogOverride?: R
         : undefined,
     },
     labels: {
-      space: { poor: 'Cramped', adequate: 'Snug', good: 'Spacious' }[spaceBand],
-      safety: { poor: 'Hazardous', adequate: 'Mostly safe', good: 'Safe' }[safety],
-      noise: { poor: 'Poor', adequate: 'Adequate', good: 'Good' }[noise],
+      space: { poor: 'Too tight', adequate: 'Enough room', good: 'Plenty of room' }[spaceBand],
+      safety: { poor: 'Not safe yet', adequate: `Move ${thingCount(hz + atRisk)}`, good: 'Safe' }[safety],
+      noise: { poor: 'Likely issue', adequate: 'Some barking', good: 'No problem' }[noise],
       tone: { poor: 'Needs work', adequate: 'Getting there', good: 'Great fit' }[tone],
     },
+    verdictTitle: { poor: 'Not a good fit yet', adequate: 'Good fit with a few changes', good: 'Good fit' }[verdict],
+    verdictLine: verdictLine(verdict, dog.name, spaceBand, safety, noise, hz + atRisk),
   };
+}
+
+function thingCount(n: number): string {
+  return n === 1 ? '1 thing' : `${n} things`;
+}
+
+// One plain sentence under the verdict: what (if anything) stands in the way.
+function verdictLine(v: Band, dogName: string, space: Band, safety: Band, noise: Band, things: number): string {
+  if (v === 'good') return `This room suits a ${dogName} well.`;
+  const fixes: string[] = [];
+  if (safety !== 'good') fixes.push(`move ${thingCount(things)} out of reach`);
+  if (space !== 'good') fixes.push(space === 'poor' ? 'free up a lot more floor space' : 'open up a little more floor space');
+  if (noise !== 'good') fixes.push(noise === 'poor' ? 'expect barking to bother close neighbours' : 'plan for some barking near neighbours');
+  const list = fixes.length > 1 ? `${fixes.slice(0, -1).join(', ')} and ${fixes[fixes.length - 1]}` : fixes[0];
+  const sentence = list.charAt(0).toUpperCase() + list.slice(1);
+  return v === 'poor' ? `${sentence}.` : `${sentence}, and it should work well.`;
 }
 
 function speechFor(mood: Evaluation['mood'], advisory: boolean, space: Band): string {

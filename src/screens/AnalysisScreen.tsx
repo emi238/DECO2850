@@ -34,7 +34,7 @@ import { colors, fonts } from '../theme';
 import { useSession, useCurrentSpace } from '../store/session';
 import { runAssessment } from '../ai/assess';
 import { evaluate, type Band, type Evaluation } from '../logic/evaluate';
-import type { Frame, Hazard } from '../types';
+import type { Frame, Hazard, Tag } from '../types';
 import type { ScreenProps } from '../navigation';
 
 const MIN_LOADING_MS = 2200;
@@ -208,6 +208,7 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
         {riskIndex != null && risks[riskIndex] && (
           <RiskSheet
             hazard={risks[riskIndex]}
+            tagged={isUserTag(risks[riskIndex], space.tags)}
             index={riskIndex}
             total={risks.length}
             onPrev={() => setRiskIndex((i) => ((i ?? 0) - 1 + risks.length) % risks.length)}
@@ -279,9 +280,17 @@ function PhotoMap({
 }) {
   const [page, setPage] = useState(0);
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => setPage(Math.round(e.nativeEvent.contentOffset.x / width));
+  // When a risk is picked (pin tap or the sheet's < >), jump to the photo it's on.
+  const scrollRef = useRef<ScrollView>(null);
+  const selectedFrame = risks.find((r) => r.id === selectedId)?.location?.frame_index;
+  useEffect(() => {
+    if (selectedFrame == null) return;
+    scrollRef.current?.scrollTo({ x: selectedFrame * width, animated: true });
+    setPage(selectedFrame);
+  }, [selectedFrame, width]);
   return (
     <View style={StyleSheet.absoluteFill}>
-      <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} onMomentumScrollEnd={onScroll}>
+      <ScrollView ref={scrollRef} horizontal pagingEnabled showsHorizontalScrollIndicator={false} onMomentumScrollEnd={onScroll}>
         {frames.map((f, i) => (
           <MapPage
             key={i}
@@ -321,34 +330,65 @@ function MapPage({
   onPin: (id: string) => void;
 }) {
   const img = useFrameImageSize(frame);
+  // The photo is cover-cropped, so a pin near its edge can fall outside the card;
+  // keep every pin inside the visible area so nothing flagged is cut off.
+  const PIN_INSET = 24;
+  const pinAt = (h: Hazard) => {
+    const p = imageToView(img, width, height, h.location!.x, h.location!.y);
+    return {
+      x: Math.max(PIN_INSET, Math.min(width - PIN_INSET, p.x)),
+      y: Math.max(PIN_INSET + 40, Math.min(height - PIN_INSET, p.y)), // clear of the 2D/3D toggle
+    };
+  };
+  // The risk sheet covers the bottom of the card; slide the photo up so the
+  // selected pin sits in the visible part above it.
+  const selected = risks.find((h) => h.id === selectedId);
+  const visibleH = height * (1 - SHEET_SHARE);
+  const selY = selected ? pinAt(selected).y : 0;
+  const shift = selected && selY > visibleH - 50 ? Math.max(-(height * SHEET_SHARE), visibleH / 2 - selY) : 0;
   return (
-    <View style={{ width, height }}>
-      <FrameView frame={frame} width={width} height={height} />
-      {risks.map((h) => {
-        const p = imageToView(img, width, height, h.location!.x, h.location!.y);
-        const on = h.id === selectedId;
-        return (
-          <Pressable
-            key={h.id}
-            onPress={() => onPin(h.id)}
-            hitSlop={8}
-            style={[styles.pin, { left: p.x - 19, top: p.y - 19 }, on && styles.pinOn]}
-          >
-            <AlertIcon size={22} />
-          </Pressable>
-        );
-      })}
+    <View style={{ width, height, overflow: 'hidden' }}>
+      <View style={{ width, height, transform: [{ translateY: shift }] }}>
+        <FrameView frame={frame} width={width} height={height} />
+        {risks.map((h) => {
+          const p = pinAt(h);
+          const on = h.id === selectedId;
+          return (
+            <Pressable
+              key={h.id}
+              onPress={() => onPin(h.id)}
+              hitSlop={8}
+              style={[styles.pin, { left: p.x - 19, top: p.y - 19 }, on && styles.pinOn]}
+            >
+              <AlertIcon size={22} />
+            </Pressable>
+          );
+        })}
+      </View>
     </View>
   );
 }
+
+// Share of the map card the "Potential Risks!" sheet covers (matches styles.sheetWrap).
+const SHEET_SHARE = 0.44;
 
 // ---------------------------------------------------------------------------
 // "Potential Risks!" frosted sheet: what's flagged, why, and the fix (P4.2).
 
 const SEVERITY_WORD: Record<Hazard['severity'], string> = { high: 'Needs attention', medium: 'Worth fixing', low: 'Minor' };
 
+// Items the user tagged (Valuable / Fragile) are things to protect, not hazards,
+// so their card says "Be careful" instead of an alarming severity word.
+// The mock titles them "Flagged: …"; the AI may not, so also match the tag's name.
+function isUserTag(h: Hazard, tags: Tag[]): boolean {
+  if (h.title.startsWith('Flagged:')) return true;
+  const title = h.title.toLowerCase();
+  return tags.some((t) => !!t.label.trim() && title.includes(t.label.trim().toLowerCase()));
+}
+
 function RiskSheet({
   hazard,
+  tagged,
   index,
   total,
   onPrev,
@@ -356,6 +396,7 @@ function RiskSheet({
   onClose,
 }: {
   hazard: Hazard;
+  tagged: boolean;
   index: number;
   total: number;
   onPrev: () => void;
@@ -382,9 +423,15 @@ function RiskSheet({
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 30 }} showsVerticalScrollIndicator={false}>
           <View style={styles.riskTitleRow}>
             <Text style={styles.riskTitle}>{hazard.title}</Text>
-            <View style={[styles.sevChip, hazard.severity === 'high' && { backgroundColor: colors.orange }]}>
-              <Text style={styles.sevTxt}>{SEVERITY_WORD[hazard.severity]}</Text>
-            </View>
+            {tagged ? (
+              <View style={[styles.sevChip, { backgroundColor: colors.track }]}>
+                <Text style={styles.sevTxt}>Be careful</Text>
+              </View>
+            ) : (
+              <View style={[styles.sevChip, hazard.severity === 'high' && { backgroundColor: colors.orange }]}>
+                <Text style={styles.sevTxt}>{SEVERITY_WORD[hazard.severity]}</Text>
+              </View>
+            )}
           </View>
           <Text style={styles.riskBody}>{hazard.why_it_matters}</Text>
           <Text style={styles.riskLabel}>What might help</Text>
@@ -425,6 +472,7 @@ function DogAvatar({ evaluation, top, onPress }: { evaluation: Evaluation; top: 
 // then the room's lines on the cramped↔spacious / hazardous↔safe spectrum.
 
 const BAND_COLOR: Record<Band, string> = { poor: '#E4572E', adequate: colors.orange, good: '#5FAE7F' };
+const BAND_MARK: Record<Band, string> = { poor: '✕', adequate: '!', good: '✓' };
 
 function ReportOverlay({
   evaluation: e,
@@ -486,15 +534,19 @@ function ReportOverlay({
             </View>
           )}
 
-          <ReportRow heading="Noise fit, whole home" tag={e.labels.noise} band={e.noise} line={e.lines.noise} />
-
-          <Text style={styles.roomHead}>{roomName}</Text>
-          <View style={styles.toneRow}>
-            <View style={[styles.toneDot, { backgroundColor: BAND_COLOR[e.tone] }]} />
-            <Text style={styles.toneTxt}>{e.labels.tone}</Text>
+          {/* Plain verdict first (user testing asked for a clear good-fit / bad-fit answer). */}
+          <View style={[styles.verdict, { backgroundColor: BAND_COLOR[e.verdict] }]}>
+            {/* Dark text on the light orange, white on green/red, for contrast. */}
+            <Text style={[styles.verdictTitle, e.verdict === 'adequate' && { color: colors.text }]}>
+              {BAND_MARK[e.verdict]}  {e.verdictTitle}
+            </Text>
+            <Text style={[styles.verdictRoom, e.verdict === 'adequate' && { color: colors.text }]}>{roomName}</Text>
+            <Text style={[styles.verdictLine, e.verdict === 'adequate' && { color: colors.text }]}>{e.verdictLine}</Text>
           </View>
+
           <ReportRow heading="Space" tag={e.labels.space} band={e.space} line={e.lines.space} />
           <ReportRow heading="Safety" tag={e.labels.safety} band={e.safety} line={e.lines.safety} />
+          <ReportRow heading="Neighbours" tag={e.labels.noise} band={e.noise} line={e.lines.noise} />
 
           {riskCount > 0 && (
             <Pressable style={styles.reportBtn} onPress={() => dismiss(onRisks)}>
@@ -517,7 +569,7 @@ function ReportRow({ heading, tag, band, line }: { heading: string; tag: string;
       <View style={styles.reportRowHead}>
         <Text style={styles.reportRowTitle}>{heading}</Text>
         <View style={[styles.bandChip, { borderColor: BAND_COLOR[band] }]}>
-          <Text style={[styles.bandTxt, { color: BAND_COLOR[band] }]}>{tag}</Text>
+          <Text style={[styles.bandTxt, { color: BAND_COLOR[band] }]}>{BAND_MARK[band]} {tag}</Text>
         </View>
       </View>
       <Text style={styles.reportLine}>“{line}”</Text>
@@ -558,7 +610,7 @@ const styles = StyleSheet.create({
   note: { position: 'absolute', left: 16, right: 16, top: 50, backgroundColor: 'rgba(255,255,255,0.88)', borderRadius: 10, padding: 8 },
   noteTxt: { fontFamily: fonts.regular, fontSize: 10.5, color: colors.text },
 
-  sheetWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, height: '44%', borderTopLeftRadius: 22, borderTopRightRadius: 22, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.8)' },
+  sheetWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, height: `${SHEET_SHARE * 100}%`, borderTopLeftRadius: 22, borderTopRightRadius: 22, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.8)' },
   sheet: { flex: 1, backgroundColor: 'rgba(255,255,255,0.72)', paddingHorizontal: 27, paddingTop: 22 },
   sheetHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   sheetTitle: { fontFamily: fonts.bold, fontSize: 19, color: colors.text, flexShrink: 1 },
@@ -584,10 +636,10 @@ const styles = StyleSheet.create({
   grabber: { alignSelf: 'center', width: 44, height: 5, borderRadius: 3, backgroundColor: 'rgba(0,0,0,0.18)', marginBottom: 14 },
   advisory: { backgroundColor: '#FDE3D6', borderRadius: 12, padding: 12, marginBottom: 12 },
   advisoryHead: { fontFamily: fonts.bold, fontSize: 13, color: colors.orangeDeep, marginBottom: 4 },
-  roomHead: { fontFamily: fonts.bold, fontSize: 17, color: colors.text, marginTop: 16 },
-  toneRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4, marginBottom: 4 },
-  toneDot: { width: 9, height: 9, borderRadius: 5 },
-  toneTxt: { fontFamily: fonts.medium, fontSize: 12.5, color: colors.text },
+  verdict: { borderRadius: 12, padding: 14, marginBottom: 6 },
+  verdictTitle: { fontFamily: fonts.bold, fontSize: 18, color: '#fff' },
+  verdictRoom: { fontFamily: fonts.medium, fontSize: 12.5, color: '#fff', marginTop: 2, opacity: 0.9 },
+  verdictLine: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 19, color: '#fff', marginTop: 6 },
   reportRow: { backgroundColor: colors.bg, borderRadius: 12, padding: 12, marginTop: 8 },
   reportRowHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
   reportRowTitle: { fontFamily: fonts.semibold, fontSize: 13, color: colors.text },

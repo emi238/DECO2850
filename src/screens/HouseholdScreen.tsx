@@ -7,7 +7,7 @@ import { View, Text, StyleSheet, ScrollView, Image, Pressable } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AvatarButton, PrimaryButton } from '../components/kit';
-import { HouseholdForm } from '../components/HouseholdForm';
+import { HouseholdForm, REQUIRED_QUESTIONS, type RequiredQuestion } from '../components/HouseholdForm';
 import { BackArrowIcon } from '../components/icons';
 import { colors, fonts } from '../theme';
 import { IMAGES } from '../assets';
@@ -22,8 +22,23 @@ export default function HouseholdScreen({ navigation, route }: ScreenProps<'Hous
   const setOnboarded = useSession((s) => s.setOnboarded);
 
   const [q, setQ] = useState<Questionnaire>({ ...saved });
+  // First sign-up: every required question starts blank and must be answered
+  // (pre-filled answers let people tap through without reading them).
+  const [unanswered, setUnanswered] = useState<Set<RequiredQuestion>>(
+    () => new Set(onboarding ? REQUIRED_QUESTIONS : [])
+  );
+  const update = (p: Partial<Questionnaire>) => {
+    setQ((prev) => ({ ...prev, ...p }));
+    setUnanswered((prev) => {
+      const next = new Set(prev);
+      Object.keys(p).forEach((k) => next.delete(k as RequiredQuestion));
+      return next;
+    });
+  };
+  const complete = unanswered.size === 0;
 
   const save = () => {
+    if (!complete) return;
     setHousehold(q);
     if (onboarding) {
       setOnboarded(true);
@@ -58,14 +73,18 @@ export default function HouseholdScreen({ navigation, route }: ScreenProps<'Hous
               : 'Update your household situation, every space analysis uses these answers.'}
           </Text>
           <View style={{ marginTop: 26 }}>
-            <HouseholdForm value={q} onChange={(p) => setQ((prev) => ({ ...prev, ...p }))} />
+            <HouseholdForm value={q} onChange={update} blank={unanswered} />
           </View>
         </ScrollView>
 
         <SafeAreaView edges={['bottom']} style={styles.bottom}>
-          <PrimaryButton label={onboarding ? 'Looks good!' : 'Save'} onPress={save} />
+          <PrimaryButton label={onboarding ? 'Looks good!' : 'Save'} onPress={save} disabled={!complete} />
           <Text style={styles.foot}>
-            {onboarding ? 'You can change your household situation in your\nprofile.' : ' '}
+            {!complete
+              ? 'Answer each question to continue.'
+              : onboarding
+                ? 'You can change your household situation in your\nprofile.'
+                : ' '}
           </Text>
         </SafeAreaView>
       </View>
