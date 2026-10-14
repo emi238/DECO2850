@@ -37,6 +37,8 @@ export interface ExistingPet {
 }
 
 export type Neighbours = 'attached' | 'close_separate' | 'not_close';
+export type ChildrenAtHome = 'none' | 'young' | 'older'; // young = any child under 5
+export type HoursAlone = 'under_4' | '4_to_8' | 'over_8'; // a typical weekday
 
 export interface Questionnaire {
   dwelling: 'apartment' | 'house';
@@ -52,6 +54,9 @@ export interface Questionnaire {
   off_limit_zones: string[];
   activity_level: 'low' | 'medium' | 'high';
   wants_apartment_friendly: boolean;
+  // Asked since user testing (Oct 2026). Optional so older saved answers still load.
+  children_at_home?: ChildrenAtHome;
+  hours_alone?: HoursAlone;
 }
 
 export interface Tag {

@@ -14,7 +14,7 @@ import type { Questionnaire, Space } from '../types';
 import type { BreedProfile } from '../logic/breeds';
 import { evaluate, rankBreeds, type Band } from '../logic/evaluate';
 import { AI_CONFIG, realAiEnabled } from './config';
-import { generateText, extractJson } from './gemini';
+import { generateText, extractJson, householdContext } from './gemini';
 
 export type Fit = 'good' | 'could_work' | 'tricky';
 
@@ -37,13 +37,15 @@ const PICKS = 8;
 export const BREED_SUGGEST_PROMPT = `You are PawSpace's dog-breed matchmaker. A person is checking whether their home suits a dog. Recommend dog breeds that would genuinely suit THIS home and household.
 
 You receive JSON with:
-- "household": dwelling type, rental, how close the neighbours are, outdoor access, existing dogs.
+- "household": dwelling type, rental, how close the neighbours are, outdoor access, existing dogs, children_at_home (none / young = under 5 / older = 5+ / not_answered) and hours_alone (how long the dog is home alone on a typical day: under_4 / 4_to_8 / over_8 / not_answered).
 - "room": a summary of the captured room, the number of physical hazards found, the number of valuables the user tagged, and the estimated open floor space.
 - "candidates": a shortlist of real breeds. Each has name, size (small <12kg, medium 12-25kg, large >25kg), energy (low/moderate/high), noise (quiet/moderate/vocal), temperament, breed group, and "rule_fit" — how PawSpace's space rules rate it for this room (space, safety, noise: poor/adequate/good).
 
 How to choose:
 - ONLY choose breeds from "candidates". Copy each name exactly.
 - Favour breeds whose rule_fit is good or adequate. Weigh: floor space vs size and energy; outdoor access vs energy (no outdoor space + high energy is a poor match); neighbour closeness vs noise (attached walls + vocal is a poor match); rentals favour smaller, quieter dogs; tagged valuables and hazards favour calmer, less destructive dogs; existing dogs favour sociable breeds.
+- Children: with young children, favour breeds whose temperament is gentle, patient or tolerant, and avoid very boisterous or easily-startled ones; mention supervision in "watch_out". Older children suit most friendly, playful breeds.
+- Time alone: with 4 to 8 hours alone, favour moderate or low energy breeds that are described as independent or calm. With over 8 hours alone, strongly favour low energy, independent, quieter breeds, avoid high energy or very people-focused breeds, and say in "watch_out" that a walker or daycare would help. Long hours alone plus attached walls makes a vocal breed a poor match.
 - Offer variety (different sizes and temperaments) when several breeds fit similarly.
 - Return up to ${PICKS} breeds, best match first.
 
@@ -68,7 +70,11 @@ function ruleSuggestion(space: Space, household: Questionnaire, b: BreedProfile)
   const spaceTxt = { good: 'Enough floor space for its size and energy', adequate: 'A bit snug, but workable', poor: 'Likely cramped for this breed' }[e.space];
   const noiseTxt = { good: 'no noise concerns', adequate: 'some barking to manage', poor: 'may be loud for close neighbours' }[e.noise];
   const watch =
-    e.safety !== 'good'
+    household.hours_alone === 'over_8'
+      ? 'It would be alone a long time, plan a walker or daycare.'
+      : household.children_at_home === 'young' && b.size !== 'small'
+      ? 'Supervise it around small children and give it a quiet retreat.'
+      : e.safety !== 'good'
       ? 'Move flagged hazards and valuables out of reach first.'
       : household.outdoor_access === 'none' && b.energy !== 'low'
       ? 'Plan daily walks, there is no outdoor space.'
@@ -83,13 +89,7 @@ function shortlist(space: Space, household: Questionnaire, breeds: BreedProfile[
 function contextFor(space: Space, household: Questionnaire, list: ReturnType<typeof shortlist>) {
   const hazards = (space.result?.hazards ?? []).filter((h) => h.scope === 'object').length;
   return {
-    household: {
-      dwelling: household.dwelling,
-      rental: household.rental,
-      neighbours: household.neighbours,
-      outdoor_access: household.outdoor_access,
-      existing_dogs: household.existing_pets.map((p) => p.breed || 'dog'),
-    },
+    household: householdContext(household),
     room: {
       name: space.label || space.name,
       summary: space.result?.space_summary ?? '',

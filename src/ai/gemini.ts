@@ -12,11 +12,31 @@ interface InlineImage {
   data: string; // base64, no data: prefix
 }
 
+// Only the questions the user actually answers are sent. Fields the questionnaire
+// never asks (adults, activity level…) hold defaults, and the model would treat
+// them as facts. Missing answers are sent as "not_answered".
+export function householdContext(q: Space['questionnaire']) {
+  return {
+    dwelling: q.dwelling,
+    rental: q.rental,
+    neighbours: q.neighbours,
+    outdoor_access: q.outdoor_access,
+    existing_dogs: q.existing_pets.map((p) => p.breed || 'dog'),
+    children_at_home: q.children_at_home ?? 'not_answered',
+    hours_alone: q.hours_alone ?? 'not_answered',
+  };
+}
+
 function contextJson(session: Space): string {
   return JSON.stringify({
     mode: session.mode,
-    pet: session.pet,
-    questionnaire: session.questionnaire,
+    pet: session.pet && {
+      breed: session.pet.breed,
+      size: session.pet.size,
+      energy: session.pet.energy,
+      noise: session.pet.noise,
+    },
+    household: householdContext(session.questionnaire),
     tags: session.tags.map((t) => ({ label: t.label, note: t.note, frame: t.frame })),
   });
 }

@@ -24,7 +24,7 @@ const OUTDOOR: { value: Questionnaire['outdoor_access']; label: string }[] = [
 const MIXED = 'Mixed breed';
 
 // The questions a new user must answer at onboarding (existing dogs is optional).
-export const REQUIRED_QUESTIONS = ['dwelling', 'rental', 'neighbours', 'outdoor_access'] as const;
+export const REQUIRED_QUESTIONS = ['dwelling', 'rental', 'neighbours', 'outdoor_access', 'children_at_home', 'hours_alone'] as const;
 export type RequiredQuestion = (typeof REQUIRED_QUESTIONS)[number];
 const petLabel = (p: ExistingPet) => p.breed || 'Dog';
 
@@ -118,6 +118,40 @@ export function HouseholdForm({
             />
           ))}
         </View>
+      </View>
+
+      <View style={{ marginBottom: gap }}>
+        <SectionLabel style={label}>Any children living at home?</SectionLabel>
+        <Segmented
+          disabled={disabled}
+          value={blank?.has('children_at_home') ? null : q.children_at_home ?? null}
+          onChange={(v) => onChange({ children_at_home: v })}
+          options={[
+            { value: 'none', label: 'No' },
+            { value: 'young', label: 'Yes, under 5' },
+            { value: 'older', label: 'Yes, 5 or older' },
+          ]}
+          style={big ? styles.segBig : styles.seg}
+          height={segH}
+          textStyle={segTxt}
+        />
+      </View>
+
+      <View style={{ marginBottom: gap }}>
+        <SectionLabel style={label}>On a typical day, how long would the dog be home alone?</SectionLabel>
+        <Segmented
+          disabled={disabled}
+          value={blank?.has('hours_alone') ? null : q.hours_alone ?? null}
+          onChange={(v) => onChange({ hours_alone: v })}
+          options={[
+            { value: 'under_4', label: 'Under 4 hours' },
+            { value: '4_to_8', label: '4 to 8 hours' },
+            { value: 'over_8', label: 'Over 8 hours' },
+          ]}
+          style={big ? styles.segBig : styles.seg}
+          height={segH}
+          textStyle={segTxt}
+        />
       </View>
 
       <View>
