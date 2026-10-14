@@ -1,31 +1,29 @@
-// Suitability evaluation (spec §4). Turns measured/declared parameters into the
-// three internal bands (Space Adequacy, Safety, Noise Fit), the not-ready-yet
-// advisory, and the qualitative avatar + report copy. No number is ever shown.
+// Suitability evaluation for the screens (logic v2, CHANGE PRD 15 Oct 2026).
+// The rules themselves live in suitability.ts; this file resolves the dog and
+// writes the words the user sees: the verdict, a chip and a first-person line per
+// sub-score, "What to change", and profile nudges. No number is ever shown.
 
 import type { ImageSourcePropType } from 'react-native';
-import type { Assessment, Pet, Questionnaire, Space, SpaceMetrics } from '../types';
+import type { Pet, Questionnaire, RoomAssessment, Space } from '../types';
 import { findBreed, type BreedProfile, type Energy, type Noise, type SizeClass } from './breeds';
 import { IMAGES } from '../assets';
+import {
+  effectiveClass,
+  scoreSuitability,
+  type Band,
+  type Bands,
+  type Concern,
+  type EnergyResult,
+  type Gate,
+  type Nudge,
+  type SubScore,
+  type SuitabilityResult,
+  type Unknown,
+} from './suitability';
 
-export type Band = 'poor' | 'adequate' | 'good';
+export type { Band, Nudge, SubScore } from './suitability';
 
 const RANK: Record<Band, number> = { poor: 0, adequate: 1, good: 2 };
-const worse = (a: Band, b: Band): Band => (RANK[a] <= RANK[b] ? a : b);
-const downgrade = (b: Band): Band => (b === 'good' ? 'adequate' : 'poor');
-
-// §4.2 size-class thresholds: Poor under `poor`, Good at `good`+ (and zone), m² zone.
-const THRESHOLDS: Record<SizeClass, { poor: number; good: number; zone: number }> = {
-  small: { poor: 0.25, good: 0.4, zone: 0.5 },
-  medium: { poor: 0.35, good: 0.55, zone: 1.0 },
-  large: { poor: 0.45, good: 0.65, zone: 1.5 },
-};
-
-// §4.4 noise lookup [tendency][neighbours].
-const NOISE: Record<Noise, Record<Questionnaire['neighbours'], Band>> = {
-  quiet: { attached: 'good', close_separate: 'good', not_close: 'good' },
-  moderate: { attached: 'adequate', close_separate: 'good', not_close: 'good' },
-  vocal: { attached: 'poor', close_separate: 'adequate', not_close: 'good' },
-};
 
 // The profile actually evaluated: a catalogue breed, or a mixed breed built
 // from the size/energy the user entered. User-picked energy overrides the breed's.
@@ -57,123 +55,86 @@ export function resolveDog(pet: Pet | null): ResolvedDog | null {
   };
 }
 
-export function effectiveClass(size: SizeClass, energy: Energy): SizeClass {
-  if (energy !== 'high') return size;
-  return size === 'small' ? 'medium' : 'large';
-}
-
-// Room measurements. There is no LiDAR scan in this prototype, so these are
-// estimates: every room uses the same default until real measurements exist.
-export function estimateMetrics(space: Space): SpaceMetrics {
-  if (space.metrics) return space.metrics;
-  return { floor_m2: 16, furniture_m2: 8, fixed_m2: 4, personal_zone_m2: 0, estimated: true };
-}
-
-// "Hazard flags" per §4.3 = physical hazards the assessment located (cords,
-// sharp/fragile, floors, plants, chemicals, escape routes) — not user tags.
-const PHYSICAL = new Set(['A', 'B', 'C', 'D', 'E', 'F', 'G']);
-export function hazardCount(result: Assessment | null): number {
-  return (result?.hazards ?? []).filter(
-    (h) => h.scope === 'object' && PHYSICAL.has(h.category) && !h.title.startsWith('Flagged:')
-  ).length;
-}
-
 export interface Evaluation {
   dog: ResolvedDog;
   effective: SizeClass;
-  space: Band;
-  spaceReason: 'ofr' | 'zone' | 'outdoor' | 'none';
-  safety: Band;
-  noise: Band;
-  tone: Band; // worse of space + safety
-  verdict: Band; // plain overall answer: worse of space, safety and noise
-  advisory: boolean; // §4.5 not-ready-yet (prospective owners only)
+  bands: Bands; // safety, energy, room, household, noise
+  verdict: Band; // after the hard gates
+  gates: Gate[];
+  advisory: boolean; // "not ready yet": prospective owners, room too tight
   currentOwner: boolean;
   mood: 'sad' | 'neutral' | 'happy';
   speech: string;
-  lines: { space: string; safety: string; noise: string; advisory?: string };
-  labels: { space: string; safety: string; noise: string; tone: string };
-  // Plain-language headline for the report (user testing: band words alone were unclear).
+  labels: Record<SubScore, string>; // the chip on each report row
+  lines: Record<SubScore, string> & { advisory?: string }; // the dog's first-person line
+  roomChips: string[]; // openness + retreat spot, as plain words (empty if unknown)
   verdictTitle: string;
   verdictLine: string;
+  changes: string[]; // "What to change"
+  nudges: Nudge[]; // "add it to your profile?" prompts
+  score: SuitabilityResult; // internal detail (ranking, checks); never shown
 }
 
 export function evaluate(space: Space, household: Questionnaire, dogOverride?: ResolvedDog): Evaluation | null {
   const dog = dogOverride ?? resolveDog(space.pet);
   if (!dog) return null;
 
-  const m = estimateMetrics(space);
-  const eff = effectiveClass(dog.size, dog.energy);
-  const t = THRESHOLDS[eff];
+  const result = space.result;
+  // The built-in sample assessment can't see the photos.
+  const photosChecked = space.resultSource !== 'mock';
+  const s = scoreSuitability(
+    { name: dog.name, size: dog.size, energy: dog.energy, noise: dog.noise, temperament: dog.breed?.temperament, group: dog.breed?.group },
+    household,
+    result,
+    { photosChecked }
+  );
+  const { bands, verdict, gates, unknown } = s;
+  const counted = s.safety.counted.length;
 
-  // ---- §4.2 Space Adequacy ----
-  const ofr = m.floor_m2 > 0 ? (m.floor_m2 - m.furniture_m2) / m.floor_m2 : 0;
-  const hasZone = m.personal_zone_m2 >= t.zone;
-  let spaceBand: Band;
-  let spaceReason: Evaluation['spaceReason'] = 'none';
-  if (ofr < t.poor) {
-    spaceBand = 'poor';
-    spaceReason = 'ofr';
-  } else if (ofr >= t.good && hasZone) {
-    spaceBand = 'good';
-  } else {
-    spaceBand = 'adequate';
-    spaceReason = ofr >= t.good ? 'zone' : 'ofr';
-  }
-  if (household.outdoor_access === 'none' && dog.energy !== 'low' && spaceBand !== 'good') {
-    if (spaceBand === 'adequate') spaceReason = 'outdoor';
-    spaceBand = downgrade(spaceBand);
-  }
-
-  // ---- §4.3 Safety ----
-  const hz = hazardCount(space.result);
-  const hazardBand: Band = hz >= 3 ? 'poor' : hz >= 1 ? 'adequate' : 'good';
-  const atRisk = space.tags.length; // tagged valuables/fragile items
-  const valuablesBand: Band = atRisk >= 4 ? 'poor' : atRisk >= 1 ? 'adequate' : 'good';
-  const safety = worse(hazardBand, valuablesBand);
-
-  // ---- §4.4 Noise Fit ----
-  const noise = NOISE[dog.noise][household.neighbours];
-
-  const tone = worse(spaceBand, safety);
-  const verdict = worse(tone, noise);
-
-  // ---- §4.5 advisory: prospective only, space-only, decluttered still short ----
   const currentOwner = household.existing_pets.some((p) => /dog/i.test(p.species));
-  const declutteredOfr = m.floor_m2 > 0 ? (m.floor_m2 - m.fixed_m2) / m.floor_m2 : 0;
-  const advisory = !currentOwner && spaceBand === 'poor' && declutteredOfr < t.poor;
-
+  const advisory = !currentOwner && bands.room === 'poor';
   const mood: Evaluation['mood'] = advisory || verdict === 'poor' ? 'sad' : verdict === 'adequate' ? 'neutral' : 'happy';
+  const room = result?.room_assessment;
+  const changes = whatToChange(space, s);
 
   return {
     dog,
-    effective: eff,
-    space: spaceBand,
-    spaceReason,
-    safety,
-    noise,
-    tone,
+    effective: effectiveClass(dog.size, dog.energy),
+    bands,
     verdict,
+    gates,
     advisory,
     currentOwner,
     mood,
-    speech: speechFor(mood, advisory, spaceBand),
+    speech: speechFor(mood, advisory, bands),
+    labels: {
+      safety: !photosChecked ? 'Not checked' : { poor: 'Not safe yet', adequate: counted ? `Move ${thingCount(counted)}` : 'Mostly safe', good: 'Safe' }[bands.safety],
+      energy: s.energy.undecided ? 'Not enough info' : { poor: 'Hard to keep up', adequate: 'Needs a plan', good: 'Well matched' }[bands.energy],
+      room: !room ? 'Not checked' : { poor: 'Too tight', adequate: 'Enough room', good: 'Plenty of room' }[bands.room],
+      household: { poor: 'Tricky fit', adequate: 'Some care needed', good: 'Suits your home' }[bands.household],
+      noise: { poor: 'Likely issue', adequate: 'Some barking', good: 'No problem' }[bands.noise],
+    },
     lines: {
-      space: spaceLine(spaceBand, spaceReason, currentOwner),
-      safety: safetyLine(safety, hz, atRisk),
-      noise: NOISE_LINE[noise],
+      safety: photosChecked
+        ? safetyLine(bands.safety, counted)
+        : "We couldn't check the photos this time, so we don't know what's within my reach yet.",
+      energy: energyLine(bands.energy, s.energy),
+      room: roomLine(bands.room, room),
+      household: householdLine(s.household.concerns),
+      noise: NOISE_LINE[bands.noise],
       advisory: advisory
-        ? `I'd feel boxed in everywhere here, even with everything cleared out. This layout doesn't really suit a ${dog.name}'s energy level right now, that could change with more room or less clutter.`
+        ? `I'd feel boxed in here, there's little clear floor and nowhere quiet for me. This room doesn't really suit a ${dog.name} right now, that could change with more space or less clutter.`
         : undefined,
     },
-    labels: {
-      space: { poor: 'Too tight', adequate: 'Enough room', good: 'Plenty of room' }[spaceBand],
-      safety: { poor: 'Not safe yet', adequate: `Move ${thingCount(hz + atRisk)}`, good: 'Safe' }[safety],
-      noise: { poor: 'Likely issue', adequate: 'Some barking', good: 'No problem' }[noise],
-      tone: { poor: 'Needs work', adequate: 'Getting there', good: 'Great fit' }[tone],
-    },
-    verdictTitle: { poor: 'Not a good fit yet', adequate: 'Good fit with a few changes', good: 'Good fit' }[verdict],
-    verdictLine: verdictLine(verdict, dog.name, spaceBand, safety, noise, hz + atRisk),
+    roomChips: room && photosChecked ? [OPENNESS_WORD[room.openness], RETREAT_WORD[room.retreat_spot]] : [],
+    verdictTitle:
+      verdict === 'adequate' && unknown.length && !gates.length
+        ? 'Could be a good fit'
+        : { poor: 'Not a good fit yet', adequate: 'Good fit with a few changes', good: 'Good fit' }[verdict],
+    verdictLine: verdictLine(verdict, dog.name, gates, changes.length, unknown),
+    changes,
+    nudges: s.nudges,
+    score: s,
   };
 }
 
@@ -181,46 +142,140 @@ function thingCount(n: number): string {
   return n === 1 ? '1 thing' : `${n} things`;
 }
 
-// One plain sentence under the verdict: what (if anything) stands in the way.
-function verdictLine(v: Band, dogName: string, space: Band, safety: Band, noise: Band, things: number): string {
-  if (v === 'good') return `This room suits a ${dogName} well.`;
-  const fixes: string[] = [];
-  if (safety !== 'good') fixes.push(`move ${thingCount(things)} out of reach`);
-  if (space !== 'good') fixes.push(space === 'poor' ? 'free up a lot more floor space' : 'open up a little more floor space');
-  if (noise !== 'good') fixes.push(noise === 'poor' ? 'expect barking to bother close neighbours' : 'plan for some barking near neighbours');
-  const list = fixes.length > 1 ? `${fixes.slice(0, -1).join(', ')} and ${fixes[fixes.length - 1]}` : fixes[0];
-  const sentence = list.charAt(0).toUpperCase() + list.slice(1);
-  return v === 'poor' ? `${sentence}.` : `${sentence}, and it should work well.`;
+const GATE_TEXT: Record<Gate, string> = {
+  escape: 'make the escape or fall risk safe',
+  toxic: 'move or lock away the toxic item',
+  energy: 'plan more exercise and company for a high-energy dog',
+};
+
+const UNKNOWN_TEXT: Record<Unknown, string> = {
+  photos: 'capture the room again so we can check the photos',
+  room: "re-run the analysis so we can check the room's layout",
+  routine: 'answer the routine questions in your profile',
+};
+
+function joinAnd(items: string[]): string {
+  return items.length > 1 ? `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}` : items[0];
 }
 
-function speechFor(mood: Evaluation['mood'], advisory: boolean, space: Band): string {
-  if (advisory) return "I'd feel cramped here right now…";
-  if (mood === 'happy') return 'I can run around here, yay!';
-  if (mood === 'neutral') return space === 'good' ? 'Almost there, just tidy a few things!' : 'I could get comfy here!';
-  return space === 'poor' ? 'I need space to run!' : 'A few things here worry me…';
-}
-
-function spaceLine(b: Band, reason: Evaluation['spaceReason'], owner: boolean): string {
-  if (b === 'good') return 'Plenty of room to stretch out and play, right where it is.';
-  if (b === 'adequate') {
-    if (reason === 'zone') return 'Plenty of space, just needs a spot of my own.';
-    if (reason === 'outdoor') return "There's room to settle, but with no outdoor space I'll need regular walks.";
-    return 'Enough room to settle, a little more open floor would help me move.';
+// One plain sentence under the verdict.
+function verdictLine(v: Band, dogName: string, gates: Gate[], changes: number, unknown: Unknown[]): string {
+  if (v === 'good') return changes ? `This room suits a ${dogName} well. A few small changes are listed below.` : `This room suits a ${dogName} well.`;
+  const todo = joinAnd(unknown.map((u) => UNKNOWN_TEXT[u]));
+  if (gates.length) {
+    return v === 'adequate'
+      ? `It can work, but first: ${GATE_TEXT[gates[0]]}.`
+      : `Not yet. First: ${GATE_TEXT[gates[0]]}, then see the changes below.`;
   }
-  return owner
-    ? "I'd love more room to stretch, here's what might help: clear a path or two."
-    : 'This room feels tight for me right now, moving a few things could open it right up.';
+  if (v === 'adequate') return unknown.length ? `To be sure, ${todo}.` : 'It can work with a few changes, listed below.';
+  return unknown.length ? `Not yet, see the changes below. To be sure, ${todo}.` : 'Not yet, the main changes are listed below.';
 }
 
-function safetyLine(b: Band, hazards: number, valuables: number): string {
+const ZONE_WORD: Record<string, string> = {
+  kitchen: 'the kitchen',
+  balcony: 'the balcony',
+  nursery: 'the nursery',
+  office: 'the office',
+  stairs: 'the stairs',
+  other: 'this area',
+};
+
+const sentence = (t: string) => {
+  const s = t.trim();
+  return /[.!?]$/.test(s) ? s : `${s}.`;
+};
+
+// "What to change" = the model's improvements + its off-limit suggestions (§5).
+// When neither is there (older results), fall back on the counted hazards' fixes.
+function whatToChange(space: Space, s: SuitabilityResult): string[] {
+  const out: string[] = [];
+  if (s.gates.includes('energy')) out.push('Plan daily exercise, and a dog walker or daycare for long days alone.');
+  for (const i of (space.result?.improvements ?? []).slice(0, 3)) out.push(sentence(i));
+  for (const o of (space.result?.off_limit_suggestions ?? []).slice(0, 2)) {
+    out.push(`Keep the dog out of ${ZONE_WORD[o.zone] ?? 'this area'}: ${sentence(o.reason.charAt(0).toLowerCase() + o.reason.slice(1))}`);
+  }
+  if (!out.length) {
+    const byKey = new Map(s.safety.counted.map((c) => [c.key, c]));
+    const fixes = (space.result?.hazards ?? [])
+      .filter((h) => byKey.has(h.object_key ?? h.title.toLowerCase()) && h.recommendation)
+      .sort((a, b) => byKey.get(b.object_key ?? b.title.toLowerCase())!.points - byKey.get(a.object_key ?? a.title.toLowerCase())!.points)
+      .slice(0, 3)
+      .map((h) => sentence(h.recommendation));
+    out.push(...fixes);
+  }
+  return out;
+}
+
+// Kept short: the speech bubble fits about 28 characters on one line.
+function speechFor(mood: Evaluation['mood'], advisory: boolean, bands: Bands): string {
+  if (advisory) return "I'd feel cramped here…";
+  if (mood === 'happy') return 'I can run around here, yay!';
+  if (mood === 'neutral') return bands.safety === 'good' ? 'I could get comfy here!' : 'Tidy a few things for me!';
+  if (bands.energy === 'poor') return "I'd need more of your time!";
+  return bands.room === 'poor' ? 'I need space to run!' : 'A few things here worry me…';
+}
+
+function safetyLine(b: Band, counted: number): string {
   if (b === 'good') return 'Nothing risky within my reach, nice and safe.';
-  const bits = [];
-  if (hazards) bits.push(hazards === 1 ? 'a hazard' : `${hazards >= 3 ? 'several' : 'a couple of'} hazards`);
-  if (valuables) bits.push(valuables === 1 ? 'something precious' : 'some precious things');
-  const what = bits.join(' and ');
+  const what = counted <= 1 ? 'a hazard' : counted === 2 ? 'a couple of hazards' : 'several hazards';
   return b === 'poor'
     ? `Quite hazardous for me: ${what} within paw and mouth reach.`
     : `Mostly safe, just ${what} to move out of my reach.`;
+}
+
+const DRIVER_TEXT: Record<EnergyResult['drivers'][number], string> = {
+  alone: 'long days on my own would be hard',
+  exercise: "I'd need more walks and play than planned",
+  activity: "I'd need a more active routine",
+  outdoor: "with no outdoor space I'd need lots of walks",
+};
+
+function energyLine(b: Band, e: EnergyResult): string {
+  if (b === 'good') return 'My exercise needs fit your routine nicely.';
+  if (e.undecided) return 'Tell us more about your routine in your profile so we can check my exercise needs.';
+  const why = e.drivers.slice(0, 2).map((d) => DRIVER_TEXT[d]);
+  if (!why.length) {
+    return b === 'poor' ? "I'd need more exercise and company than this routine gives." : 'Doable, with daily walks and play built into your routine.';
+  }
+  const list = why.join(', and ');
+  return b === 'poor' ? `I'd struggle here: ${list}.` : `We'd need a plan: ${list}.`;
+}
+
+const OPENNESS_WORD = { open: 'Open layout', moderate: 'Some open floor', cramped: 'Cramped layout' } as const;
+const RETREAT_WORD = { present: 'Has a dog spot', possible: 'Room for a dog bed', absent: 'No spot for a dog bed' } as const;
+
+function roomLine(b: Band, room: RoomAssessment | undefined): string {
+  if (!room) return "We couldn't see enough of the room to judge the space.";
+  if (b === 'good') {
+    return room.retreat_spot === 'present'
+      ? 'Plenty of room to stretch out, and a spot of my own.'
+      : 'Plenty of room to stretch out, just add a bed in a quiet corner.';
+  }
+  if (b === 'adequate') {
+    if (room.openness === 'cramped') return 'A bit tight for me, clearing some floor would help me move.';
+    if (room.retreat_spot === 'absent') return "There's room, but nowhere quiet for my bed.";
+    return 'Enough room to settle, a little more open floor would help me move.';
+  }
+  return 'This room feels tight for me right now, moving a few things could open it right up.';
+}
+
+const CONCERN_TEXT: Record<string, string> = {
+  kids_bouncy_no_retreat: "I could be too boisterous for little ones, and there's nowhere for me to take a break.",
+  kids_bouncy: "I could be a bit boisterous around little ones, so I'd need supervising.",
+  kids_no_retreat: "I'd need a quiet spot to get away from little ones.",
+  cat_chase: 'I might want to chase your cat, so introductions need care.',
+  other_dogs: 'I might not get along easily with your other dog at first.',
+  first_dog_energy: "I'm a lot of work for a first dog.",
+  first_dog_stubborn: 'I can be stubborn, which is hard for a first dog.',
+  busy_sensitive: 'A busy home could stress me out.',
+};
+
+function householdLine(concerns: Concern[]): string {
+  if (!concerns.length) return "I'd fit right in with your household.";
+  return concerns
+    .slice(0, 2)
+    .map((c) => CONCERN_TEXT[c.id])
+    .join(' ');
 }
 
 const NOISE_LINE: Record<Band, string> = {
@@ -229,14 +284,14 @@ const NOISE_LINE: Record<Band, string> = {
   poor: 'I might be a bit loud for close neighbours, consider a quieter breed for this building.',
 };
 
-// §5.1a ranked breed suggestions for "Explore breeds for my space".
+// §5.1a ranked breed suggestions for "Explore breeds for my space": the same
+// rules run for every catalogue breed against this room and household.
 export function rankBreeds(space: Space, household: Questionnaire, breeds: BreedProfile[]) {
-  return breeds.map((b) => {
-    const e = evaluate(space, household, { name: b.name, size: b.size, energy: b.energy, noise: b.noise, happy: b.happy, cutout: b.cutout, breed: b })!;
-    const score = RANK[e.tone] * 10 + RANK[e.noise] * 3 + RANK[e.space] - (e.advisory ? 20 : 0);
-    const fit = { good: 'Good fit', adequate: 'Could work', poor: 'Tricky fit' }[e.tone];
-    const spaceTxt = { good: 'enough floor space', adequate: 'a bit snug', poor: 'cramped for this breed' }[e.space];
-    const noiseTxt = { good: 'no noise concerns', adequate: 'some barking to manage', poor: 'may be loud for neighbours' }[e.noise];
-    return { breed: b, evaluation: e, score, summary: `${fit}, ${spaceTxt}, ${noiseTxt}` };
-  }).sort((a, b) => b.score - a.score);
+  return breeds
+    .map((b) => {
+      const e = evaluate(space, household, { name: b.name, size: b.size, energy: b.energy, noise: b.noise, happy: b.happy, cutout: b.cutout, breed: b })!;
+      const score = RANK[e.verdict] * 10 + e.score.blend * 5; // internal ordering only
+      return { breed: b, evaluation: e, score };
+    })
+    .sort((a, b) => b.score - a.score);
 }

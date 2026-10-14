@@ -121,9 +121,11 @@ export function buildScene(result: Assessment, frameCount: number): Scene3D {
     room: ROOM,
     furniture,
     markers,
-    verdict: result.suitability?.verdict ?? null,
-    score: result.suitability?.score_0_100 ?? null,
+    // Logic v2: the rules own the verdict and no score exists, so the model's old
+    // suitability fields (still in results saved before 15 Oct 2026) aren't passed on.
+    verdict: null,
+    score: null,
     summary: result.space_summary,
-    recommended: result.recommended_pets.map((p) => ({ species: p.species, breed: p.breed })),
+    recommended: [],
   };
 }

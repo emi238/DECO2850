@@ -3,6 +3,7 @@
 export type Mode = 'pet_in_mind' | 'explore';
 
 export type Severity = 'low' | 'medium' | 'high';
+export type Confidence = 'low' | 'medium' | 'high';
 
 // A captured frame. For real camera captures `uri` is a file:// path.
 export interface Frame {
@@ -39,6 +40,13 @@ export interface ExistingPet {
 export type Neighbours = 'attached' | 'close_separate' | 'not_close';
 export type ChildrenAtHome = 'none' | 'young' | 'older'; // young = any child under 5
 export type HoursAlone = 'under_4' | '4_to_8' | 'over_8'; // a typical weekday
+// Logic v2 (CHANGE PRD 15 Oct 2026 §3).
+export type OutdoorUse = 'most_days' | 'sometimes' | 'rarely'; // will the dog actually use the outdoor space?
+export type AlonePlan = 'none' | 'walker' | 'daycare'; // who checks in on long days alone
+export type OwnerActivity = 'sedentary' | 'moderate' | 'active';
+export type ExerciseTime = 'under_30' | '30_60' | 'over_60'; // minutes a day of walks/play
+export type Experience = 'none' | 'some' | 'experienced';
+export type Atmosphere = 'calm' | 'mixed' | 'busy';
 
 export interface Questionnaire {
   dwelling: 'apartment' | 'house';
@@ -57,6 +65,15 @@ export interface Questionnaire {
   // Asked since user testing (Oct 2026). Optional so older saved answers still load.
   children_at_home?: ChildrenAtHome;
   hours_alone?: HoursAlone;
+  // Logic v2 (15 Oct 2026). Optional for the same reason; unanswered = undefined.
+  outdoor_use?: OutdoorUse; // only asked when outdoor_access isn't "none"
+  alone_plan?: AlonePlan;
+  owner_activity?: OwnerActivity;
+  exercise_time?: ExerciseTime;
+  experience?: Experience;
+  household_atmosphere?: Atmosphere;
+  allergies?: boolean;
+  has_cat?: boolean;
 }
 
 export interface Tag {
@@ -82,6 +99,16 @@ export interface HazardLocation {
   bbox?: [number, number, number, number];
 }
 
+// Which Safety group a finding belongs to (logic v2 §2.3 type weights).
+export type HazardType =
+  | 'escape_fall'
+  | 'toxic_ingestible'
+  | 'electrical_thermal'
+  | 'floor_stairs'
+  | 'fragile_valuable'
+  | 'clutter'
+  | 'other'; // not a physical danger (room size, noise, household): not in the Safety load
+
 export interface Hazard {
   id: string;
   category: HazardCategory;
@@ -93,6 +120,50 @@ export interface Hazard {
   evidence: string;
   why_it_matters: string;
   recommendation: string;
+  // Logic v2. Optional because results saved before 15 Oct 2026 don't have them;
+  // normalise.ts always fills them for new results.
+  object_key?: string; // stable name for the physical object (dedup + Re-run comparison)
+  source?: 'photo' | 'user_tag';
+  confidence?: Confidence;
+  hazard_type?: HazardType;
+  small_dog_risk?: boolean; // a gap a small dog could squeeze through / object it could swallow
+  easy_fix?: boolean; // quick and cheap to fix (move, tidy, close)
+  tag_id?: string; // the user's tag this entry answers (source = user_tag)
+}
+
+// Logic v2: the room as a place for this dog to live (qualitative, from the photos).
+export interface RoomAssessment {
+  openness: 'open' | 'moderate' | 'cramped';
+  retreat_spot: 'present' | 'possible' | 'absent';
+  clear_path: 'good' | 'partial' | 'poor';
+  floor_type: 'hard' | 'mixed' | 'soft' | 'unknown';
+  floor_area_m2: { value: number | null; confidence: Confidence };
+}
+
+export interface EscapeRoute {
+  object_key: string;
+  type: 'balcony' | 'window' | 'door' | 'fence' | 'stairs';
+  detail: string;
+  frame_index: number;
+  x: number;
+  y: number;
+  severity: Severity;
+  confidence: Confidence;
+  small_dog_risk: boolean;
+}
+
+export interface OffLimitSuggestion {
+  zone: 'kitchen' | 'balcony' | 'nursery' | 'office' | 'stairs' | 'other';
+  reason: string;
+  frame_index: number;
+}
+
+// What the photos suggest about the household, to cross-check the questionnaire.
+export interface DetectedSignals {
+  existing_pets: 'dog' | 'cat' | 'multiple' | 'none' | 'unknown';
+  children: 'yes' | 'no' | 'unknown';
+  dwelling_cue: 'apartment' | 'house' | 'unknown';
+  outdoor_access_cue: 'yard' | 'balcony' | 'none' | 'unknown';
 }
 
 export interface Suitability {
@@ -114,9 +185,16 @@ export interface Assessment {
   confidence: 'low' | 'medium' | 'high';
   hazards: Hazard[];
   improvements: string[];
-  suitability: Suitability | null; // null in explore mode
-  recommended_pets: RecommendedPet[]; // [] in pet_in_mind mode
+  // Logic v2: the model no longer judges suitability (the rules own the verdict),
+  // so new results always have suitability null and recommended_pets [].
+  suitability: Suitability | null;
+  recommended_pets: RecommendedPet[];
   notes: string;
+  // Logic v2. Optional: results saved before 15 Oct 2026 don't have them.
+  room_assessment?: RoomAssessment;
+  escape_routes?: EscapeRoute[];
+  off_limit_suggestions?: OffLimitSuggestion[];
+  detected_signals?: DetectedSignals;
 }
 
 export interface Session {

@@ -34,7 +34,7 @@ import { colors, fonts } from '../theme';
 import { useSession, useCurrentSpace } from '../store/session';
 import { runAssessment } from '../ai/assess';
 import { evaluate, type Band, type Evaluation } from '../logic/evaluate';
-import type { Frame, Hazard, Questionnaire, Space, Tag } from '../types';
+import type { Frame, Hazard, OffLimitSuggestion, Questionnaire, Space, Tag } from '../types';
 import type { ScreenProps } from '../navigation';
 
 const MIN_LOADING_MS = 2200;
@@ -187,6 +187,7 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
           <PhotoMap
             frames={frames}
             risks={risks}
+            offLimits={result?.off_limit_suggestions ?? []}
             width={width}
             height={cardH}
             selectedId={riskIndex != null ? risks[riskIndex]?.id : undefined}
@@ -250,6 +251,11 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
               setReportOpen(false);
               setChangeNote(null);
             }}
+            onEditProfile={() => {
+              setReportOpen(false);
+              setChangeNote(null);
+              navigation.navigate('Profile', { editHousehold: true });
+            }}
           />
         )}
 
@@ -289,6 +295,7 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
 function PhotoMap({
   frames,
   risks,
+  offLimits,
   width,
   height,
   selectedId,
@@ -296,6 +303,7 @@ function PhotoMap({
 }: {
   frames: Frame[];
   risks: Hazard[];
+  offLimits: OffLimitSuggestion[];
   width: number;
   height: number;
   selectedId?: string;
@@ -321,6 +329,7 @@ function PhotoMap({
             width={width}
             height={height}
             risks={risks.filter((r) => r.location?.frame_index === i)}
+            offLimits={offLimits.filter((o) => o.frame_index === i)}
             selectedId={selectedId}
             onPin={onPin}
           />
@@ -337,11 +346,21 @@ function PhotoMap({
   );
 }
 
+const ZONE_LABEL: Record<OffLimitSuggestion['zone'], string> = {
+  kitchen: 'Kitchen',
+  balcony: 'Balcony',
+  nursery: 'Nursery',
+  office: 'Office',
+  stairs: 'Stairs',
+  other: 'This area',
+};
+
 function MapPage({
   frame,
   width,
   height,
   risks,
+  offLimits,
   selectedId,
   onPin,
 }: {
@@ -349,6 +368,7 @@ function MapPage({
   width: number;
   height: number;
   risks: Hazard[];
+  offLimits: OffLimitSuggestion[];
   selectedId?: string;
   onPin: (id: string) => void;
 }) {
@@ -388,6 +408,20 @@ function MapPage({
           );
         })}
       </View>
+      {/* Areas the model suggests keeping the dog out of, shown on the photo they're in. */}
+      {offLimits.length > 0 && (
+        <View style={styles.zones}>
+          {offLimits.map((o, i) => (
+            <Pressable
+              key={i}
+              style={styles.zonePill}
+              onPress={() => Alert.alert(`Keep the dog out: ${ZONE_LABEL[o.zone].toLowerCase()}`, o.reason)}
+            >
+              <Text style={styles.zoneTxt}>Off-limits: {ZONE_LABEL[o.zone]}</Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
@@ -397,13 +431,13 @@ function MapPage({
 
 interface Snapshot {
   verdict: string | null;
-  flagged: string[]; // hazard titles, as shown on the risk cards
+  flagged: { key: string; title: string }[]; // object_key identifies the object; title is what's shown
 }
 
 function snapshot(space: Space, household: Questionnaire): Snapshot {
   return {
     verdict: evaluate(space, household)?.verdictTitle ?? null,
-    flagged: (space.result?.hazards ?? []).map((h) => h.title.trim()),
+    flagged: (space.result?.hazards ?? []).map((h) => ({ key: h.object_key ?? h.title.trim().toLowerCase(), title: h.title.trim() })),
   };
 }
 
@@ -414,11 +448,10 @@ function listNames(names: string[]): string {
 }
 
 function describeChange(before: Snapshot, after: Snapshot): string {
-  const key = (s: string) => s.toLowerCase();
-  const was = new Set(before.flagged.map(key));
-  const now = new Set(after.flagged.map(key));
-  const added = after.flagged.filter((t) => !was.has(key(t)));
-  const removed = before.flagged.filter((t) => !now.has(key(t)));
+  const was = new Set(before.flagged.map((f) => f.key));
+  const now = new Set(after.flagged.map((f) => f.key));
+  const added = after.flagged.filter((f) => !was.has(f.key)).map((f) => f.title);
+  const removed = before.flagged.filter((f) => !now.has(f.key)).map((f) => f.title);
   const parts: string[] = [];
   if (before.verdict && after.verdict && before.verdict !== after.verdict) {
     parts.push(`Verdict changed from “${before.verdict}” to “${after.verdict}”.`);
@@ -440,9 +473,11 @@ const SHEET_SHARE = 0.44;
 const SEVERITY_WORD: Record<Hazard['severity'], string> = { high: 'Needs attention', medium: 'Worth fixing', low: 'Minor' };
 
 // Items the user tagged (Valuable / Fragile) are things to protect, not hazards,
-// so their card says "Be careful" instead of an alarming severity word.
-// The mock titles them "Flagged: …"; the AI may not, so also match the tag's name.
+// so their card says "Be careful" instead of an alarming severity word. New
+// results mark them source "user_tag"; for results saved before logic v2, fall
+// back on the old "Flagged: …" title or the tag's name in the title.
 function isUserTag(h: Hazard, tags: Tag[]): boolean {
+  if (h.source) return h.source === 'user_tag';
   if (h.title.startsWith('Flagged:')) return true;
   const title = h.title.toLowerCase();
   return tags.some((t) => !!t.label.trim() && title.includes(t.label.trim().toLowerCase()));
@@ -530,8 +565,8 @@ function DogAvatar({ evaluation, top, onPress }: { evaluation: Evaluation; top: 
 }
 
 // ---------------------------------------------------------------------------
-// Outside-3D summary report (spec §6.3): advisory first, whole-home Noise Fit,
-// then the room's lines on the cramped↔spacious / hazardous↔safe spectrum.
+// Outside-3D summary report: the verdict, what to change, then one row per
+// sub-score (logic v2, most heavily weighted first), and any profile nudges.
 
 const BAND_COLOR: Record<Band, string> = { poor: '#E4572E', adequate: colors.orange, good: '#5FAE7F' };
 const BAND_MARK: Record<Band, string> = { poor: '✕', adequate: '!', good: '✓' };
@@ -543,6 +578,7 @@ function ReportOverlay({
   riskCount,
   onRisks,
   onClose,
+  onEditProfile,
 }: {
   evaluation: Evaluation;
   changeNote?: string | null;
@@ -550,6 +586,7 @@ function ReportOverlay({
   riskCount: number;
   onRisks: () => void;
   onClose: () => void;
+  onEditProfile: () => void;
 }) {
   // Slides up from the bottom of the map card; slides back down before closing.
   const slide = useRef(new Animated.Value(0)).current;
@@ -615,9 +652,35 @@ function ReportOverlay({
             <Text style={[styles.verdictLine, e.verdict === 'adequate' && { color: colors.text }]}>{e.verdictLine}</Text>
           </View>
 
-          <ReportRow heading="Space" tag={e.labels.space} band={e.space} line={e.lines.space} />
-          <ReportRow heading="Safety" tag={e.labels.safety} band={e.safety} line={e.lines.safety} />
-          <ReportRow heading="Neighbours" tag={e.labels.noise} band={e.noise} line={e.lines.noise} />
+          {e.changes.length > 0 && (
+            <View style={styles.reportRow}>
+              <Text style={styles.reportRowTitle}>What to change</Text>
+              {e.changes.map((c, i) => (
+                <View key={i} style={styles.changeItem}>
+                  <Text style={styles.reportLine}>•</Text>
+                  <Text style={[styles.reportLine, { flex: 1 }]}>{c}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          <ReportRow heading="Safety" tag={e.labels.safety} band={e.bands.safety} line={e.lines.safety} />
+          <ReportRow heading="Exercise & routine" tag={e.labels.energy} band={e.bands.energy} line={e.lines.energy} />
+          <ReportRow heading="Room to move" tag={e.labels.room} band={e.bands.room} line={e.lines.room} chips={e.roomChips} />
+          <ReportRow heading="Your household" tag={e.labels.household} band={e.bands.household} line={e.lines.household} />
+          <ReportRow heading="Neighbours" tag={e.labels.noise} band={e.bands.noise} line={e.lines.noise} />
+
+          {/* What the photos suggest vs the profile: a gentle prompt, never an automatic change. */}
+          {e.nudges.length > 0 && (
+            <View style={[styles.reportRow, styles.nudge]}>
+              {e.nudges.map((n) => (
+                <Text key={n.id} style={styles.reportLine}>{n.text}</Text>
+              ))}
+              <Pressable onPress={() => dismiss(onEditProfile)} hitSlop={8} style={{ marginTop: 6 }}>
+                <Text style={styles.nudgeLink}>Update profile</Text>
+              </Pressable>
+            </View>
+          )}
 
           {riskCount > 0 && (
             <Pressable style={styles.reportBtn} onPress={() => dismiss(onRisks)}>
@@ -634,7 +697,7 @@ function ReportOverlay({
   );
 }
 
-function ReportRow({ heading, tag, band, line }: { heading: string; tag: string; band: Band; line: string }) {
+function ReportRow({ heading, tag, band, line, chips }: { heading: string; tag: string; band: Band; line: string; chips?: string[] }) {
   return (
     <View style={styles.reportRow}>
       <View style={styles.reportRowHead}>
@@ -644,6 +707,15 @@ function ReportRow({ heading, tag, band, line }: { heading: string; tag: string;
         </View>
       </View>
       <Text style={styles.reportLine}>“{line}”</Text>
+      {!!chips?.length && (
+        <View style={styles.rowChips}>
+          {chips.map((c) => (
+            <View key={c} style={styles.rowChip}>
+              <Text style={styles.rowChipTxt}>{c}</Text>
+            </View>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
@@ -720,6 +792,15 @@ const styles = StyleSheet.create({
   bandChip: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 1 },
   bandTxt: { fontFamily: fonts.semibold, fontSize: 10.5 },
   reportLine: { fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 18, color: colors.text },
+  changeItem: { flexDirection: 'row', gap: 6, marginTop: 4 },
+  rowChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
+  rowChip: { backgroundColor: colors.bg2, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 },
+  rowChipTxt: { fontFamily: fonts.medium, fontSize: 11, color: colors.text },
+  nudge: { borderLeftWidth: 4, borderLeftColor: colors.orange },
+  nudgeLink: { fontFamily: fonts.semibold, fontSize: 12.5, color: colors.orangeDeep, textDecorationLine: 'underline' },
+  zones: { position: 'absolute', left: 16, top: 12, gap: 6, alignItems: 'flex-start', maxWidth: '55%' },
+  zonePill: { backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: colors.orangeDeep },
+  zoneTxt: { fontFamily: fonts.semibold, fontSize: 11.5, color: colors.orangeDeep },
   reportBtn: { backgroundColor: colors.orange, borderRadius: 12, height: 48, alignItems: 'center', justifyContent: 'center', marginTop: 14 },
   reportBtnTxt: { fontFamily: fonts.semibold, fontSize: 15, color: colors.text },
 });

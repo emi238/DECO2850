@@ -10,7 +10,7 @@ export const CATEGORY_LABELS: Record<HazardCategory, string> = {
   E: 'Thermal / surface',
   F: 'Floors & stairs',
   G: 'Escape & fall',
-  H: 'Vertical space',
+  H: 'Climb & jump', // logic v2: recast from cats' vertical space to a dog concern
   I: 'Floor space',
   J: 'Off-limit zone',
   K: 'Outside stressors',

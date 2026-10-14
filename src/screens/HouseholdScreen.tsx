@@ -7,7 +7,7 @@ import { View, Text, StyleSheet, ScrollView, Image, Pressable } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AvatarButton, PrimaryButton } from '../components/kit';
-import { HouseholdForm, REQUIRED_QUESTIONS, type RequiredQuestion } from '../components/HouseholdForm';
+import { HouseholdForm, REQUIRED_QUESTIONS, stillToAnswer, type RequiredQuestion } from '../components/HouseholdForm';
 import { BackArrowIcon } from '../components/icons';
 import { colors, fonts } from '../theme';
 import { IMAGES } from '../assets';
@@ -35,7 +35,8 @@ export default function HouseholdScreen({ navigation, route }: ScreenProps<'Hous
       return next;
     });
   };
-  const complete = unanswered.size === 0;
+  // Follow-ups (e.g. "Will the dog get to use it?") only count once they apply.
+  const complete = stillToAnswer(q, unanswered).length === 0;
 
   const save = () => {
     if (!complete) return;

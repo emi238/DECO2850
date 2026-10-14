@@ -4,6 +4,7 @@
 
 import { AI_CONFIG } from './config';
 import { SYSTEM_PROMPT } from './prompt';
+import { ROOM_RESPONSE_SCHEMA } from './schema';
 import { normaliseAssessment } from './normalise';
 import type { Assessment, Space } from '../types';
 
@@ -14,31 +15,53 @@ interface InlineImage {
 
 // Only the questions the user actually answers are sent. Fields the questionnaire
 // never asks (adults, activity level…) hold defaults, and the model would treat
-// them as facts. Missing answers are sent as "not_answered".
+// them as facts. Missing answers are sent as "not_answered". Shared by the room
+// prompt and the breed prompt.
 export function householdContext(q: Space['questionnaire']) {
+  const na = 'not_answered';
   return {
     dwelling: q.dwelling,
     rental: q.rental,
     neighbours: q.neighbours,
     outdoor_access: q.outdoor_access,
-    existing_dogs: q.existing_pets.map((p) => p.breed || 'dog'),
-    children_at_home: q.children_at_home ?? 'not_answered',
-    hours_alone: q.hours_alone ?? 'not_answered',
+    outdoor_use: q.outdoor_access === 'none' ? 'not_applicable' : q.outdoor_use ?? na,
+    children_at_home: q.children_at_home ?? na,
+    hours_alone: q.hours_alone ?? na,
+    alone_plan: q.alone_plan ?? na,
+    owner_activity: q.owner_activity ?? na,
+    exercise_time: q.exercise_time ?? na,
+    experience: q.experience ?? na,
+    household_atmosphere: q.household_atmosphere ?? na,
+    allergies: q.allergies ?? na,
+    existing_pets: {
+      dogs: q.existing_pets.filter((p) => /dog/i.test(p.species)).map((p) => p.breed || 'dog'),
+      has_cat: q.has_cat ?? na,
+    },
   };
 }
 
-function contextJson(session: Space): string {
+// The dog's traits come from the app's breed data (resolved when the breed was
+// picked) and are ground truth for the model (W10).
+function contextJson(session: Space, dog: DogTraits | null): string {
   return JSON.stringify({
-    mode: session.mode,
-    pet: session.pet && {
-      breed: session.pet.breed,
-      size: session.pet.size,
-      energy: session.pet.energy,
-      noise: session.pet.noise,
-    },
+    dog: dog ?? (session.pet ? { breed: session.pet.breed } : null),
     household: householdContext(session.questionnaire),
-    tags: session.tags.map((t) => ({ label: t.label, note: t.note, frame: t.frame })),
+    tags: session.tags.map((t) => ({
+      id: t.id,
+      label: t.label,
+      note: t.note,
+      frame: t.frame,
+      x: t.x ?? null,
+      y: t.y ?? null,
+    })),
   });
+}
+
+export interface DogTraits {
+  breed: string;
+  size: 'small' | 'medium' | 'large';
+  energy: 'low' | 'moderate' | 'high';
+  noise: 'quiet' | 'moderate' | 'vocal';
 }
 
 function collectImages(session: Space): InlineImage[] {
@@ -64,17 +87,21 @@ function extractJson(text: string): any {
   return JSON.parse(t);
 }
 
-export async function callGemini(session: Space, signal: AbortSignal): Promise<Assessment> {
+export async function callGemini(session: Space, dog: DogTraits | null, signal: AbortSignal): Promise<Assessment> {
   const images = collectImages(session);
   const parts: any[] = [
     { text: SYSTEM_PROMPT },
-    { text: 'CONTEXT:\n' + contextJson(session) },
+    { text: 'CONTEXT:\n' + contextJson(session, dog) },
     ...images.map((img) => ({ inline_data: img })),
   ];
 
   const body = {
     contents: [{ role: 'user', parts }],
-    generationConfig: { responseMimeType: 'application/json', temperature: 0.4 },
+    generationConfig: {
+      responseMimeType: 'application/json',
+      responseSchema: ROOM_RESPONSE_SCHEMA, // the API only returns JSON matching this (W11)
+      temperature: 0.4,
+    },
   };
 
   const text = await generateText(body, signal);
