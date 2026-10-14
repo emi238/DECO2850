@@ -59,14 +59,13 @@ export interface Evaluation {
   dog: ResolvedDog;
   effective: SizeClass;
   bands: Bands; // safety, energy, room, household, noise
-  verdict: Band; // after the hard gates
+  verdict: Band; // after the hard gates and caps
   gates: Gate[];
-  advisory: boolean; // "not ready yet": prospective owners, room too tight
   currentOwner: boolean;
   mood: 'sad' | 'neutral' | 'happy';
   speech: string;
   labels: Record<SubScore, string>; // the chip on each report row
-  lines: Record<SubScore, string> & { advisory?: string }; // the dog's first-person line
+  lines: Record<SubScore, string>; // the dog's first-person line
   roomChips: string[]; // openness + retreat spot, as plain words (empty if unknown)
   verdictTitle: string;
   verdictLine: string;
@@ -92,8 +91,7 @@ export function evaluate(space: Space, household: Questionnaire, dogOverride?: R
   const counted = s.safety.counted.length;
 
   const currentOwner = household.existing_pets.some((p) => /dog/i.test(p.species));
-  const advisory = !currentOwner && bands.room === 'poor';
-  const mood: Evaluation['mood'] = advisory || verdict === 'poor' ? 'sad' : verdict === 'adequate' ? 'neutral' : 'happy';
+  const mood: Evaluation['mood'] = verdict === 'poor' ? 'sad' : verdict === 'adequate' ? 'neutral' : 'happy';
   const room = result?.room_assessment;
   const changes = whatToChange(space, s);
 
@@ -103,10 +101,9 @@ export function evaluate(space: Space, household: Questionnaire, dogOverride?: R
     bands,
     verdict,
     gates,
-    advisory,
     currentOwner,
     mood,
-    speech: speechFor(mood, advisory, bands),
+    speech: speechFor(mood, bands),
     labels: {
       safety: !photosChecked ? 'Not checked' : { poor: 'Not safe yet', adequate: counted ? `Move ${thingCount(counted)}` : 'Mostly safe', good: 'Safe' }[bands.safety],
       energy: s.energy.undecided ? 'Not enough info' : { poor: 'Hard to keep up', adequate: 'Needs a plan', good: 'Well matched' }[bands.energy],
@@ -116,15 +113,12 @@ export function evaluate(space: Space, household: Questionnaire, dogOverride?: R
     },
     lines: {
       safety: photosChecked
-        ? safetyLine(bands.safety, counted)
+        ? safetyLine(bands.safety, counted, gates)
         : "We couldn't check the photos this time, so we don't know what's within my reach yet.",
       energy: energyLine(bands.energy, s.energy),
       room: roomLine(bands.room, room),
       household: householdLine(s.household.concerns),
       noise: NOISE_LINE[bands.noise],
-      advisory: advisory
-        ? `I'd feel boxed in here, there's little clear floor and nowhere quiet for me. This room doesn't really suit a ${dog.name} right now, that could change with more space or less clutter.`
-        : undefined,
     },
     roomChips: room && photosChecked ? [OPENNESS_WORD[room.openness], RETREAT_WORD[room.retreat_spot]] : [],
     verdictTitle:
@@ -207,16 +201,17 @@ function whatToChange(space: Space, s: SuitabilityResult): string[] {
 }
 
 // Kept short: the speech bubble fits about 28 characters on one line.
-function speechFor(mood: Evaluation['mood'], advisory: boolean, bands: Bands): string {
-  if (advisory) return "I'd feel cramped here…";
+function speechFor(mood: Evaluation['mood'], bands: Bands): string {
   if (mood === 'happy') return 'I can run around here, yay!';
   if (mood === 'neutral') return bands.safety === 'good' ? 'I could get comfy here!' : 'Tidy a few things for me!';
   if (bands.energy === 'poor') return "I'd need more of your time!";
   return bands.room === 'poor' ? 'I need space to run!' : 'A few things here worry me…';
 }
 
-function safetyLine(b: Band, counted: number): string {
+function safetyLine(b: Band, counted: number, gates: Gate[]): string {
   if (b === 'good') return 'Nothing risky within my reach, nice and safe.';
+  if (gates.includes('escape')) return 'There’s a way I could get out or fall here, please make that safe first.';
+  if (gates.includes('toxic')) return 'Something toxic is within my reach and isn’t easy to move, please lock it away first.';
   const what = counted <= 1 ? 'a hazard' : counted === 2 ? 'a couple of hazards' : 'several hazards';
   return b === 'poor'
     ? `Quite hazardous for me: ${what} within paw and mouth reach.`

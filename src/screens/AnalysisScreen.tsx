@@ -635,13 +635,6 @@ function ReportOverlay({
             </View>
           )}
 
-          {e.lines.advisory && (
-            <View style={styles.advisory}>
-              <Text style={styles.advisoryHead}>Not ready for this dog yet</Text>
-              <Text style={styles.reportLine}>{e.lines.advisory}</Text>
-            </View>
-          )}
-
           {/* Plain verdict first (user testing asked for a clear good-fit / bad-fit answer). */}
           <View style={[styles.verdict, { backgroundColor: BAND_COLOR[e.verdict] }]}>
             {/* Dark text on the light orange, white on green/red, for contrast. */}
@@ -777,11 +770,9 @@ const styles = StyleSheet.create({
   report: { flex: 1, backgroundColor: 'rgba(255,255,255,0.72)', borderTopLeftRadius: 22, borderTopRightRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.8)', overflow: 'hidden', paddingHorizontal: 22, paddingTop: 10 },
   dragZone: { paddingTop: 2 },
   grabber: { alignSelf: 'center', width: 44, height: 5, borderRadius: 3, backgroundColor: 'rgba(0,0,0,0.18)', marginBottom: 14 },
-  advisory: { backgroundColor: '#FDE3D6', borderRadius: 12, padding: 12, marginBottom: 12 },
   changeNote: { backgroundColor: colors.bg, borderRadius: 12, padding: 12, marginBottom: 10, borderLeftWidth: 4, borderLeftColor: colors.orangeDeep },
   changeHead: { fontFamily: fonts.semibold, fontSize: 13, color: colors.text },
   changeTxt: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.text, marginTop: 3 },
-  advisoryHead: { fontFamily: fonts.bold, fontSize: 13, color: colors.orangeDeep, marginBottom: 4 },
   verdict: { borderRadius: 12, padding: 14, marginBottom: 6 },
   verdictTitle: { fontFamily: fonts.bold, fontSize: 18, color: '#fff' },
   verdictRoom: { fontFamily: fonts.medium, fontSize: 12.5, color: '#fff', marginTop: 2, opacity: 0.9 },
