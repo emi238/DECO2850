@@ -1,207 +1,87 @@
-// Built-in mock assessment (PRD §11: "canned fallback result"). Produces a
-// schema-valid Assessment (PRD §7.2) that reflects the REAL context the user
-// entered — pet, questionnaire, and tags. Located findings come from the user's
-// own tags (the mock can't see the photos).
+// Built-in sample assessment (PRD §11: "canned fallback result"), used when real
+// AI is off or fails, so a demo never dead-ends. Dogs only, logic v2 shape.
+//
+// The sample can't see the photos, so it only uses what the user actually told
+// us: their tags and household answers. It builds a model-style reply and runs it
+// through the same normaliser as the real model, so tags become "protect this"
+// entries pinned where the user put them. It reports no photo hazards and no room
+// assessment, so the rules treat the room as unknown rather than guessing.
 
-import type { Assessment, Hazard, Space, Severity } from '../types';
+import type { Assessment, Space } from '../types';
+import { normaliseAssessment } from './normalise';
 
-let counter = 0;
-function hid(): string {
-  counter += 1;
-  return `hz_${counter}`;
-}
+type RawFinding = {
+  object_key: string;
+  title: string;
+  category: string;
+  hazard_type: 'other';
+  scope: 'space';
+  severity: 'low' | 'medium';
+  evidence: string;
+  why_it_matters: string;
+  recommendation: string;
+};
 
-function round2(n: number): number {
-  return Math.round(n * 100) / 100;
-}
-
-// Best-guess category for a user-tagged object from its words (PRD checklist A–N).
-function inferCategory(text: string): Hazard['category'] {
-  const t = text.toLowerCase();
-  if (/plant|lily|pothos|palm|flower|fern/.test(t)) return 'A';
-  if (/cord|cable|wire|charger|plug/.test(t)) return 'B';
-  if (/chemical|cleaner|bleach|deterg|medic|pill|spray/.test(t)) return 'C';
-  if (/window|balcon|door|rail|screen|gap|fence/.test(t)) return 'G';
-  if (/pool|water/.test(t)) return 'L';
-  if (/stair|step/.test(t)) return 'F';
-  if (/glass|vase|sharp|fragile|ceramic|knife/.test(t)) return 'D';
-  return 'D';
-}
-
-function isCat(species?: string): boolean {
-  return (species ?? '').toLowerCase().includes('cat');
-}
-function isDog(species?: string): boolean {
-  return (species ?? '').toLowerCase().includes('dog');
-}
-
-export function generateMockAssessment(session: Space): Assessment {
-  counter = 0;
-  const { mode, pet, questionnaire: q, tags } = session;
-  const petLabel = pet ? `${pet.breed || pet.species}`.trim() : 'the pet';
-  const cat = isCat(pet?.species);
-  const dog = isDog(pet?.species);
-  const highRise = q.dwelling === 'apartment' && (q.floor_level ?? 0) >= 3;
-
-  const hazards: Hazard[] = [];
-
-  // ---- Mock mode can't see the photos: lean on the REAL context the user
-  // entered (tags + questionnaire), which we CAN trust. ----
-  tags.forEach((t) => {
-    hazards.push({
-      id: hid(),
-      category: inferCategory(t.label + ' ' + t.note),
-      title: `Flagged: ${t.label}`,
-      scope: 'object',
-      location: {
-        frame_index: t.frame,
-        x: round2(t.x ?? 0.5),
-        y: round2(t.y ?? 0.5),
-      },
-      risk_to: 'both',
-      severity: /fragile|valuable|antique|open|toxic|chemical/i.test(t.note) ? 'high' : 'medium',
-      evidence: `You flagged "${t.label}"${t.note ? ` — "${t.note}"` : ''}.`,
-      why_it_matters: `You tagged this as ${t.note ? t.note.toLowerCase() : 'important'}, so keep it out of ${petLabel}'s reach.`,
-      recommendation: 'Secure, relocate, or make this item/zone off-limits before adopting.',
-    });
-  });
-
-  // ---- Space-level findings (no single pin -> shown in the top banner) ----
-  if (cat) {
-    hazards.push(spaceHazard('H', 'No vertical space for a cat', 'medium', 'animal',
-      'No cat tree, shelves, or perches are visible in the sweep.',
-      'Cats need vertical territory to feel secure and exercise.',
-      'Add a tall cat tree or wall shelves near the window (with the screen fitted).'));
-  }
-  if (highRise) {
-    hazards.push(spaceHazard('G', `${q.floor_level}th-floor apartment`, cat ? 'high' : 'medium', 'animal',
-      `The household is on floor ${q.floor_level} of an apartment.`,
-      `Any open window, balcony, or gap becomes a high fall risk at this height${cat ? ', particularly for cats' : ''}.`,
-      'Screen every window and the balcony before letting the pet roam freely.'));
-  }
-  if (dog) {
-    hazards.push(spaceHazard('I', 'Floor space vs an active dog', q.activity_level === 'high' ? 'medium' : 'low', 'animal',
-      `An apartment living room with ${q.activity_level} household activity.`,
-      `${petLabel} will need daily outdoor exercise as indoor floor space is limited.`,
-      'Plan two walks a day plus indoor enrichment (puzzle feeders, chew toys).'));
-    hazards.push(spaceHazard('E', 'Slippery hard floor', 'low', 'animal',
-      'The floor reads as hard tile with little grip.',
-      'Hard, slippery floors can strain joints for larger or older dogs.',
-      'Lay a few non-slip rugs or runners in the dog\'s main path.'));
-  }
-  if (q.infant_present || q.off_limit_zones.length > 0) {
-    const zones = q.off_limit_zones.length ? q.off_limit_zones.join(', ') : 'the nursery';
-    hazards.push(spaceHazard('J', 'Off-limit zones to separate', 'medium', 'both',
-      `You listed off-limit/sensitive zones: ${zones}${q.infant_present ? ', and an infant is present' : ''}.`,
-      'Pets and sensitive zones (or infants) need reliable separation.',
-      `Fit a baby gate or keep ${zones} behind a closed door the pet cannot open.`));
-  }
-  if (q.existing_pets.length > 0) {
-    const others = q.existing_pets.map((p) => `${p.breed || ''} ${p.species}`.trim()).join(', ');
-    hazards.push(spaceHazard('M', 'Existing pets — introductions', 'medium', 'animal',
-      `The home already has: ${others}.`,
-      'A new arrival needs a careful, gradual introduction to avoid territory stress.',
-      'Introduce scent-first over days, with separate safe spaces and supervised meetings.'));
-  }
-
-  // ---- Improvements (prioritised) ----
-  const improvements = buildImprovements(hazards);
-
-  // ---- Suitability vs recommended pets ----
-  let suitability: Assessment['suitability'] = null;
-  let recommended_pets: Assessment['recommended_pets'] = [];
-
-  if (mode === 'pet_in_mind') {
-    suitability = computeSuitability(hazards, petLabel, q);
-  } else {
-    recommended_pets = recommendPets(q);
-  }
-
+// A household note: not a physical danger, so it never counts towards Safety.
+function note(key: string, title: string, category: string, severity: 'low' | 'medium', why: string, rec: string): RawFinding {
   return {
-    mode: mode ?? 'pet_in_mind',
-    space_summary:
-      'A single room captured across several overlapping frames. (Sample assessment — enable the real model for photo-based hazard detection.)',
-    confidence: 'low',
-    hazards,
-    improvements,
-    suitability,
-    recommended_pets,
-    notes:
-      'This sample assessment is based on your household answers and tags rather than the photos. Add a Gemini API key (see src/ai/config.ts) for real photo analysis.',
-  };
-}
-
-function spaceHazard(
-  category: Hazard['category'],
-  title: string,
-  severity: Severity,
-  risk_to: Hazard['risk_to'],
-  evidence: string,
-  why: string,
-  rec: string
-): Hazard {
-  return {
-    id: hid(),
-    category,
+    object_key: key,
     title,
+    category,
+    hazard_type: 'other',
     scope: 'space',
-    location: null,
-    risk_to,
     severity,
-    evidence,
+    evidence: 'From your household answers (this sample can’t see the photos).',
     why_it_matters: why,
     recommendation: rec,
   };
 }
 
-function buildImprovements(hazards: Hazard[]): string[] {
-  const order: Record<Severity, number> = { high: 0, medium: 1, low: 2 };
-  return [...hazards]
-    .sort((a, b) => order[a.severity] - order[b.severity])
-    .slice(0, 6)
-    .map((h) => h.recommendation);
-}
+export function generateMockAssessment(session: Space): Assessment {
+  const { pet, questionnaire: q, tags } = session;
+  const dogName = pet?.breed || 'the dog';
 
-function computeSuitability(
-  hazards: Hazard[],
-  petLabel: string,
-  q: Space['questionnaire']
-): NonNullable<Assessment['suitability']> {
-  const highs = hazards.filter((h) => h.severity === 'high').length;
-  const meds = hazards.filter((h) => h.severity === 'medium').length;
-  let score = 100 - highs * 16 - meds * 7;
-  score = Math.max(12, Math.min(94, score));
-  const verdict =
-    score >= 75 ? 'well_suited' : score >= 45 ? 'suitable_with_changes' : 'poorly_suited';
-  const rationale =
-    verdict === 'well_suited'
-      ? `The space suits ${petLabel} well; only minor tweaks are needed.`
-      : verdict === 'suitable_with_changes'
-      ? `The space can suit ${petLabel} once the ${highs} higher-risk items (window/balcony screening, cords, chemicals) are fixed.`
-      : `As-is this space is a poor fit for ${petLabel}: too many high-severity hazards need resolving first.`;
-  return { verdict, score_0_100: score, rationale };
-}
+  const findings: RawFinding[] = [
+    note('daily-exercise', 'Daily exercise needs', 'I', 'low',
+      `${dogName} will need daily walks as well as indoor space.`,
+      'Plan daily walks plus indoor play, such as puzzle feeders and chew toys.'),
+  ];
+  if (q.children_at_home === 'young') {
+    findings.push(note('young-children', 'Young children at home', 'M', 'medium',
+      'Dogs and small children need supervision and a way to get space from each other.',
+      'Give the dog a quiet retreat and use a baby gate to keep play areas separate.'));
+  }
+  const dogs = q.existing_pets.filter((p) => /dog/i.test(p.species));
+  if (dogs.length > 0 || q.has_cat) {
+    const others = [...dogs.map((p) => p.breed || 'dog'), ...(q.has_cat ? ['a cat'] : [])].join(', ');
+    findings.push(note('introductions', 'Introducing your pets', 'M', 'medium',
+      `The home already has ${others}, so a new dog needs a careful introduction.`,
+      'Introduce them slowly, scent first, with separate safe spaces and supervised meetings.'));
+  }
 
-function recommendPets(q: Space['questionnaire']): Assessment['recommended_pets'] {
-  const apartment = q.dwelling === 'apartment';
-  const list: Assessment['recommended_pets'] = [];
-  list.push({
-    species: 'Cat',
-    breed: 'Domestic Shorthair (indoor)',
-    why: 'Adapts well to apartment living and needs no yard; content indoors with enrichment.',
-    caveats: 'Screen the window and balcony first — essential at this floor level — and add vertical territory.',
-  });
-  list.push({
-    species: 'Dog',
-    breed: 'French Bulldog',
-    why: 'Small, low-endurance and famously apartment-friendly; happy with short daily walks.',
-    caveats: 'Heat-sensitive; keep the room cool and never leave near the open balcony.',
-  });
-  list.push({
-    species: 'Rabbit',
-    breed: 'Mini Lop (house rabbit)',
-    why: 'Quiet, litter-trainable and thrives indoors in a rented apartment.',
-    caveats: 'A determined chewer — the exposed cords must be fully protected before adopting.',
-  });
-  return apartment ? list : list.slice(0, 3);
+  const improvements = [
+    ...tags.map((t) => `Move the ${t.label.toLowerCase()} somewhere the dog can’t reach.`),
+    ...findings.map((f) => f.recommendation),
+  ];
+  if (q.hours_alone === 'over_8' && q.alone_plan !== 'walker' && q.alone_plan !== 'daycare') {
+    improvements.push('A dog walker or daycare would help on long days alone.');
+  }
+
+  const assessment = normaliseAssessment(
+    {
+      space_summary:
+        'A single room captured across several frames. (Sample assessment: turn on the real model for photo-based hazard detection.)',
+      confidence: 'low',
+      hazards: findings,
+      escape_routes: [],
+      off_limit_suggestions: [],
+      detected_signals: { existing_pets: 'unknown', children: 'unknown', dwelling_cue: 'unknown', outdoor_access_cue: 'unknown' },
+      improvements,
+      notes:
+        'This sample assessment is based on your household answers and tags rather than the photos. Add a Gemini API key (see src/ai/config.ts) for real photo analysis.',
+    },
+    session
+  );
+  // The sample hasn't looked at the room, so it makes no claim about its space.
+  return { ...assessment, room_assessment: undefined };
 }

@@ -3,8 +3,9 @@
 
 import type { Assessment, Space } from '../types';
 import { AI_CONFIG, realAiEnabled } from './config';
-import { callGemini, hasUsableImages } from './gemini';
+import { callGemini, hasUsableImages, type DogTraits } from './gemini';
 import { generateMockAssessment } from './mock';
+import { resolveDog } from '../logic/evaluate';
 
 export interface AssessResult {
   assessment: Assessment;
@@ -39,6 +40,13 @@ function friendlyFailure(err: unknown): string {
 const MAX_ATTEMPTS = 3; // initial try + 2 retries (PRD F5.5), with backoff
 
 export async function runAssessment(session: Space): Promise<AssessResult> {
+  // The dog's size/energy/noise as the app knows them (catalogue or mixed-breed
+  // answers), sent to the model as ground truth.
+  const resolved = resolveDog(session.pet);
+  const dog: DogTraits | null = resolved
+    ? { breed: resolved.name, size: resolved.size, energy: resolved.energy, noise: resolved.noise }
+    : null;
+
   if (realAiEnabled() && hasUsableImages(session)) {
     // Retry with a short backoff so transient free-tier 503 spikes can clear,
     // then fall back to the mock so a demo never dead-ends.
@@ -46,7 +54,7 @@ export async function runAssessment(session: Space): Promise<AssessResult> {
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
       try {
         const assessment = await withTimeout(
-          (signal) => callGemini(session, signal),
+          (signal) => callGemini(session, dog, signal),
           AI_CONFIG.TIMEOUT_MS
         );
         return { assessment, source: 'ai' };

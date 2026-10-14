@@ -24,8 +24,35 @@ const OUTDOOR: { value: Questionnaire['outdoor_access']; label: string }[] = [
 const MIXED = 'Mixed breed';
 
 // The questions a new user must answer at onboarding (existing dogs is optional).
-export const REQUIRED_QUESTIONS = ['dwelling', 'rental', 'neighbours', 'outdoor_access', 'children_at_home', 'hours_alone'] as const;
+export const REQUIRED_QUESTIONS = [
+  'dwelling',
+  'rental',
+  'neighbours',
+  'outdoor_access',
+  'outdoor_use', // only when there is outdoor access
+  'children_at_home',
+  'hours_alone',
+  'alone_plan', // only when the dog is alone 4+ hours
+  'owner_activity',
+  'exercise_time',
+  'experience',
+  'household_atmosphere',
+  'allergies',
+  'has_cat',
+] as const;
 export type RequiredQuestion = (typeof REQUIRED_QUESTIONS)[number];
+
+// Follow-up questions only apply once their parent question has an answer that needs them.
+function applies(k: RequiredQuestion, q: Questionnaire, blank?: ReadonlySet<RequiredQuestion>): boolean {
+  if (k === 'outdoor_use') return !blank?.has('outdoor_access') && q.outdoor_access !== 'none';
+  if (k === 'alone_plan') return !blank?.has('hours_alone') && !!q.hours_alone && q.hours_alone !== 'under_4';
+  return true;
+}
+
+// The required questions still waiting for an answer.
+export function stillToAnswer(q: Questionnaire, blank: ReadonlySet<RequiredQuestion>): RequiredQuestion[] {
+  return REQUIRED_QUESTIONS.filter((k) => blank.has(k) && applies(k, q, blank));
+}
 const petLabel = (p: ExistingPet) => p.breed || 'Dog';
 
 export function HouseholdForm({
@@ -51,6 +78,30 @@ export function HouseholdForm({
   const segH = big ? 44 : undefined;
   const segTxt = big ? styles.segTxtBig : undefined;
   const label = big ? styles.labelBig : undefined;
+
+  // One single-choice question; a blank (unanswered) question shows nothing selected.
+  const ask = <T extends string>(
+    key: RequiredQuestion,
+    title: string,
+    current: T | undefined,
+    options: { value: T; label: string }[],
+    patch: (v: T) => Partial<Questionnaire>,
+    tall = false
+  ) => (
+    <View style={{ marginBottom: gap }}>
+      <SectionLabel style={label}>{title}</SectionLabel>
+      <Segmented
+        disabled={disabled}
+        value={blank?.has(key) ? null : current ?? null}
+        onChange={(v) => onChange(patch(v))}
+        options={options}
+        style={big ? styles.segBig : styles.seg}
+        height={tall ? 52 : segH}
+        textStyle={segTxt}
+      />
+    </View>
+  );
+  const yesNo = (v: boolean | undefined) => (v === undefined ? undefined : v ? 'yes' : 'no');
 
   const addPet = (breed: string) => {
     onChange({ existing_pets: [...q.existing_pets, { species: 'Dog', breed }] });
@@ -120,6 +171,13 @@ export function HouseholdForm({
         </View>
       </View>
 
+      {applies('outdoor_use', q, blank) &&
+        ask('outdoor_use', 'Will the dog get to use it?', q.outdoor_use, [
+          { value: 'most_days', label: 'Most days' },
+          { value: 'sometimes', label: 'Sometimes' },
+          { value: 'rarely', label: 'Rarely' },
+        ], (v) => ({ outdoor_use: v }))}
+
       <View style={{ marginBottom: gap }}>
         <SectionLabel style={label}>Any children living at home?</SectionLabel>
         <Segmented
@@ -153,6 +211,47 @@ export function HouseholdForm({
           textStyle={segTxt}
         />
       </View>
+
+      {applies('alone_plan', q, blank) &&
+        ask('alone_plan', 'On those days, will someone check in on the dog?', q.alone_plan, [
+          { value: 'none', label: 'No' },
+          { value: 'walker', label: 'Dog walker' },
+          { value: 'daycare', label: 'Daycare' },
+        ], (v) => ({ alone_plan: v }))}
+
+      {ask('owner_activity', 'How active are you day to day?', q.owner_activity, [
+        { value: 'sedentary', label: 'Mostly relaxed' },
+        { value: 'moderate', label: 'Fairly active' },
+        { value: 'active', label: 'Very active' },
+      ], (v) => ({ owner_activity: v }), true)}
+
+      {ask('exercise_time', 'How much time could you spend walking and playing with a dog each day?', q.exercise_time, [
+        { value: 'under_30', label: 'Under 30 min' },
+        { value: '30_60', label: '30 to 60 min' },
+        { value: 'over_60', label: 'Over an hour' },
+      ], (v) => ({ exercise_time: v }))}
+
+      {ask('experience', 'Have you owned a dog before?', q.experience, [
+        { value: 'none', label: 'No, first dog' },
+        { value: 'some', label: 'Some' },
+        { value: 'experienced', label: 'Lots' },
+      ], (v) => ({ experience: v }))}
+
+      {ask('household_atmosphere', 'What is your home usually like?', q.household_atmosphere, [
+        { value: 'calm', label: 'Calm' },
+        { value: 'mixed', label: 'A mix' },
+        { value: 'busy', label: 'Busy and noisy' },
+      ], (v) => ({ household_atmosphere: v }), true)}
+
+      {ask('allergies', 'Does anyone at home have pet allergies?', yesNo(q.allergies), [
+        { value: 'yes', label: 'Yes' },
+        { value: 'no', label: 'No' },
+      ], (v) => ({ allergies: v === 'yes' }))}
+
+      {ask('has_cat', 'Do you have a cat?', yesNo(q.has_cat), [
+        { value: 'yes', label: 'Yes' },
+        { value: 'no', label: 'No' },
+      ], (v) => ({ has_cat: v === 'yes' }))}
 
       <View>
         <SectionLabel style={label}>Existing Dogs</SectionLabel>
