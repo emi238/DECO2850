@@ -6,6 +6,8 @@ what the model is asked, what the app does with the answer, and what is still we
 Current version: **logic v2** (CHANGE PRD 15 Oct 2026), branch `feat/native-ar-foundation`.
 
 **Changelog**
+- **15 Oct 2026, What's new:** after a Re-run the report has a collapsible "What's new
+  since your last run" section (§4.11), replacing the paragraph box removed earlier.
 - **15 Oct 2026, Suggested setup:** the room prompt now also suggests where to keep the
   dog out, good spots for its bed/crate/bowls/play, and safety to add (gates, railings,
   netting, window guards…), each placed on the photo. Shown as a "Suggested setup" card
@@ -29,6 +31,7 @@ Current version: **logic v2** (CHANGE PRD 15 Oct 2026), branch `feat/native-ar-f
 | What | File |
 |---|---|
 | Suitability rules: weights, formulas, gates, unknowns, cross-check | `src/logic/suitability.ts` (pure logic, no app code) |
+| "What's new" comparison after a Re-run | `src/logic/changes.ts` (pure logic) |
 | Words the user sees: verdict, chips, lines, "What to change", nudges | `src/logic/evaluate.ts` |
 | Room prompt text | `src/ai/prompt.ts` |
 | Output contract: allowed values + Gemini `responseSchema` | `src/ai/schema.ts` |
@@ -514,8 +517,23 @@ the household check.
 ### 4.11 Re-run
 
 Re-run runs the room prompt again with the latest household answers and tags, then opens
-the updated report straight away so the new result is visible. The "Updated just now"
-box that listed what had changed was removed on 15 Oct at the team's request.
+the updated report straight away.
+
+**What's new since your last run** (`src/logic/changes.ts`, pure and checked by
+`npm run check:logic`):
+- After every analysis the app saves a snapshot on the space of what the user saw:
+  the verdict, the five row labels, each flagged item with its card chip, and the
+  Suggested setup.
+- On Re-run, the new snapshot is compared with the saved one, so edited questionnaire
+  answers and tags show up as changes, not just new AI findings. The result is saved on
+  the space (`lastChanges`) until the next run; a first run or a new breed clears it.
+- The section sits under the verdict card. It's open in the report shown straight after
+  a Re-run and collapsed when the report is reopened later. It lists the verdict change,
+  row changes ("Safety: Move 2 things → Not safe yet"), then groups: Newly flagged (+),
+  No longer flagged (−), Changed (same item, new chip), New suggestions, Suggestions
+  removed. If nothing changed it says so and suggests what to change.
+- Items are matched by `object_key` (tags by their name), so a reworded title isn't
+  reported as removed + added.
 
 ### 4.12 Worked examples (computed with the real code)
 

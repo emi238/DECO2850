@@ -4,7 +4,8 @@
 // sub-score, "What to change", and profile nudges. No number is ever shown.
 
 import type { ImageSourcePropType } from 'react-native';
-import type { Assessment, DogSpot, OffLimitSuggestion, Pet, Questionnaire, RoomAssessment, SafetyAddition, Space } from '../types';
+import type { Assessment, DogSpot, Hazard, OffLimitSuggestion, Pet, Questionnaire, RoomAssessment, SafetyAddition, Space, Tag } from '../types';
+import type { RunSnapshot } from './changes';
 import { findBreed, type BreedProfile, type Energy, type Noise, type SizeClass } from './breeds';
 import { IMAGES } from '../assets';
 import {
@@ -348,6 +349,49 @@ const NOISE_LINE: Record<Band, string> = {
   adequate: 'Should be fine with the neighbours, most of the time.',
   poor: 'I might be a bit loud for close neighbours, consider a quieter breed for this building.',
 };
+
+// ---- Shared by the report and "What's new" ----
+
+// The report rows, in order (most heavily weighted first).
+export const REPORT_ROWS: { key: SubScore; heading: string }[] = [
+  { key: 'safety', heading: 'Safety' },
+  { key: 'energy', heading: 'Exercise & routine' },
+  { key: 'room', heading: 'Room to move' },
+  { key: 'household', heading: 'Your household' },
+  { key: 'noise', heading: 'Neighbours' },
+];
+
+// The chip on each risk card.
+export const SEVERITY_WORD: Record<Hazard['severity'], string> = { high: 'Needs attention', medium: 'Worth fixing', low: 'Minor' };
+export const TAG_WORD = 'Be careful';
+
+// Items the user tagged (Valuable / Fragile) are things to protect, not hazards.
+// New results mark them source "user_tag"; for results saved before logic v2, fall
+// back on the old "Flagged: …" title or the tag's name in the title.
+export function isTagEntry(h: Hazard, tags: Tag[]): boolean {
+  if (h.source) return h.source === 'user_tag';
+  if (h.title.startsWith('Flagged:')) return true;
+  const title = h.title.toLowerCase();
+  return tags.some((t) => !!t.label.trim() && title.includes(t.label.trim().toLowerCase()));
+}
+
+// What the user sees after a run, saved so the next Re-run can say what changed.
+export function runSnapshot(space: Space, household: Questionnaire): RunSnapshot {
+  const e = evaluate(space, household);
+  return {
+    verdict: e?.verdictTitle ?? null,
+    rows: e ? REPORT_ROWS.map((r) => ({ heading: r.heading, label: e.labels[r.key] })) : [],
+    flagged: (space.result?.hazards ?? []).map((h) => {
+      if (isTagEntry(h, space.tags)) {
+        // Same identity for a tag in old ("Flagged: Vase") and new ("Vase") results.
+        const name = h.title.replace(/^Flagged:\s*/, '').trim();
+        return { key: `tag:${name.toLowerCase()}`, title: name, level: TAG_WORD };
+      }
+      return { key: h.object_key ?? h.title.trim().toLowerCase(), title: h.title.trim(), level: SEVERITY_WORD[h.severity] };
+    }),
+    setup: (e?.setup ?? []).map((s) => ({ key: `${s.kind}:${s.title.toLowerCase()}`, title: s.title })),
+  };
+}
 
 // §5.1a ranked breed suggestions for "Explore breeds for my space": the same
 // rules run for every catalogue breed against this room and household.
