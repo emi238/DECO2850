@@ -6,6 +6,8 @@ what the model is asked, what the app does with the answer, and what is still we
 Current version: **logic v2** (CHANGE PRD 15 Oct 2026), branch `feat/native-ar-foundation`.
 
 **Changelog**
+- **15 Oct 2026, later:** removed the "Updated just now" box from the report at the
+  team's request. Re-run now just reopens the updated report (§4.11).
 - **15 Oct 2026, logic v2** (from `PawSpace_CHANGE_PRD_logic_v2.md`): the fixed-room
   Space rule is gone. Suitability is now five weighted sub-scores with
   photo-derived signals at 50%, a confidence-weighted Safety load, hard gates, and
@@ -493,9 +495,9 @@ the household check.
 
 ### 4.11 Re-run
 
-Re-run compares the verdict and the flagged items before and after. Items are matched by
-`object_key` (W13), so the same object with a reworded title is no longer reported as
-"removed + added". Results saved before 15 Oct fall back to matching by title.
+Re-run runs the room prompt again with the latest household answers and tags, then opens
+the updated report straight away so the new result is visible. The "Updated just now"
+box that listed what had changed was removed on 15 Oct at the team's request.
 
 ### 4.12 Worked examples (computed with the real code)
 
@@ -528,7 +530,7 @@ open balcony door (medium, high confidence). Openness moderate, retreat possible
 | W10 | Breed traits not used | **Fixed.** `dog` size/energy/noise sent as ground truth. |
 | W11 | No schema enforcement | **Fixed.** `responseSchema` + allowed-value checks in the normaliser. |
 | W12 | Alarming tone | **Fixed** in the prompt (VOICE section). |
-| W13 | Titles change between runs | **Fixed.** `object_key` for matching. |
+| W13 | Titles change between runs | **Fixed.** `object_key` gives each object a stable identity (used to merge duplicates). |
 
 Open issues to look at next:
 
