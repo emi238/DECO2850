@@ -43,8 +43,11 @@ export const REQUIRED_QUESTIONS = [
 ] as const;
 export type RequiredQuestion = (typeof REQUIRED_QUESTIONS)[number];
 
+// Every question the form can show; `only` picks a subset (one onboarding step).
+export type FormQuestion = RequiredQuestion | 'existing_dogs';
+
 // Follow-up questions only apply once their parent question has an answer that needs them.
-function applies(k: RequiredQuestion, q: Questionnaire, blank?: ReadonlySet<RequiredQuestion>): boolean {
+export function applies(k: RequiredQuestion, q: Questionnaire, blank?: ReadonlySet<RequiredQuestion>): boolean {
   if (k === 'outdoor_use') return !blank?.has('outdoor_access') && q.outdoor_access !== 'none';
   if (k === 'alone_plan') return !blank?.has('hours_alone') && !!q.hours_alone && q.hours_alone !== 'under_4';
   if (k === 'other_pets') return !blank?.has('has_other_pets') && q.has_other_pets === true;
@@ -75,15 +78,18 @@ export function HouseholdForm({
   disabled,
   compact,
   blank,
+  only,
 }: {
   value: Questionnaire;
   onChange: (patch: Partial<Questionnaire>) => void;
   disabled?: boolean;
   blank?: ReadonlySet<RequiredQuestion>; // shown with nothing selected until answered (onboarding)
+  only?: readonly FormQuestion[]; // show just these questions (a follow-up shows with its parent)
 
   compact?: boolean; // tighter spacing between questions inside the Profile card
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
+  const show = (k: FormQuestion) => !only || only.includes(k);
   const { breeds } = useBreedCatalogue();
   const gap = compact ? 20 : 26;
   // Big, filled controls everywhere (onboarding and Profile); `compact` only
@@ -101,7 +107,7 @@ export function HouseholdForm({
     options: { value: T; label: string }[],
     patch: (v: T) => Partial<Questionnaire>,
     tall = false
-  ) => (
+  ) => show(key) && (
     <View style={{ marginBottom: gap }}>
       <SectionLabel style={label}>{title}</SectionLabel>
       <Segmented
@@ -125,6 +131,7 @@ export function HouseholdForm({
 
   return (
     <View style={disabled && { opacity: 0.85 }}>
+      {show('dwelling') && (
       <View style={{ marginBottom: gap }}>
         <SectionLabel style={label}>Dwelling Type</SectionLabel>
         <Segmented
@@ -137,7 +144,9 @@ export function HouseholdForm({
           textStyle={segTxt}
         />
       </View>
+      )}
 
+      {show('rental') && (
       <View style={{ marginBottom: gap }}>
         <SectionLabel style={label}>Is this a rental?</SectionLabel>
         <Segmented
@@ -150,7 +159,9 @@ export function HouseholdForm({
           textStyle={segTxt}
         />
       </View>
+      )}
 
+      {show('neighbours') && (
       <View style={{ marginBottom: gap }}>
         <SectionLabel style={label}>How close are your nearest neighbours?</SectionLabel>
         <Segmented
@@ -167,7 +178,9 @@ export function HouseholdForm({
           textStyle={segTxt}
         />
       </View>
+      )}
 
+      {show('outdoor_access') && (
       <View style={{ marginBottom: gap }}>
         <SectionLabel style={label}>Outdoor Access</SectionLabel>
         <View style={styles.chips}>
@@ -184,14 +197,16 @@ export function HouseholdForm({
           ))}
         </View>
       </View>
+      )}
 
-      {applies('outdoor_use', q, blank) &&
+      {show('outdoor_access') && applies('outdoor_use', q, blank) &&
         ask('outdoor_use', 'Will the dog get to use it?', q.outdoor_use, [
           { value: 'most_days', label: 'Most days' },
           { value: 'sometimes', label: 'Sometimes' },
           { value: 'rarely', label: 'Rarely' },
         ], (v) => ({ outdoor_use: v }))}
 
+      {show('children_at_home') && (
       <View style={{ marginBottom: gap }}>
         <SectionLabel style={label}>Any children living at home?</SectionLabel>
         <Segmented
@@ -208,7 +223,9 @@ export function HouseholdForm({
           textStyle={segTxt}
         />
       </View>
+      )}
 
+      {show('hours_alone') && (
       <View style={{ marginBottom: gap }}>
         <SectionLabel style={label}>On a typical day, how long would the dog be home alone?</SectionLabel>
         <Segmented
@@ -225,8 +242,9 @@ export function HouseholdForm({
           textStyle={segTxt}
         />
       </View>
+      )}
 
-      {applies('alone_plan', q, blank) &&
+      {show('hours_alone') && applies('alone_plan', q, blank) &&
         ask('alone_plan', 'On those days, will someone check in on the dog?', q.alone_plan, [
           { value: 'none', label: 'No' },
           { value: 'walker', label: 'Dog walker' },
@@ -267,7 +285,7 @@ export function HouseholdForm({
         { value: 'no', label: 'No' },
       ], (v) => (v === 'yes' ? { has_other_pets: true } : { has_other_pets: false, other_pets: [] }))}
 
-      {applies('other_pets', q, blank) && (
+      {show('has_other_pets') && applies('other_pets', q, blank) && (
         <View style={{ marginBottom: gap }}>
           <SectionLabel style={label}>What kind? (choose all that apply)</SectionLabel>
           <View style={styles.chips}>
@@ -292,8 +310,9 @@ export function HouseholdForm({
         </View>
       )}
 
+      {show('existing_dogs') && (
       <View>
-        <SectionLabel style={label}>Existing Dogs</SectionLabel>
+        <SectionLabel style={label}>{only ? 'Any dogs already at home? (optional)' : 'Existing Dogs'}</SectionLabel>
         {q.existing_pets.length > 0 && (
           <View style={[styles.chips, { marginBottom: 8 }]}>
             {q.existing_pets.map((p, i) => (p.species.toLowerCase() !== 'dog' ? null : (
@@ -312,6 +331,7 @@ export function HouseholdForm({
           <Text style={[styles.addPetTxt, big && styles.addPetTxtBig]}>+ Add a dog (dropdown search)</Text>
         </Pressable>
       </View>
+      )}
 
       <OptionSheet
         visible={pickerOpen}

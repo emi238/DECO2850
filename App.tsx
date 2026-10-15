@@ -17,6 +17,7 @@ import CreateAccountScreen from './src/screens/CreateAccountScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
 import HouseholdScreen from './src/screens/HouseholdScreen';
+import OnboardingScreen from './src/screens/OnboardingScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import CaptureScreen from './src/screens/CaptureScreen';
@@ -61,6 +62,7 @@ export default function App() {
               <Stack.Screen name="CreateAccount" component={CreateAccountScreen} />
               <Stack.Screen name="Login" component={LoginScreen} />
               <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
+              <Stack.Screen name="Onboarding" component={OnboardingScreen} options={{ gestureEnabled: false }} />
               <Stack.Screen name="Household" component={HouseholdScreen} />
               <Stack.Screen name="Profile" component={ProfileScreen} />
               <Stack.Screen name="Home" component={HomeScreen} />

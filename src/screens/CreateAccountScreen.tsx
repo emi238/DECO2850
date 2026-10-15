@@ -22,7 +22,7 @@ export default function CreateAccountScreen({ navigation }: ScreenProps<'CreateA
   const signUp = () => {
     setProfile({ name: name.trim() || 'Friend', email: email.trim() });
     if (onboarded) navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
-    else navigation.reset({ index: 0, routes: [{ name: 'Household', params: { onboarding: true } }] });
+    else navigation.reset({ index: 0, routes: [{ name: 'Onboarding' }] });
   };
 
   return (

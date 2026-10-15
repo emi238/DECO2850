@@ -22,7 +22,7 @@ export default function LoginScreen({ navigation }: ScreenProps<'Login'>) {
     const e = email.trim();
     setProfile({ email: e, name: profile.name || (e ? capitalise(e.split('@')[0]) : 'Friend') });
     if (onboarded) navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
-    else navigation.reset({ index: 0, routes: [{ name: 'Household', params: { onboarding: true } }] });
+    else navigation.reset({ index: 0, routes: [{ name: 'Onboarding' }] });
   };
 
   return (

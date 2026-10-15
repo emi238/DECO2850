@@ -1,13 +1,14 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 // App flow: Welcome → Create Account / Log In (no real auth yet) → first time:
-// Household "Getting Started" → Home. From Home: Capture → Tagging → Space
+// Onboarding ("Getting Started", one or two questions per step) → Home. From Home: Capture → Tagging → Space
 // Saved → Analysis (⇄ Select breed). Profile edits details + household answers.
 export type RootStackParamList = {
   Welcome: undefined;
   CreateAccount: undefined;
   Login: undefined;
   ResetPassword: undefined;
+  Onboarding: undefined; // first-time questionnaire, step by step
   Household: { onboarding?: boolean } | undefined;
   Profile: { editHousehold?: boolean } | undefined; // true = open with the household section unlocked
   Home: undefined;
