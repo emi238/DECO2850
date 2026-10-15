@@ -3,7 +3,7 @@
 **The single logic document for PawSpace.** It merges the v2 spec
 (`PawSpace_CHANGE_PRD_logic_v2.md`, 15 Oct 2026) with the earlier `PROMPT_LOGIC.md`;
 both are superseded by this file. Everything here describes what is **built** on branch
-`feat/native-ar-foundation` and was checked against the code: the two prompts are copied
+`main` and was checked against the code: the two prompts are copied
 from the source, and the rules are covered by `npm run check:logic`.
 
 It explains, end to end, how the app goes from room photos + questionnaire to "is this
@@ -11,6 +11,14 @@ space suitable for this dog?", what the AI is asked, what the app does with the 
 where the build differs from the PRD, and what is still weak.
 
 **Changelog**
+- **15 Oct 2026, consolidated on `main` (AR removed):** all the logic work was copied
+  from `feat/native-ar-foundation` to `main` without the AR prototype. Also brought in
+  from the other branches: **API Ninjas** as the preferred breed source (its 1–5 scores
+  now feed the household check, §4.5), **owners can set their own dog's size**, the
+  **§4.9 fix** (outdoor space counts only for high-energy dogs, §4.3), the
+  **Recommendations tab** (Improve + Shopping, §4.13) and **off-limits tagging** (§4.14).
+  The 3D "Scan & detect" overlay was left out on purpose. Expo packages updated to the
+  SDK 57 versions.
 - **15 Oct 2026, other pets:** "Do you have a cat?" became **"Do you have any other
   pets?"** plus "What kind?" (cat, bird, rabbit/guinea pig or similar, fish, reptile,
   other; pick all that apply). Saved cat answers convert automatically
@@ -102,6 +110,8 @@ and a plain list says what to change.
 | Checking and cleaning the model's reply | `src/ai/normalise.ts` |
 | Sample assessment (AI off or failed) | `src/ai/mock.ts` |
 | Breed suggestions (rules shortlist + breed prompt) | `src/ai/breedSuggest.ts` |
+| Breed data: API Ninjas (preferred), then The Dog API, then 3 built-ins | `src/logic/dogsApi.ts`, `src/logic/dogApi.ts`, `src/logic/breeds.ts` |
+| Recommendations (Improve) and Shopping lists | `src/logic/recommend.ts` (pure logic) |
 | Questionnaire questions and types | `src/components/HouseholdForm.tsx`, `src/types.ts` |
 | Report and map UI | `src/screens/AnalysisScreen.tsx` |
 | Acceptance checks (PRD §9) | `scripts/check-logic.mjs`, run with `npm run check:logic` |
@@ -142,7 +152,7 @@ see the photos, so the rules treat Safety and the room as **unknown** (§4.8), n
 
 ### 1.1 Pre-flight results (PRD v2 §1)
 
-- **Object detection: not present on this branch.** No YOLO/TFLite/ONNX/Core ML/ML Kit
+- **Object detection: not present.** No YOLO/TFLite/ONNX/Core ML/ML Kit
   dependency, model file or code. The only detection code is a YOLOv8 decoder on the
   `ar-immersive-scan` branch (`src/live/yolo.ts`, `coco.ts`), which has never run on a
   device and has no model file. So logic v2 uses the **LLM-only path**: model-estimated
@@ -177,7 +187,8 @@ One request with three parts in a single `user` turn (`gemini.ts → callGemini`
        "household_atmosphere": "mixed", "allergies": false,
        "existing_pets": { "dogs": [], "other": ["cat", "bird"] }
      },
-     "tags": [ { "id": "tag_1", "label": "Vase", "note": "Fragile", "frame": 0, "x": 0.3, "y": 0.6 } ]
+     "tags": [ { "id": "tag_1", "label": "Vase", "note": "Fragile", "frame": 0, "x": 0.3, "y": 0.6 } ],
+     "off_limit_areas": [ { "label": "Kitchen", "frame": 1, "x": 0.5, "y": 0.5 } ]
    }
    ```
    - `dog` comes from the app's breed data (catalogue or mixed-breed answers) and is
@@ -259,6 +270,7 @@ INPUTS (the CONTEXT JSON and the photos)
    - allergies: true / false (someone at home is allergic to pets).
    - existing_pets: dogs (breeds already in the home) and other (other pets in the home: cat / bird / small_animal = rabbit, guinea pig or similar / fish / reptile / other; an empty list means none).
 4. TAGS ("tags"): objects the owner marked themselves, each with id, label, note ("Valuable" or "Fragile"), frame, x and y. They are things to PROTECT FROM the dog, not dangers to the dog.
+5. OFF-LIMITS AREAS ("off_limit_areas"): areas the owner has already decided the dog will not be allowed into, each with label, frame and x, y (frame null = marked in a 3D view, not on a photo). Do not repeat them in off_limit_suggestions. If you can see no way to close one off (a door or a gate), add a safety_additions entry for it (gate, or pen for an open-plan area).
 
 WHAT TO RETURN
 
@@ -376,7 +388,8 @@ You are PawSpace's dog-breed matchmaker. A person is checking whether their home
 You receive JSON with:
 - "household": the owner's own answers, treat them as facts ("not_answered" = unknown): dwelling, rental, neighbours (attached / close_separate / not_close), outdoor_access and outdoor_use (most_days / sometimes / rarely), children_at_home (none / young = under 5 / older = 5+), hours_alone (a typical day: under_4 / 4_to_8 / over_8), alone_plan (none / walker / daycare), owner_activity (sedentary / moderate / active), exercise_time (under_30 / 30_60 / over_60 minutes a day), experience (none / some / experienced), household_atmosphere (calm / mixed / busy), allergies (true / false), existing_pets (dogs, and other: cat / bird / small_animal / fish / reptile / other).
 - "room": a summary of the captured room, how many physical hazards were found, how many items the user tagged to protect, and how open the floor is and whether there is a spot for a dog bed.
-- "candidates": a shortlist of real breeds. Each has name, size (small <12kg, medium 12-25kg, large >25kg), energy (low/moderate/high), noise (quiet/moderate/vocal), temperament, breed group, and "rule_fit": how PawSpace's rules rate it for this home (energy, safety, room, household, noise and overall: poor/adequate/good).
+- "candidates": a shortlist of real breeds. Each has name, size (small <12kg, medium 12-25kg, large >25kg), energy (low/moderate/high), noise (quiet/moderate/vocal), temperament, breed group, 1–5 scores where known (good_with_children, good_with_other_dogs, trainability, shedding; 5 = most, null = unknown), and "rule_fit": how PawSpace's rules rate it for this home (energy, safety, room, household, noise and overall: poor/adequate/good).
+- When temperament or group is empty, use the 1–5 scores instead: good_with_children 4–5 counts as gentle and patient with children, good_with_other_dogs 4–5 as sociable with dogs, trainability 4–5 as eager to please (easier for a first dog), and shedding 1–2 as low shedding.
 
 How to choose:
 - ONLY choose breeds from "candidates". Copy each name exactly.
@@ -503,15 +516,19 @@ provision = owner_activity + exercise_time + outdoor − max(0, alone − relief
 |---|---|
 | owner_activity | sedentary 0 · moderate 1 · active 2 |
 | exercise_time | under 30 min 0 · 30–60 min 1 · over an hour 2 |
-| outdoor | outdoor base (none 0 · balcony 0 · shared yard 0.5 · private yard 1 · pool 1) × use (most days 1 · sometimes 0.5 · rarely 0) |
+| outdoor | **high-energy dogs only** (spec §4.9): outdoor base (none 0 · balcony 0 · shared yard 0.5 · private yard 1 · pool 1) × use (most days 1 · sometimes 0.5 · rarely 0); 0 for low and moderate energy |
 | alone | under 4 h 0 · 4–8 h 0.5 · over 8 h 1.5 |
 | relief | walker or daycare 1 · none 0 |
 
 | Dog energy | good if provision ≥ | adequate if ≥ | else |
 |---|---|---|---|
 | low | 1 | −0.5 | poor |
-| moderate | 2.5 | 1 | poor |
+| moderate | 2 | 1 | poor |
 | high | 4 | 2.5 | poor |
+
+**§4.9:** a moderate-energy dog such as the Labrador isn't marked down for having no
+outdoor space; only a high-energy dog is. (The original fix, `2e3a106` on the
+`AR-implementation` branch, changed the old Space band; v2 applies the same rule here.)
 
 **Unanswered questions:** provision is worked out twice, with every unanswered question
 at its worst and at its best value. If both give the same band, that band stands. If
@@ -540,16 +557,20 @@ info" and asks the user to answer).
 
 | Concern | When | Strength |
 |---|---|---|
-| Boisterous dog around little ones | young children + (large or high energy) + temperament not gentle/patient/tolerant | mild; **strong** if the room also has no retreat spot |
+| Boisterous dog around little ones | young children + (large or high energy) + not gentle (temperament not gentle/patient/tolerant, and good-with-children score not 4–5); or a good-with-children score of 1–2 | mild; **strong** if the room also has no retreat spot |
 | No retreat from little ones | young children + `retreat_spot: absent` | mild |
 | May chase your other pets | a cat, bird or small animal at home (from the answer; if unanswered, a cat seen in the photos counts) + hound/terrier group or prey/chase temperament. Fish and reptiles don't count (they live in tanks). The line names the pets ("I might want to chase your cat and bird…"). | mild |
-| Other dogs | existing dogs + aggressive/dominant/territorial temperament | mild |
-| First dog | no experience + high energy; or + stubborn/independent temperament | mild each |
+| Other dogs | existing dogs + aggressive/dominant/territorial temperament, or a good-with-other-dogs score of 1–2 | mild |
+| First dog | no experience + high energy; or + stubborn/independent temperament or a trainability score of 1–2 | mild each |
 | Busy home | busy + shy/sensitive/timid temperament | mild |
 
 No concerns → good; one mild → adequate; two or more, or a strong one → poor.
-Temperament text comes from The Dog API; the 3 built-in breeds have it only once the API
-catalogue loads, so for them only the size and energy checks apply.
+**Where the breed facts come from:** API Ninjas (preferred, `EXPO_PUBLIC_NINJA_API_KEY`)
+has no temperament text but real 1–5 scores (good with children, good with other dogs,
+trainability, shedding), so those scores stand in for the temperament words. The Dog API
+(the fallback) has temperament text but no scores. With neither, only the size and
+energy checks apply. Owners can also change the dog's **size** (as well as energy) on
+Select breed to match their own dog; the rules use their value.
 
 ### 4.6 Noise fit (10%, unchanged from v1)
 
@@ -649,7 +670,38 @@ open balcony door (medium, high confidence). Openness moderate, retreat possible
 | Labrador (large, moderate, quiet) | 13.8 | adequate · adequate · adequate · good · good | 0.625 | Good fit with a few changes |
 | French Bulldog (small, low, moderate) | 12.0 | adequate · good · good · good · adequate | 0.775 | Good fit with a few changes |
 | Border Collie (medium, high, vocal) | 12.0 | adequate · **poor** · adequate · good · **poor** | 0.400 | Not a good fit yet |
-| Labrador, balcony door **high** severity | 17.7 | **poor** · adequate · adequate · good · good | 0.450 | Escape gate fires; "It can work, but first: make the escape or fall risk safe." |
+| Labrador, balcony door **high** severity, under 4 h alone | 17.7 | **poor** · good · adequate · good · good | 0.575 | Escape gate fires; "It can work, but first: make the escape or fall risk safe." |
+
+### 4.13 Recommendations: Improve and Shopping (`src/logic/recommend.ts`)
+
+From `ar-immersive-scan` (`51d2e26`), rebuilt on v2. A **Recommendations** tab (with a
+count) sits top-left on the analysis map and opens a panel with two lists. Neither
+changes the verdict.
+- **Improve:** one card per pinned finding (dangers and the owner's valuables), each
+  off-limits suggestion from the AI, plus cards from the rules: more open floor (Room
+  not good), a spot of their own (no retreat spot), daily activity (Energy not good) and
+  softer sound near shared walls (Neighbours poor). Room and routine cards only appear
+  when those were actually checked. Sorted Priority → Worth doing → Nice to have.
+- **Shopping:** one generic product per need, e.g. cable covers for cords, a stair or
+  pet gate, a balcony net, a lockable box for chemicals, a dog bed, plus a product for
+  each Suggested setup addition (gate, railing, netting, window guard, playpen, cord
+  cover, non-slip mat). Each product appears once. Gates and other "close it off" items
+  come first and have a **Fence off** button.
+
+### 4.14 Off-limits areas (owner-marked)
+
+From `ar-immersive-scan` (`51d2e26`). The owner can mark an area the dog won't be
+allowed into:
+- **When tagging:** a third option, **Off-limits**, beside Valuable and Fragile (red ✕
+  pin);
+- **On the map:** from "Mark this area off-limits" / "Fence off" in Recommendations, or
+  the **Add off-limits area** button in the 3D view. A tinted tap-to-place mode drops a
+  red "✕ label" marker; tapping a marker asks before removing it.
+
+Off-limits areas are **not** things to protect, so they never become "protect this"
+entries and never count towards Safety. The room prompt receives them as
+`off_limit_areas`: it won't suggest them again, and it adds a gate where it can't see
+a way to close one off. Areas marked in the 3D view have no photo (`frame -1`).
 
 ---
 
@@ -721,7 +773,8 @@ From user testing, October 2026:
 
 Logic v2 follows this by getting more out of the photos (room quality, escape routes,
 suggested setup, household signals). The next step is object detection (§1.1) to ground
-those findings. The AR placement prototype on this branch is unchanged.
+those findings. **AR has since been removed:** `main` has no AR code or packages. The
+prototypes remain only on the `feat/native-ar-foundation` and `ar-immersive-scan` branches.
 
 ---
 
@@ -738,14 +791,14 @@ those findings. The AR placement prototype on this branch is unchanged.
 | Pre-flight result recorded | **Done**: no object detection, so the LLM-only path, plus a recommendation (§1.1). | §1.1 and the v2 commit message |
 | Photo-derived ≈ 50%; low confidence at half weight | **Built.** | "Weights" and "half weight" checks |
 
-`npm run check:logic` currently runs **48 checks**, all passing.
+`npm run check:logic` currently runs **54 checks**, all passing.
 
 ---
 
 ## 10. Where the build differs from the PRD (and why)
 
 **Not built or done differently:**
-- **Object detection (PRD §7): not built.** No detector exists on this branch (§1.1).
+- **Object detection (PRD §7): not built.** No detector exists (§1.1).
 - **Chip words.** The PRD keeps the v1 words ("Spacious / Snug / Cramped", "Safe / Mostly
   safe / Hazardous", "Good / Adequate / Poor"). The build uses plainer words with ✓ / ! / ✕
   marks, because user testing found the v1 words unclear (§4.10).
@@ -762,6 +815,7 @@ those findings. The AR placement prototype on this branch is unchanged.
 - **Poor sub-score cap:** any "poor" sub-score also stops a "Good fit".
 - **Suggested setup:** dog spots and safety additions, alongside the off-limit areas.
 - **"What's new since your last run"** after a Re-run (§4.11).
+- **Recommendations / Shopping** and **owner-marked off-limits areas** (§4.13, §4.14).
 - **Retry without the schema** if the API rejects it.
 
 ---
