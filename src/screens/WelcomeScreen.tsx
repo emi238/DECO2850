@@ -1,12 +1,71 @@
 // Stage 0 — Welcome. Orange hero with the peeking dog over a white panel.
 
-import React from 'react';
-import { View, Text, Image, StyleSheet, Pressable, useWindowDimensions } from 'react-native';
+import React, { useCallback, useRef } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { View, Text, Image, StyleSheet, Animated, PanResponder, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 
 import { colors, fonts } from '../theme';
 import { IMAGES } from '../assets';
 import type { ScreenProps } from '../navigation';
+
+// "Get Started" is a slide-to-unlock: drag the paw to the right end of the pill.
+const TRACK_W = 181;
+const KNOB = 47;
+const MAX_X = TRACK_W - KNOB;
+
+function SlideToStart({ onUnlock }: { onUnlock: () => void }) {
+  const x = useRef(new Animated.Value(0)).current;
+  const unlockRef = useRef(onUnlock);
+  unlockRef.current = onUnlock;
+
+  const pan = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderMove: (_e, g) => x.setValue(Math.min(Math.max(g.dx, 0), MAX_X)),
+      onPanResponderRelease: (_e, g) => {
+        if (g.dx > MAX_X * 0.8) {
+          // Far enough: snap to the end, then go.
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+          Animated.timing(x, { toValue: MAX_X, duration: 120, useNativeDriver: true }).start(() => unlockRef.current());
+        } else if (Math.abs(g.dx) < 4) {
+          // A tap: nudge the paw right to show it slides.
+          Animated.sequence([
+            Animated.timing(x, { toValue: 28, duration: 180, useNativeDriver: true }),
+            Animated.spring(x, { toValue: 0, bounciness: 10, useNativeDriver: true }),
+          ]).start();
+        } else {
+          Animated.spring(x, { toValue: 0, bounciness: 6, useNativeDriver: true }).start();
+        }
+      },
+      onPanResponderTerminate: () => Animated.spring(x, { toValue: 0, useNativeDriver: true }).start(),
+    })
+  ).current;
+
+  // Back on this screen (e.g. after Back from Sign Up): paw returns to the start.
+  useFocusEffect(useCallback(() => x.setValue(0), [x]));
+
+  const labelOpacity = x.interpolate({ inputRange: [0, MAX_X * 0.6], outputRange: [1, 0], extrapolate: 'clamp' });
+
+  return (
+    <View
+      style={styles.cta}
+      accessible
+      accessibilityRole="adjustable"
+      accessibilityLabel="Slide to get started"
+      accessibilityActions={[{ name: 'activate' }]}
+      onAccessibilityAction={() => unlockRef.current()}
+    >
+      <Animated.Text style={[styles.ctaTxt, { opacity: labelOpacity }]}>Get Started</Animated.Text>
+      <Animated.View style={[styles.ctaCircle, { transform: [{ translateX: x }] }]} {...pan.panHandlers}>
+        <Image source={IMAGES.pawOutline} style={styles.ctaPaw} resizeMode="contain" />
+      </Animated.View>
+    </View>
+  );
+}
 
 export default function WelcomeScreen({ navigation }: ScreenProps<'Welcome'>) {
   const { width, height } = useWindowDimensions();
@@ -35,12 +94,7 @@ export default function WelcomeScreen({ navigation }: ScreenProps<'Welcome'>) {
           <Text style={styles.h2}>Design the purrfect space{'\n'}for your furry friend!</Text>
           <Text style={styles.body}>We tailor recommendations based on your{'\n'}space and unique needs</Text>
           <View style={styles.btnRow}>
-            <Pressable style={({ pressed }) => [styles.cta, pressed && { opacity: 0.85 }]} onPress={() => navigation.navigate('CreateAccount')}>
-              <View style={styles.ctaCircle}>
-                <Image source={IMAGES.pawOutline} style={styles.ctaPaw} resizeMode="contain" />
-              </View>
-              <Text style={styles.ctaTxt}>Get Started</Text>
-            </Pressable>
+            <SlideToStart onUnlock={() => navigation.navigate('CreateAccount')} />
           </View>
         </SafeAreaView>
       </View>
@@ -77,25 +131,25 @@ const styles = StyleSheet.create({
   body: { fontFamily: fonts.regular, color: colors.text, fontSize: 15, lineHeight: 21, marginTop: 10 },
   btnRow: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 24, marginRight: 1 },
   cta: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: colors.orange,
     borderRadius: 999,
-    paddingRight: 36,
-    height: 47,
-    width: 181,
+    height: KNOB,
+    width: TRACK_W,
   },
   ctaCircle: {
-    width: 47,
-    height: 47,
-    borderRadius: 24,
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    width: KNOB,
+    height: KNOB,
+    borderRadius: KNOB / 2,
     backgroundColor: colors.bg,
     borderWidth: 2,
     borderColor: colors.orange,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 20,
   },
   ctaPaw: { width: 30, height: 30 },
-  ctaTxt: { fontFamily: fonts.semibold, color: colors.text, fontSize: 17 },
+  ctaTxt: { fontFamily: fonts.semibold, color: colors.text, fontSize: 17, marginLeft: KNOB + 20 },
 });
