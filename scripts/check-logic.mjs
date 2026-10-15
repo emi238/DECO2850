@@ -85,6 +85,66 @@ check('photo-derived sub-scores (Safety + Room to move) are 50% of the verdict',
   assert.equal(Math.round(Object.values(S.WEIGHTS).reduce((a, b) => a + b, 0) * 100), 100);
 });
 
+console.log('\nPawSpace_weightings.pdf (the agreed numbers)');
+check('five weights 35 / 25 / 15 / 15 / 10, photos 50%, mixed 15%, questionnaire 35%', () => {
+  assert.deepEqual(S.WEIGHTS, { safety: 0.35, energy: 0.25, room: 0.15, household: 0.15, noise: 0.1 });
+  const pct = (x) => Math.round(x * 100);
+  assert.equal(pct(S.WEIGHTS.safety + S.WEIGHTS.room), 50); // photos
+  assert.equal(pct(S.WEIGHTS.household), 15); // mixed
+  assert.equal(pct(S.WEIGHTS.energy + S.WEIGHTS.noise), 35); // questionnaire
+});
+check('good = 1, adequate = 0.5, poor = 0; Good fit at 0.80, with a few changes at 0.45', () => {
+  assert.deepEqual(S.BAND_VALUE, { good: 1, adequate: 0.5, poor: 0 });
+  assert.equal(S.VERDICT_GOOD_AT, 0.8);
+  assert.equal(S.VERDICT_ADEQUATE_AT, 0.45);
+  assert.equal(S.verdictFromBlend(0.8), 'good');
+  assert.equal(S.verdictFromBlend(0.45), 'adequate');
+  assert.equal(S.verdictFromBlend(0.44), 'poor');
+});
+check('Safety table: types 3 / 2.5 / 2 / 1.5 / 1 / 0.5, severity 3 / 2 / 1, size ×1.3, confidence 1 / 0.8 / 0.5, poor at 15', () => {
+  assert.deepEqual(
+    [S.TYPE_WEIGHT.escape_fall, S.TYPE_WEIGHT.toxic_ingestible, S.TYPE_WEIGHT.electrical_thermal, S.TYPE_WEIGHT.floor_stairs, S.TYPE_WEIGHT.fragile_valuable, S.TYPE_WEIGHT.clutter],
+    [3, 2.5, 2, 1.5, 1, 0.5]
+  );
+  assert.deepEqual(S.SEVERITY_WEIGHT, { high: 3, medium: 2, low: 1 });
+  assert.deepEqual(S.CONFIDENCE_FACTOR, { high: 1, medium: 0.8, low: 0.5 });
+  assert.equal(S.SIZE_SCALE, 1.3);
+  assert.equal(S.SAFETY_POOR_LOAD, 15);
+  const cords = result([hz({ object_key: 'a' }), hz({ object_key: 'b' }), hz({ object_key: 'c' })]);
+  assert.equal(S.safetyLoad(cords, 'medium').load, 6); // "three low cords add up to 6"
+  const escapes = result([1, 2].map((i) => hz({ object_key: `e${i}`, category: 'G', hazard_type: 'escape_fall', severity: 'high' })));
+  assert.equal(S.safetyLoad(escapes, 'medium').load, 18); // "two high escape routes hit 18"
+});
+{
+  // "One room, three dogs": attached walls, balcony used sometimes, 4–8 h alone,
+  // moderately active owner, no children; TV cord, low pothos, open balcony door.
+  const q = household({ dwelling: 'apartment', neighbours: 'attached', outdoor_access: 'balcony', outdoor_use: 'sometimes', hours_alone: '4_to_8', alone_plan: 'none', owner_activity: 'moderate', exercise_time: '30_60', children_at_home: 'none' });
+  const r = (doorSeverity) => result(
+    [
+      hz({ object_key: 'tv-cord', severity: 'low' }),
+      hz({ object_key: 'pothos', category: 'A', hazard_type: 'toxic_ingestible', severity: 'medium', confidence: 'medium' }),
+      hz({ object_key: 'balcony-door', category: 'G', hazard_type: 'escape_fall', severity: doorSeverity }),
+    ],
+    { room_assessment: room({ openness: 'moderate', retreat_spot: 'possible', clear_path: 'partial' }) }
+  );
+  const row = (s) => [s.bands.safety, s.bands.energy, s.bands.room, s.bands.household, s.bands.noise, Math.round(s.blend * 100) / 100, s.verdict];
+  check('worked example: Labrador adq adq adq good good, 0.63, Good fit with a few changes', () => {
+    assert.deepEqual(row(S.scoreSuitability(lab, q, r('medium'))), ['adequate', 'adequate', 'adequate', 'good', 'good', 0.63, 'adequate']);
+  });
+  check('worked example: French Bulldog adq good good good adq, 0.78, Good fit with a few changes', () => {
+    assert.deepEqual(row(S.scoreSuitability(frenchie, q, r('medium'))), ['adequate', 'good', 'good', 'good', 'adequate', 0.78, 'adequate']);
+  });
+  check('worked example: Border Collie adq poor adq good poor, 0.40, Not a good fit yet', () => {
+    assert.deepEqual(row(S.scoreSuitability(collie, q, r('medium'))), ['adequate', 'poor', 'adequate', 'good', 'poor', 0.4, 'poor']);
+  });
+  check('worked example: high-severity balcony door → Labrador Safety poor, escape gate fires, capped at a few changes', () => {
+    const s = S.scoreSuitability(lab, q, r('high'));
+    assert.equal(s.bands.safety, 'poor');
+    assert.ok(s.gates.includes('escape'));
+    assert.equal(s.verdict, 'adequate');
+  });
+}
+
 console.log('\nSafety load (type × severity × size × confidence)');
 check('low-confidence findings count at half weight', () => {
   const high = S.safetyLoad(result([hz({ severity: 'medium', confidence: 'high' })]), 'medium').load;
