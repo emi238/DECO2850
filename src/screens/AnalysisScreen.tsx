@@ -19,12 +19,13 @@ import {
   useWindowDimensions,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  GestureResponderEvent,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 
 import { TopBar, AvatarButton, Segmented, PrimaryButton } from '../components/kit';
-import { FrameView, useFrameImageSize, imageToView } from '../components/FrameView';
+import { FrameView, useFrameImageSize, imageToView, viewToImage } from '../components/FrameView';
 import { Room3DView } from '../components/Room3DView';
 import { LoadingView } from '../components/LoadingView';
 import { SwipeUpNav } from '../components/SwipeUpNav';
@@ -45,10 +46,14 @@ import {
   type SetupItem,
 } from '../logic/evaluate';
 import { diffRuns, hasChanges, type RunChanges } from '../logic/changes';
-import type { Frame, Hazard } from '../types';
+import { buildRecommendations, type RecommendationSet } from '../logic/recommend';
+import type { Frame, Hazard, Tag } from '../types';
 import type { ScreenProps } from '../navigation';
 
 const MIN_LOADING_MS = 2200;
+
+// Marking an area off-limits: the next tap on the map (or 3D view) drops the tag.
+type Placing = { area: string } | null;
 
 export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analysis'>) {
   const space = useCurrentSpace();
@@ -64,6 +69,10 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
   const [view, setView] = useState<'2d' | '3d'>('2d');
   const [riskIndex, setRiskIndex] = useState<number | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
+  const [recOpen, setRecOpen] = useState(false); // Recommendations / shopping panel
+  const [placing, setPlacing] = useState<Placing>(null); // marking an off-limits area
+  const addTag = useSession((s) => s.addTag);
+  const removeTag = useSession((s) => s.removeTag);
   // "What's new" starts open in the report shown straight after a Re-run.
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
   // A "Suggested setup" item picked in the report, highlighted on the map.
@@ -140,6 +149,21 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
     return [...hz.filter((h) => h.scope === 'object' && h.location), ...hz.filter((h) => !(h.scope === 'object' && h.location))];
   }, [result]);
 
+  const recSet = useMemo(() => buildRecommendations(evaluation, result), [evaluation, result]);
+  const offLimits = useMemo(() => (space?.tags ?? []).filter((t) => t.offLimits), [space?.tags]);
+
+  // Drop an off-limits tag at a tapped point (frame -1 = the 3D view).
+  const placeOffLimits = (frame: number, x: number, y: number) => {
+    if (!placing) return;
+    addTag({ label: placing.area || 'Off-limits', note: 'Off-limits', offLimits: true, frame, x, y });
+    setPlacing(null);
+  };
+  const removeOffLimits = (t: Tag) =>
+    Alert.alert('Remove this off-limits area?', t.label, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Remove', style: 'destructive', onPress: () => removeTag(t.id) },
+    ]);
+
   if (loading || !space) return <LoadingView done={loadDone} />;
 
   const hasDog = !!evaluation;
@@ -205,6 +229,7 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
             risks={risks}
             setup={evaluation?.setup ?? []}
             setupFocus={setupFocus}
+            offLimits={offLimits}
             width={width}
             height={cardH}
             selectedId={riskIndex != null ? risks[riskIndex]?.id : undefined}
@@ -212,9 +237,44 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
               setSetupFocus(null);
               setRiskIndex(risks.findIndex((r) => r.id === id));
             }}
+            placing={!!placing}
+            onPlace={placeOffLimits}
+            onRemoveTag={removeOffLimits}
           />
         ) : result ? (
-          <Room3DView result={result} frameCount={frames.length} />
+          <View style={StyleSheet.absoluteFill}>
+            <Room3DView result={result} frameCount={frames.length} />
+
+            {/* Off-limits areas marked in 3D (frame -1, positioned in view space). */}
+            {offLimits
+              .filter((t) => t.frame === -1)
+              .map((t) => (
+                <Pressable
+                  key={t.id}
+                  onPress={() => removeOffLimits(t)}
+                  hitSlop={6}
+                  style={[styles.offTag, { left: (t.x ?? 0.5) * width - 52, top: (t.y ?? 0.5) * cardH - 15 }]}
+                >
+                  <Text style={styles.offTagTxt} numberOfLines={1}>✕ {t.label}</Text>
+                </Pressable>
+              ))}
+
+            {/* Tap-to-place while marking an off-limits area. */}
+            {placing && (
+              <Pressable
+                style={StyleSheet.absoluteFill}
+                onPress={(e) => placeOffLimits(-1, e.nativeEvent.locationX / width, e.nativeEvent.locationY / cardH)}
+              >
+                <View style={styles.placingVeil} pointerEvents="none" />
+              </Pressable>
+            )}
+
+            {!placing && hasDog && riskIndex == null && !reportOpen && !recOpen && (
+              <Pressable style={styles.addZoneBtn} onPress={() => setPlacing({ area: 'Off-limits area' })}>
+                <Text style={styles.addZoneTxt}>✕  Add off-limits area</Text>
+              </Pressable>
+            )}
+          </View>
         ) : null}
 
         {!hasDog && (
@@ -239,7 +299,28 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
           textStyle={styles.mapToggleTxt}
         />
 
-        {!!space.resultNote && view === '2d' && riskIndex == null && !reportOpen && (
+        {/* Recommendations tab, top-left, level with the 2D/3D toggle. */}
+        {hasDog && riskIndex == null && !reportOpen && !placing && (
+          <Pressable style={styles.recTab} onPress={() => setRecOpen(true)}>
+            <Text style={styles.recTabTxt}>Recommendations</Text>
+            {recSet.recommendations.length > 0 && (
+              <View style={styles.recCount}>
+                <Text style={styles.recCountTxt}>{recSet.recommendations.length}</Text>
+              </View>
+            )}
+          </Pressable>
+        )}
+
+        {placing && (
+          <View style={styles.placingHint} pointerEvents="box-none">
+            <Text style={styles.placingTxt}>Tap the {view === '2d' ? 'photo' : 'room'} to mark “{placing.area}” off-limits</Text>
+            <Pressable onPress={() => setPlacing(null)} hitSlop={8}>
+              <Text style={styles.placingCancel}>Cancel</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {!!space.resultNote && view === '2d' && riskIndex == null && !reportOpen && !placing && (
           <View style={[styles.note, hasDog && { top: 76 }]} pointerEvents="none">
             <Text style={styles.noteTxt} numberOfLines={3}>{space.resultNote}</Text>
           </View>
@@ -284,7 +365,20 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
           />
         )}
 
-        {hasPet && riskIndex == null && !reportOpen && (
+        {recOpen && (
+          <RecommendPanel
+            recSet={recSet}
+            offLimitCount={offLimits.length}
+            onFenceOff={(area) => {
+              setRecOpen(false);
+              setView('2d');
+              setPlacing({ area });
+            }}
+            onClose={() => setRecOpen(false)}
+          />
+        )}
+
+        {hasPet && riskIndex == null && !reportOpen && !recOpen && !placing && (
           <Pressable style={styles.fab} onPress={reanalyse} hitSlop={6}>
             <RefreshRingIcon size={22} />
             <Text style={styles.fabTxt}>Re-run</Text>
@@ -302,7 +396,7 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
         </Pressable>
       )}
 
-      {riskIndex == null && !reportOpen && (
+      {riskIndex == null && !reportOpen && !recOpen && !placing && (
         <SwipeUpNav
           defaultOpen={!hasDog}
           onSpaces={goHome}
@@ -322,19 +416,27 @@ function PhotoMap({
   risks,
   setup,
   setupFocus,
+  offLimits,
   width,
   height,
   selectedId,
   onPin,
+  placing,
+  onPlace,
+  onRemoveTag,
 }: {
   frames: Frame[];
   risks: Hazard[];
   setup: SetupItem[];
   setupFocus: string | null;
+  offLimits: Tag[];
   width: number;
   height: number;
   selectedId?: string;
   onPin: (id: string) => void;
+  placing: boolean;
+  onPlace: (frame: number, x: number, y: number) => void;
+  onRemoveTag: (t: Tag) => void;
 }) {
   const [page, setPage] = useState(0);
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => setPage(Math.round(e.nativeEvent.contentOffset.x / width));
@@ -357,7 +459,14 @@ function PhotoMap({
   const pinned = setup.filter((s) => s.x != null && s.y != null);
   return (
     <View style={StyleSheet.absoluteFill}>
-      <ScrollView ref={scrollRef} horizontal pagingEnabled showsHorizontalScrollIndicator={false} onMomentumScrollEnd={onScroll}>
+      <ScrollView
+        ref={scrollRef}
+        horizontal
+        pagingEnabled
+        scrollEnabled={!placing}
+        showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={onScroll}
+      >
         {frames.map((f, i) => (
           <MapPage
             key={i}
@@ -367,8 +476,12 @@ function PhotoMap({
             risks={risks.filter((r) => r.location?.frame_index === i)}
             setup={pinned.filter((s) => s.frame_index === i)}
             setupFocus={setupFocus}
+            offLimits={offLimits.filter((t) => t.frame === i)}
             selectedId={selectedId}
             onPin={onPin}
+            placing={placing}
+            onPlace={(x, y) => onPlace(i, x, y)}
+            onRemoveTag={onRemoveTag}
           />
         ))}
       </ScrollView>
@@ -394,8 +507,12 @@ function MapPage({
   risks,
   setup,
   setupFocus,
+  offLimits,
   selectedId,
   onPin,
+  placing,
+  onPlace,
+  onRemoveTag,
 }: {
   frame: Frame;
   width: number;
@@ -403,10 +520,20 @@ function MapPage({
   risks: Hazard[];
   setup: SetupItem[];
   setupFocus: string | null;
+  offLimits: Tag[];
   selectedId?: string;
   onPin: (id: string) => void;
+  placing: boolean;
+  onPlace: (x: number, y: number) => void;
+  onRemoveTag: (t: Tag) => void;
 }) {
   const img = useFrameImageSize(frame);
+  // While marking an off-limits area, a tap anywhere on the photo places it.
+  const onPress = (e: GestureResponderEvent) => {
+    if (!placing) return;
+    const p = viewToImage(img, width, height, e.nativeEvent.locationX, e.nativeEvent.locationY);
+    onPlace(p.x, p.y);
+  };
   // The photo is cover-cropped, so a pin near its edge can fall outside the card;
   // keep every pin inside the visible area so nothing flagged is cut off.
   const PIN_INSET = 24;
@@ -424,8 +551,8 @@ function MapPage({
   const selY = selected ? pinAt(selected).y : 0;
   const shift = selected && selY > visibleH - 50 ? Math.max(-(height * SHEET_SHARE), visibleH / 2 - selY) : 0;
   return (
-    <View style={{ width, height, overflow: 'hidden' }}>
-      <View style={{ width, height, transform: [{ translateY: shift }] }}>
+    <Pressable style={{ width, height, overflow: 'hidden' }} onPress={onPress} disabled={!placing}>
+      <View style={{ width, height, transform: [{ translateY: shift }] }} pointerEvents={placing ? 'none' : 'auto'}>
         <FrameView frame={frame} width={width} height={height} />
         {risks.map((h) => {
           const p = pinAt(h);
@@ -461,8 +588,20 @@ function MapPage({
             </View>
           );
         })}
+        {/* Off-limits areas the owner marked; tap to remove. */}
+        {offLimits.map((t) => {
+          const p = imageToView(img, width, height, t.x ?? 0.5, t.y ?? 0.5);
+          const cx = Math.max(58, Math.min(width - 58, p.x));
+          const cy = Math.max(PIN_INSET + 40, Math.min(height - PIN_INSET, p.y));
+          return (
+            <Pressable key={t.id} onPress={() => onRemoveTag(t)} hitSlop={6} style={[styles.offTag, { left: cx - 52, top: cy - 15 }]}>
+              <Text style={styles.offTagTxt} numberOfLines={1}>✕ {t.label}</Text>
+            </Pressable>
+          );
+        })}
       </View>
-    </View>
+      {placing && <View style={styles.placingVeil} pointerEvents="none" />}
+    </Pressable>
   );
 }
 
@@ -785,6 +924,100 @@ function WhatsNew({ changes: c, initiallyOpen }: { changes: RunChanges; initiall
   );
 }
 
+// ---------------------------------------------------------------------------
+// Recommendations + shopping list (spec §6.3 / §8), from the top-left tab.
+
+const SEV_COLOR: Record<Hazard['severity'], string> = { high: '#E4572E', medium: colors.orange, low: '#5FAE7F' };
+const SEV_LABEL: Record<Hazard['severity'], string> = { high: 'Priority', medium: 'Worth doing', low: 'Nice to have' };
+
+function RecommendPanel({
+  recSet,
+  offLimitCount,
+  onFenceOff,
+  onClose,
+}: {
+  recSet: RecommendationSet;
+  offLimitCount: number;
+  onFenceOff: (area: string) => void;
+  onClose: () => void;
+}) {
+  const [tab, setTab] = useState<'improve' | 'shop'>('improve');
+  const { recommendations, shopping } = recSet;
+  return (
+    <View style={styles.sheetWrap}>
+      <BlurView intensity={40} tint="light" style={styles.sheet}>
+        <View style={styles.sheetHead}>
+          <Text style={styles.sheetTitle}>Recommendations</Text>
+          <Pressable onPress={onClose} hitSlop={10}>
+            <CloseIcon size={14} />
+          </Pressable>
+        </View>
+
+        <Segmented
+          value={tab}
+          onChange={setTab}
+          options={[
+            { value: 'improve', label: `Improve (${recommendations.length})` },
+            { value: 'shop', label: `Shopping (${shopping.length})` },
+          ]}
+          height={40}
+          activeColor={colors.orange}
+          style={{ marginBottom: 12 }}
+          textStyle={{ fontFamily: fonts.semibold, fontSize: 12 }}
+        />
+
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 30 }} showsVerticalScrollIndicator={false}>
+          {tab === 'improve' ? (
+            recommendations.length === 0 ? (
+              <Text style={styles.recEmpty}>No changes needed, this space already suits your dog. Nice work!</Text>
+            ) : (
+              recommendations.map((r) => (
+                <View key={r.id} style={styles.recCard}>
+                  <View style={styles.recCardHead}>
+                    <Text style={styles.recCardTitle}>{r.title}</Text>
+                    <View style={[styles.recSev, { backgroundColor: SEV_COLOR[r.severity] }]}>
+                      <Text style={styles.recSevTxt}>{SEV_LABEL[r.severity]}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.recArea}>{r.area}</Text>
+                  <Text style={styles.recDetail}>{r.detail}</Text>
+                  {r.offLimits && (
+                    <Pressable style={styles.recFenceBtn} onPress={() => onFenceOff(r.area)}>
+                      <Text style={styles.recFenceTxt}>✕  Mark this area off-limits</Text>
+                    </Pressable>
+                  )}
+                </View>
+              ))
+            )
+          ) : shopping.length === 0 ? (
+            <Text style={styles.recEmpty}>Nothing to buy, no hazards or gaps found for your dog.</Text>
+          ) : (
+            <>
+              {shopping.map((s) => (
+                <View key={s.id} style={styles.shopCard}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.shopItem}>{s.item}</Text>
+                    <Text style={styles.shopWhy}>{s.why}</Text>
+                  </View>
+                  {s.offLimits && (
+                    <Pressable style={styles.shopTagBtn} onPress={() => onFenceOff(s.area || s.item)}>
+                      <Text style={styles.shopTagTxt}>Fence off</Text>
+                    </Pressable>
+                  )}
+                </View>
+              ))}
+              <Text style={styles.disclosure}>
+                {offLimitCount > 0 ? `${offLimitCount} off-limits ${offLimitCount === 1 ? 'area' : 'areas'} marked. ` : ''}
+                Products are general suggestions tied to what was found, not specific brands.
+              </Text>
+            </>
+          )}
+        </ScrollView>
+      </BlurView>
+    </View>
+  );
+}
+
 const SETUP_GROUPS: { kind: SetupItem['kind']; label: string }[] = [
   { kind: 'keep_out', label: 'Keep the dog out' },
   { kind: 'dog_spot', label: 'Good spots for the dog' },
@@ -895,6 +1128,39 @@ const styles = StyleSheet.create({
   setupGroupTxt: { fontFamily: fonts.semibold, fontSize: 12, color: colors.textMuted },
   setupItem: { marginTop: 5, marginLeft: 14 },
   whatsNew: { borderLeftWidth: 4, borderLeftColor: colors.orangeDeep },
+
+  // Recommendations tab (top-left, level with the 2D/3D toggle when a dog is chosen).
+  recTab: { position: 'absolute', top: 34, left: 16, height: 36, flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 14, borderWidth: 1, borderColor: colors.orange },
+  recTabTxt: { fontFamily: fonts.semibold, fontSize: 14, color: colors.text },
+  recCount: { minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 5, backgroundColor: colors.orange, alignItems: 'center', justifyContent: 'center' },
+  recCountTxt: { fontFamily: fonts.bold, fontSize: 11.5, color: '#fff' },
+
+  // Off-limits placing hint, veil and markers.
+  placingHint: { position: 'absolute', top: 76, left: 16, right: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, backgroundColor: '#E4572E', borderRadius: 10, paddingVertical: 9, paddingHorizontal: 12 },
+  placingTxt: { flex: 1, fontFamily: fonts.semibold, fontSize: 12.5, color: '#fff' },
+  placingCancel: { fontFamily: fonts.bold, fontSize: 12.5, color: '#fff', textDecorationLine: 'underline' },
+  placingVeil: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(228,87,46,0.14)' },
+  offTag: { position: 'absolute', width: 104, height: 30, borderRadius: 8, backgroundColor: 'rgba(228,87,46,0.92)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6, borderWidth: 1.5, borderColor: '#fff' },
+  offTagTxt: { fontFamily: fonts.semibold, fontSize: 11, color: '#fff' },
+  addZoneBtn: { position: 'absolute', left: 16, bottom: 118, flexDirection: 'row', alignItems: 'center', backgroundColor: '#E4572E', borderRadius: 22, paddingVertical: 12, paddingHorizontal: 16, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
+  addZoneTxt: { fontFamily: fonts.semibold, fontSize: 13.5, color: '#fff' },
+
+  // Recommendations panel cards.
+  recEmpty: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.textMuted, textAlign: 'center', marginTop: 30 },
+  recCard: { backgroundColor: '#fff', borderRadius: 14, padding: 14, marginBottom: 10 },
+  recCardHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  recCardTitle: { flex: 1, fontFamily: fonts.semibold, fontSize: 15, color: colors.text },
+  recSev: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
+  recSevTxt: { fontFamily: fonts.semibold, fontSize: 10, color: '#fff' },
+  recArea: { fontFamily: fonts.semibold, fontSize: 11.5, color: colors.orangeDeep, marginTop: 4 },
+  recDetail: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.text, marginTop: 4 },
+  recFenceBtn: { alignSelf: 'flex-start', marginTop: 10, backgroundColor: '#FDE7DE', borderRadius: 9, paddingVertical: 8, paddingHorizontal: 12 },
+  recFenceTxt: { fontFamily: fonts.semibold, fontSize: 12.5, color: '#E4572E' },
+  shopCard: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', borderRadius: 14, padding: 14, marginBottom: 10 },
+  shopItem: { fontFamily: fonts.semibold, fontSize: 14.5, color: colors.text },
+  shopWhy: { fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 17, color: colors.textMuted, marginTop: 2 },
+  shopTagBtn: { backgroundColor: '#E4572E', borderRadius: 9, paddingVertical: 8, paddingHorizontal: 12 },
+  shopTagTxt: { fontFamily: fonts.semibold, fontSize: 12, color: '#fff' },
   whatsNewHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   whatsNewTime: { fontFamily: fonts.regular, fontSize: 11.5, color: colors.textMuted, marginTop: 2 },
   reportBtn: { backgroundColor: colors.orange, borderRadius: 12, height: 48, alignItems: 'center', justifyContent: 'center', marginTop: 14 },
