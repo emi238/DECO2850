@@ -40,7 +40,8 @@ export const BREED_SUGGEST_PROMPT = `You are PawSpace's dog-breed matchmaker. A 
 You receive JSON with:
 - "household": the owner's own answers, treat them as facts ("not_answered" = unknown): dwelling, rental, neighbours (attached / close_separate / not_close), outdoor_access and outdoor_use (most_days / sometimes / rarely), children_at_home (none / young = under 5 / older = 5+), hours_alone (a typical day: under_4 / 4_to_8 / over_8), alone_plan (none / walker / daycare), owner_activity (sedentary / moderate / active), exercise_time (under_30 / 30_60 / over_60 minutes a day), experience (none / some / experienced), household_atmosphere (calm / mixed / busy), allergies (true / false), existing_pets (dogs, and other: cat / bird / small_animal / fish / reptile / other).
 - "room": a summary of the captured room, how many physical hazards were found, how many items the user tagged to protect, and how open the floor is and whether there is a spot for a dog bed.
-- "candidates": a shortlist of real breeds. Each has name, size (small <12kg, medium 12-25kg, large >25kg), energy (low/moderate/high), noise (quiet/moderate/vocal), temperament, breed group, and "rule_fit": how PawSpace's rules rate it for this home (energy, safety, room, household, noise and overall: poor/adequate/good).
+- "candidates": a shortlist of real breeds. Each has name, size (small <12kg, medium 12-25kg, large >25kg), energy (low/moderate/high), noise (quiet/moderate/vocal), temperament, breed group, 1–5 scores where known (good_with_children, good_with_other_dogs, trainability, shedding; 5 = most, null = unknown), and "rule_fit": how PawSpace's rules rate it for this home (energy, safety, room, household, noise and overall: poor/adequate/good).
+- When temperament or group is empty, use the 1–5 scores instead: good_with_children 4–5 counts as gentle and patient with children, good_with_other_dogs 4–5 as sociable with dogs, trainability 4–5 as eager to please (easier for a first dog), and shedding 1–2 as low shedding.
 
 How to choose:
 - ONLY choose breeds from "candidates". Copy each name exactly.
@@ -116,6 +117,11 @@ function contextFor(space: Space, household: Questionnaire, list: ReturnType<typ
       noise: b.noise,
       temperament: b.temperament ?? '',
       group: b.group ?? '',
+      // 1–5 scores from API Ninjas (null when the breed came from another source).
+      good_with_children: b.goodWithChildren ?? null,
+      good_with_other_dogs: b.goodWithOtherDogs ?? null,
+      trainability: b.trainability ?? null,
+      shedding: b.shedding ?? null,
       rule_fit: { ...e.bands, overall: e.verdict },
     })),
   };

@@ -59,6 +59,11 @@ export interface DogInput {
   noise: Noise;
   temperament?: string; // from the breed catalogue, when known
   group?: string;
+  // 1–5 trait scores from API Ninjas (null/undefined when the breed came from The Dog
+  // API or the built-ins). API Ninjas has no temperament text, so these stand in for it.
+  goodWithChildren?: number | null;
+  goodWithOtherDogs?: number | null;
+  trainability?: number | null;
 }
 
 // ---- Safety ----
@@ -266,9 +271,12 @@ export const CHASEABLE: OtherPet[] = ['cat', 'bird', 'small_animal'];
 export function householdFit(dog: DogInput, q: Questionnaire, result: Assessment | null): { band: Band; concerns: Concern[] } {
   const concerns: Concern[] = [];
   const t = dog.temperament ?? '';
+  // Temperament words (The Dog API) or 1–5 scores (API Ninjas), whichever we have.
+  const low = (n?: number | null) => n != null && n <= 2;
+  const gentleWithKids = GENTLE.test(t) || (dog.goodWithChildren != null && dog.goodWithChildren >= 4);
 
   if (q.children_at_home === 'young') {
-    const bigOrBouncy = (dog.size === 'large' || dog.energy === 'high') && !GENTLE.test(t);
+    const bigOrBouncy = ((dog.size === 'large' || dog.energy === 'high') && !gentleWithKids) || low(dog.goodWithChildren);
     const noRetreat = result?.room_assessment?.retreat_spot === 'absent';
     if (bigOrBouncy && noRetreat) concerns.push({ id: 'kids_bouncy_no_retreat', strength: 'strong' });
     else {
@@ -281,10 +289,10 @@ export function householdFit(dog: DogInput, q: Questionnaire, result: Assessment
     concerns.push({ id: 'pet_chase', strength: 'mild', pets: chaseable });
   }
   const dogs = q.existing_pets.filter((p) => /dog/i.test(p.species));
-  if (dogs.length > 0 && DOMINANT.test(t)) concerns.push({ id: 'other_dogs', strength: 'mild' });
+  if (dogs.length > 0 && (DOMINANT.test(t) || low(dog.goodWithOtherDogs))) concerns.push({ id: 'other_dogs', strength: 'mild' });
   if (q.experience === 'none') {
     if (dog.energy === 'high') concerns.push({ id: 'first_dog_energy', strength: 'mild' });
-    if (STUBBORN.test(t)) concerns.push({ id: 'first_dog_stubborn', strength: 'mild' });
+    if (STUBBORN.test(t) || low(dog.trainability)) concerns.push({ id: 'first_dog_stubborn', strength: 'mild' });
   }
   if (q.household_atmosphere === 'busy' && SENSITIVE.test(t)) concerns.push({ id: 'busy_sensitive', strength: 'mild' });
 

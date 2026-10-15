@@ -86,7 +86,17 @@ export function evaluate(space: Space, household: Questionnaire, dogOverride?: R
   // The built-in sample assessment can't see the photos.
   const photosChecked = space.resultSource !== 'mock';
   const s = scoreSuitability(
-    { name: dog.name, size: dog.size, energy: dog.energy, noise: dog.noise, temperament: dog.breed?.temperament, group: dog.breed?.group },
+    {
+      name: dog.name,
+      size: dog.size,
+      energy: dog.energy,
+      noise: dog.noise,
+      temperament: dog.breed?.temperament,
+      group: dog.breed?.group,
+      goodWithChildren: dog.breed?.goodWithChildren,
+      goodWithOtherDogs: dog.breed?.goodWithOtherDogs,
+      trainability: dog.breed?.trainability,
+    },
     household,
     result,
     { photosChecked }

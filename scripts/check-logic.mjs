@@ -273,6 +273,22 @@ check("the user's answer wins over the photos (nudge only, no override)", () => 
   assert.ok(ids.includes('cat') && ids.includes('children') && ids.includes('dwelling'));
 });
 
+console.log('\nAPI Ninjas trait scores (no temperament text)');
+{
+  const ninja = (over) => ({ name: 'Ninja breed', size: 'large', energy: 'moderate', noise: 'quiet', temperament: undefined, group: undefined, ...over });
+  check('good_with_children 1–2 is a concern with young children; 4–5 counts as gentle even for a large dog', () => {
+    assert.ok(S.householdFit(ninja({ goodWithChildren: 2 }), household({ children_at_home: 'young' }), result()).concerns.some((c) => c.id === 'kids_bouncy'));
+    assert.equal(S.householdFit(ninja({ goodWithChildren: 5 }), household({ children_at_home: 'young' }), result()).band, 'good');
+    assert.ok(S.householdFit(ninja({ size: 'small', goodWithChildren: 1 }), household({ children_at_home: 'young' }), result()).concerns.length === 1);
+  });
+  check('good_with_other_dogs 1–2 with an existing dog, and trainability 1–2 for a first dog, are concerns', () => {
+    const q = household({ existing_pets: [{ species: 'Dog', breed: 'Beagle' }], experience: 'none' });
+    const ids = S.householdFit(ninja({ goodWithOtherDogs: 1, trainability: 2 }), q, result()).concerns.map((c) => c.id);
+    assert.deepEqual(ids.sort(), ['first_dog_stubborn', 'other_dogs']);
+    assert.equal(S.householdFit(ninja({ goodWithOtherDogs: 5, trainability: 5 }), q, result()).band, 'good');
+  });
+}
+
 console.log('\nOther pets');
 {
   const beagle = { name: 'Beagle', size: 'medium', energy: 'moderate', noise: 'vocal', group: 'Hound', temperament: 'Amiable, Even Tempered, Determined' };
