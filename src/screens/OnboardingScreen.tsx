@@ -103,7 +103,7 @@ export default function OnboardingScreen({ navigation }: ScreenProps<'Onboarding
     }
     setHousehold(q);
     setOnboarded(true);
-    navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+    navigation.reset({ index: 0, routes: [{ name: 'Home', params: { tour: true } }] });
   };
 
   return (

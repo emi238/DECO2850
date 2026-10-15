@@ -2,7 +2,7 @@
 // reveal three overlapping round actions (spaces, new space, help), then
 // swipes/taps down to hide again. Home shows it open by default.
 
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, Animated, PanResponder } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -15,11 +15,15 @@ export function SwipeUpNav({
   onCapture,
   onHelp,
   defaultOpen = false,
+  keepOpen = false,
+  helpRef,
 }: {
   onSpaces?: () => void;
   onCapture?: () => void;
   onHelp?: () => void;
   defaultOpen?: boolean;
+  keepOpen?: boolean; // e.g. while the Home tour points at the Help button
+  helpRef?: React.Ref<View>;
 }) {
   const insets = useSafeAreaInsets();
   const [open, setOpen] = useState(defaultOpen);
@@ -31,6 +35,9 @@ export function SwipeUpNav({
   };
   const setRef = useRef(set);
   setRef.current = set;
+  useEffect(() => {
+    if (keepOpen) setRef.current(true);
+  }, [keepOpen]);
 
   const pan = useRef(
     PanResponder.create({
@@ -69,7 +76,7 @@ export function SwipeUpNav({
           </View>
           <Text style={styles.label}>Upload</Text>
         </Pressable>
-        <Pressable style={styles.item} onPress={act(onHelp)} accessibilityLabel="Help">
+        <Pressable ref={helpRef} style={styles.item} onPress={act(onHelp)} accessibilityLabel="Help">
           <View style={[styles.btn, styles.btnSide]}>
             <HelpIcon size={26} />
           </View>

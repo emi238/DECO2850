@@ -11,7 +11,7 @@ export type RootStackParamList = {
   Onboarding: undefined; // first-time questionnaire, step by step
   Household: undefined;
   Profile: { editHousehold?: boolean } | undefined; // true = open with the household section unlocked
-  Home: undefined;
+  Home: { tour?: boolean } | undefined; // true = start the walkthrough (after onboarding)
   Capture: { fresh?: boolean } | undefined;
   Tagging: undefined;
   SpaceSaved: undefined;
