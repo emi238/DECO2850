@@ -17,7 +17,7 @@ The **first run is an onboarding flow** for your first space; after that the app
 opens on a **Home hub**.
 
 - **Home** is the main screen: it shows the current space's room map with a
-  **2D map / 3D room toggle**, a row of **space tabs** to switch between spaces,
+  **2D photo map**, a row of **space tabs** to switch between spaces,
   an **+ Add space** button (which re-runs the onboarding for a new room), and
   buttons to **Edit questionnaire** (edits the space's answers and re-analyses)
   and **Re-analyse**. Tap the space name to rename it, or **Delete** to remove it.
@@ -45,14 +45,10 @@ opens on a **Home hub**.
 Everything you enter is saved locally on the device, so it survives navigating back
 and forth.
 
-### 3D room view (experimental — this branch)
+### 3D room view (removed from main)
 
-From the Results screen, **View in 3D** opens a generated, movable 3D room: drag to
-orbit, pinch to zoom, and the hazardous objects are highlighted with numbered risk
-markers — tap one to pop up its risk card. It's rendered with three.js in a WebView
-(needs an internet connection to load three.js), so it still runs in Expo Go with no
-native code. This is a stand-in for the LiDAR/RoomPlan 3D scan the PRD describes as a
-later stage (§3) — a *generated* room, not a photoreal reconstruction of your photos.
+The experimental generated 3D room (three.js in a WebView) was removed from `main` in
+October 2026. It is kept on the `feature/3d-map` branch.
 
 ---
 

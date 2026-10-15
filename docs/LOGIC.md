@@ -11,6 +11,10 @@ space suitable for this dog?", what the AI is asked, what the app does with the 
 where the build differs from the PRD, and what is still weak.
 
 **Changelog**
+- **15 Oct 2026, 3D map removed:** `main` now shows the 2D photo map only. The 3D room
+  view, its 2D/3D toggle and its "Add off-limits area" button are gone, and so is the
+  `react-native-webview` package. The 3D map is kept on the **`feature/3d-map`** branch.
+  Off-limits areas are added on photos only (§4.14).
 - **15 Oct 2026, consolidated on `main` (AR removed):** all the logic work was copied
   from `feat/native-ar-foundation` to `main` without the AR prototype. Also brought in
   from the other branches: **API Ninjas** as the preferred breed source (its 1–5 scores
@@ -214,7 +218,7 @@ value is defined once in `schema.ts` and used by both the request and the normal
 | `safety_additions[]` (up to 5) | type (gate/railing/netting/window_guard/pen/cord_cover/non_slip_mat/other), detail, reason, frame, x, y | Suggested setup: "Safety to add" |
 | `detected_signals` | existing_pets, children, dwelling_cue, outdoor_access_cue | Profile nudges; fills an unanswered "has a cat" |
 | `improvements[]` | up to 5 strings | "What to change" |
-| `space_summary`, `confidence`, `notes` | text | 3D view summary, breed prompt |
+| `space_summary`, `confidence`, `notes` | text | Breed prompt |
 
 Removed: `mode`, `suitability` (verdict and `score_0_100`) and `recommended_pets`. The
 rules own the verdict and no score exists anywhere (W2).
@@ -270,7 +274,7 @@ INPUTS (the CONTEXT JSON and the photos)
    - allergies: true / false (someone at home is allergic to pets).
    - existing_pets: dogs (breeds already in the home) and other (other pets in the home: cat / bird / small_animal = rabbit, guinea pig or similar / fish / reptile / other; an empty list means none).
 4. TAGS ("tags"): objects the owner marked themselves, each with id, label, note ("Valuable" or "Fragile"), frame, x and y. They are things to PROTECT FROM the dog, not dangers to the dog.
-5. OFF-LIMITS AREAS ("off_limit_areas"): areas the owner has already decided the dog will not be allowed into, each with label, frame and x, y (frame null = marked in a 3D view, not on a photo). Do not repeat them in off_limit_suggestions. If you can see no way to close one off (a door or a gate), add a safety_additions entry for it (gate, or pen for an open-plan area).
+5. OFF-LIMITS AREAS ("off_limit_areas"): areas the owner has already decided the dog will not be allowed into, each with label, frame and x, y (frame null = not tied to a photo). Do not repeat them in off_limit_suggestions. If you can see no way to close one off (a door or a gate), add a safety_additions entry for it (gate, or pen for an open-plan area).
 
 WHAT TO RETURN
 
@@ -694,14 +698,15 @@ From `ar-immersive-scan` (`51d2e26`). The owner can mark an area the dog won't b
 allowed into:
 - **When tagging:** a third option, **Off-limits**, beside Valuable and Fragile (red ✕
   pin);
-- **On the map:** from "Mark this area off-limits" / "Fence off" in Recommendations, or
-  the **Add off-limits area** button in the 3D view. A tinted tap-to-place mode drops a
-  red "✕ label" marker; tapping a marker asks before removing it.
+- **On the map:** from "Mark this area off-limits" / "Fence off" in Recommendations. A
+  tinted tap-to-place mode on the photo drops a red "✕ label" marker; tapping a marker
+  asks before removing it.
 
 Off-limits areas are **not** things to protect, so they never become "protect this"
 entries and never count towards Safety. The room prompt receives them as
 `off_limit_areas`: it won't suggest them again, and it adds a gate where it can't see
-a way to close one off. Areas marked in the 3D view have no photo (`frame -1`).
+a way to close one off. Older areas marked in the (removed) 3D view have no photo
+(`frame -1`); they're still sent to the AI but can't be shown on the photo map.
 
 ---
 
