@@ -146,9 +146,13 @@ const ALONE_COST: Record<NonNullable<Questionnaire['hours_alone']>, number> = { 
 const ALONE_PLAN_RELIEF = 1; // a walker or daycare breaks up the day
 
 // Provision needed for each energy level: good at or above `good`, adequate at or above `adequate`.
+// Spec §4.9 (fix carried over from the AR-implementation branch, 2e3a106): only a
+// High-energy dog is penalised for having no (usable) outdoor space, so outdoor space
+// counts towards provision for High-energy dogs only. A Moderate-energy dog such as
+// the §4.9 Labrador is judged on activity, exercise and time alone.
 const ENERGY_NEEDS: Record<Energy, { good: number; adequate: number }> = {
   low: { good: 1, adequate: -0.5 },
-  moderate: { good: 2.5, adequate: 1 },
+  moderate: { good: 2, adequate: 1 }, // a fairly active owner with 30–60 min a day is a good match
   high: { good: 4, adequate: 2.5 },
 };
 
@@ -160,12 +164,12 @@ export interface EnergyResult {
   drivers: ('exercise' | 'alone' | 'outdoor' | 'activity')[]; // what's holding the match back
 }
 
-function provision(q: Questionnaire, fill: 'min' | 'max'): number {
+function provision(q: Questionnaire, fill: 'min' | 'max', energy: Energy): number {
   const lo = fill === 'min';
   const activity = q.owner_activity ? ACTIVITY[q.owner_activity] : lo ? 0 : 2;
   const exercise = q.exercise_time ? EXERCISE[q.exercise_time] : lo ? 0 : 2;
   const use = q.outdoor_access === 'none' ? 0 : q.outdoor_use ? OUTDOOR_USE[q.outdoor_use] : lo ? 0 : 1;
-  const outdoor = OUTDOOR_BASE[q.outdoor_access] * use;
+  const outdoor = energy === 'high' ? OUTDOOR_BASE[q.outdoor_access] * use : 0; // §4.9
   const alone = q.hours_alone ? ALONE_COST[q.hours_alone] : lo ? ALONE_COST.over_8 : 0;
   const relief = q.alone_plan === 'walker' || q.alone_plan === 'daycare' ? ALONE_PLAN_RELIEF : q.alone_plan || lo ? 0 : ALONE_PLAN_RELIEF;
   return activity + exercise + outdoor - Math.max(0, alone - relief);
@@ -177,8 +181,8 @@ function energyBandFor(energy: Energy, p: number): Band {
 }
 
 export function energyFit(energy: Energy, q: Questionnaire): EnergyResult {
-  const worst = provision(q, 'min');
-  const best = provision(q, 'max');
+  const worst = provision(q, 'min', energy);
+  const best = provision(q, 'max', energy);
   const lo = energyBandFor(energy, worst);
   const hi = energyBandFor(energy, best);
   // Unanswered questions are tried at both extremes: if the band is the same
@@ -197,7 +201,7 @@ export function energyFit(energy: Energy, q: Questionnaire): EnergyResult {
     if (q.hours_alone === 'over_8' && q.alone_plan !== 'walker' && q.alone_plan !== 'daycare') drivers.push('alone');
     if (q.exercise_time === 'under_30' || (energy === 'high' && q.exercise_time === '30_60')) drivers.push('exercise');
     if (q.owner_activity === 'sedentary') drivers.push('activity');
-    if ((q.outdoor_access === 'none' || q.outdoor_use === 'rarely') && energy !== 'low') drivers.push('outdoor');
+    if ((q.outdoor_access === 'none' || q.outdoor_use === 'rarely') && energy === 'high') drivers.push('outdoor'); // §4.9
   }
   return { band, undecided: lo !== hi, provision: { worst, best }, unknown, drivers };
 }

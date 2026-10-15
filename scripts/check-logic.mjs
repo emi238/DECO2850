@@ -152,6 +152,15 @@ check('changing hours_alone changes the verdict', () => {
   assert.equal(home.verdict, 'good');
   assert.notEqual(away.verdict, home.verdict);
 });
+check('§4.9: no outdoor space does not lower a moderate-energy dog (Labrador), but does a high-energy one', () => {
+  const routine = { owner_activity: 'moderate', exercise_time: '30_60', hours_alone: 'under_4' };
+  const none = household({ ...routine, outdoor_access: 'none', outdoor_use: undefined });
+  const yard = household({ ...routine, outdoor_access: 'private yard', outdoor_use: 'most_days' });
+  assert.equal(S.energyFit('moderate', none).band, 'good');
+  assert.equal(S.energyFit('moderate', yard).band, 'good');
+  assert.equal(S.energyFit('high', none).band, 'poor');
+  assert.equal(S.energyFit('high', yard).band, 'adequate');
+});
 check('a walker or daycare softens long hours alone', () => {
   const none = S.energyFit('high', household({ owner_activity: 'moderate', hours_alone: 'over_8', alone_plan: 'none' }));
   const walker = S.energyFit('high', household({ owner_activity: 'moderate', hours_alone: 'over_8', alone_plan: 'walker' }));
