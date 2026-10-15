@@ -7,7 +7,7 @@ import React, { useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AvatarButton, Field, JoinedButtons, PrimaryButton, TopBar } from '../components/kit';
+import { AvatarButton, Field, PrimaryButton, TopBar } from '../components/kit';
 import { HouseholdForm } from '../components/HouseholdForm';
 import { EditIcon } from '../components/icons';
 import { SwipeUpNav } from '../components/SwipeUpNav';
@@ -107,12 +107,14 @@ export default function ProfileScreen({ navigation, route }: ScreenProps<'Profil
 
             <PrimaryButton label="Save changes" onPress={save} disabled={!dirty} style={styles.save} />
 
-            <JoinedButtons
-              left={{ label: 'Delete All Data', onPress: deleteAll }}
-              right={{ label: 'Log Out', onPress: logout }}
-              leftBg={colors.danger}
-              style={styles.controls}
-            />
+            <View style={styles.controls}>
+              <PrimaryButton
+                label="Delete All Data"
+                onPress={deleteAll}
+                style={[styles.control, { backgroundColor: colors.danger }]}
+              />
+              <PrimaryButton label="Log Out" onPress={logout} style={styles.control} />
+            </View>
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -135,5 +137,6 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 12 },
   card: { backgroundColor: colors.bg, borderRadius: 22, paddingHorizontal: 19, paddingVertical: 18 },
   save: { marginTop: 24 },
-  controls: { marginTop: 16 },
+  controls: { marginTop: 16, flexDirection: 'row', gap: 12 },
+  control: { flex: 1 },
 });
