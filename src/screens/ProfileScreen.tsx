@@ -137,6 +137,6 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 12 },
   card: { backgroundColor: colors.bg, borderRadius: 22, paddingHorizontal: 19, paddingVertical: 18 },
   save: { marginTop: 24 },
-  controls: { marginTop: 16, flexDirection: 'row', gap: 12 },
+  controls: { marginTop: 28, flexDirection: 'row', gap: 20 },
   control: { flex: 1 },
 });
