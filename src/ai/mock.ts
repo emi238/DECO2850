@@ -62,7 +62,11 @@ export function generateMockAssessment(session: Space): Assessment {
   }
 
   const improvements = [
-    ...tags.map((t) => `Move the ${t.label.toLowerCase()} somewhere the dog can’t reach.`),
+    ...tags.map((t) =>
+      t.offLimits
+        ? `Keep the dog out of the ${t.label.toLowerCase()} with a gate or a closed door.`
+        : `Move the ${t.label.toLowerCase()} somewhere the dog can’t reach.`
+    ),
     ...findings.map((f) => f.recommendation),
   ];
   if (q.hours_alone === 'over_8' && q.alone_plan !== 'walker' && q.alone_plan !== 'daycare') {

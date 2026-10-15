@@ -47,14 +47,18 @@ function contextJson(session: Space, dog: DogTraits | null): string {
   return JSON.stringify({
     dog: dog ?? (session.pet ? { breed: session.pet.breed } : null),
     household: householdContext(session.questionnaire),
-    tags: session.tags.map((t) => ({
-      id: t.id,
-      label: t.label,
-      note: t.note,
-      frame: t.frame,
-      x: t.x ?? null,
-      y: t.y ?? null,
-    })),
+    tags: session.tags
+      .filter((t) => !t.offLimits)
+      .map((t) => ({ id: t.id, label: t.label, note: t.note, frame: t.frame, x: t.x ?? null, y: t.y ?? null })),
+    // Areas the owner has marked off-limits (frame null = marked in the 3D view).
+    off_limit_areas: session.tags
+      .filter((t) => t.offLimits)
+      .map((t) => ({
+        label: t.label,
+        frame: t.frame >= 0 ? t.frame : null,
+        x: t.frame >= 0 ? t.x ?? null : null,
+        y: t.frame >= 0 ? t.y ?? null : null,
+      })),
   });
 }
 

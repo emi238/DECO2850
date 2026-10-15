@@ -30,6 +30,8 @@ import { useSession, useCurrentSpace } from '../store/session';
 import type { ScreenProps } from '../navigation';
 import type { Tag } from '../types';
 
+type TagKind = 'Valuable' | 'Fragile' | 'Off-limits';
+
 export default function TaggingScreen({ navigation }: ScreenProps<'Tagging'>) {
   const space = useCurrentSpace();
   const frames = space?.capture.frames ?? [];
@@ -49,7 +51,7 @@ export default function TaggingScreen({ navigation }: ScreenProps<'Tagging'>) {
   const [draft, setDraft] = useState<{ frame: number; x: number; y: number; id?: string } | null>(null);
   const [dragging, setDragging] = useState(false);
   const [label, setLabel] = useState('');
-  const [kind, setKind] = useState<'Valuable' | 'Fragile'>('Valuable');
+  const [kind, setKind] = useState<TagKind>('Valuable');
 
   const frameIndex = Math.min(active, Math.max(0, frames.length - 1));
   const img = useFrameImageSize(frames[frameIndex]);
@@ -65,13 +67,14 @@ export default function TaggingScreen({ navigation }: ScreenProps<'Tagging'>) {
   const editTag = (t: Tag) => {
     setDraft({ frame: t.frame, x: t.x ?? 0.5, y: t.y ?? 0.5, id: t.id });
     setLabel(t.label);
-    setKind(t.note === 'Fragile' ? 'Fragile' : 'Valuable');
+    setKind(t.offLimits ? 'Off-limits' : t.note === 'Fragile' ? 'Fragile' : 'Valuable');
   };
 
   const saveTag = () => {
     if (!draft || !label.trim()) return;
-    if (draft.id) updateTag(draft.id, { label: label.trim(), note: kind });
-    else addTag({ label: label.trim(), note: kind, frame: draft.frame, x: draft.x, y: draft.y });
+    const offLimits = kind === 'Off-limits';
+    if (draft.id) updateTag(draft.id, { label: label.trim(), note: kind, offLimits });
+    else addTag({ label: label.trim(), note: kind, offLimits, frame: draft.frame, x: draft.x, y: draft.y });
     setDraft(null);
   };
 
@@ -105,8 +108,8 @@ export default function TaggingScreen({ navigation }: ScreenProps<'Tagging'>) {
         <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false} scrollEnabled={!dragging}>
           <Text style={styles.h1}>Flag anything important</Text>
           <Text style={styles.sub}>
-            Tap the photo to mark an object. E.g a fragile vase, a sharp edge, any valuable items. This is optional but if
-            flagged, the AI will treat this as a top priority.
+            Tap the photo to mark an object or an off-limits area. E.g a fragile vase, a valuable, or a zone your dog isn’t
+            allowed in. This is optional but if flagged, the AI will treat it as a top priority.
           </Text>
 
           <View style={[styles.card, { width: cardW }]}>
@@ -120,6 +123,7 @@ export default function TaggingScreen({ navigation }: ScreenProps<'Tagging'>) {
                     return (
                       <DraggablePin
                         key={t.id}
+                        offLimits={!!t.offLimits}
                         x={p.x}
                         y={p.y}
                         onTap={() => editTag(t)}
@@ -156,7 +160,7 @@ export default function TaggingScreen({ navigation }: ScreenProps<'Tagging'>) {
           ) : (
             <View style={styles.list}>
               {tags.map((t) => (
-                <Pressable key={t.id} style={styles.tagRow} onPress={() => setActive(t.frame)}>
+                <Pressable key={t.id} style={styles.tagRow} onPress={() => t.frame >= 0 && setActive(t.frame)}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.tagLabel}>{t.label}</Text>
                     {!!t.note && <Text style={styles.tagNote}>{t.note}</Text>}
@@ -196,9 +200,13 @@ export default function TaggingScreen({ navigation }: ScreenProps<'Tagging'>) {
             <Segmented
               value={kind}
               onChange={setKind}
-              options={[{ value: 'Valuable', label: 'Valuable' }, { value: 'Fragile', label: 'Fragile' }]}
+              options={[
+                { value: 'Valuable', label: 'Valuable' },
+                { value: 'Fragile', label: 'Fragile' },
+                { value: 'Off-limits', label: 'Off-limits' },
+              ]}
               height={48}
-              textStyle={{ fontFamily: fonts.semibold, fontSize: 15 }}
+              textStyle={{ fontFamily: fonts.semibold, fontSize: 13 }}
               style={{ marginTop: 12 }}
             />
             <JoinedButtons
@@ -223,10 +231,12 @@ export default function TaggingScreen({ navigation }: ScreenProps<'Tagging'>) {
 function DraggablePin({
   x,
   y,
+  offLimits,
   onTap,
   onDragStart,
   onDrop,
 }: {
+  offLimits: boolean;
   x: number;
   y: number;
   onTap: () => void;
@@ -270,11 +280,12 @@ function DraggablePin({
       accessibilityLabel="Tag, drag to move or tap to edit"
       style={[
         styles.pin,
+        offLimits && styles.pinOff,
         { left: x + offset.dx - 11, top: y + offset.dy - 11 },
         dragged && { transform: [{ scale: 1.3 }] },
       ]}
     >
-      <Text style={styles.pinTxt}>★</Text>
+      <Text style={styles.pinTxt}>{offLimits ? '✕' : '★'}</Text>
     </View>
   );
 }
@@ -302,6 +313,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   pinTxt: { color: '#fff', fontSize: 10 },
+  pinOff: { backgroundColor: '#E4572E' }, // off-limits area
   removeTag: { alignSelf: 'center', marginTop: 14 },
 
   selector: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 9 },

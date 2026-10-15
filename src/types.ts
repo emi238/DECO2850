@@ -91,6 +91,10 @@ export interface Tag {
   // Approximate normalised position on that frame [0,1], if placed by tap.
   x?: number;
   y?: number;
+  // An area the owner wants the dog kept out of (from ar-immersive-scan 51d2e26),
+  // rather than a valuable/fragile item. frame -1 = placed in the 3D view, where x,y
+  // are 0-1 of the view, not of a photo.
+  offLimits?: boolean;
 }
 
 // ---- AI assessment schema (PRD §7.2) ----

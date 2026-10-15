@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const out = mkdtempSync(join(tmpdir(), 'pawspace-logic-'));
-for (const file of ['src/ai/schema.ts', 'src/ai/normalise.ts', 'src/ai/prompt.ts', 'src/ai/config.ts', 'src/ai/gemini.ts', 'src/logic/suitability.ts', 'src/logic/changes.ts', 'src/logic/migrate.ts']) {
+for (const file of ['src/ai/schema.ts', 'src/ai/normalise.ts', 'src/ai/prompt.ts', 'src/ai/config.ts', 'src/ai/gemini.ts', 'src/logic/suitability.ts', 'src/logic/changes.ts', 'src/logic/migrate.ts', 'src/logic/recommend.ts']) {
   const { outputText } = ts.transpileModule(readFileSync(join(root, file), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
   });
@@ -30,6 +30,7 @@ const { ROOM_RESPONSE_SCHEMA } = require(join(out, 'src/ai/schema.js'));
 const { callGemini } = require(join(out, 'src/ai/gemini.js'));
 const { diffRuns, hasChanges } = require(join(out, 'src/logic/changes.js'));
 const { migrateHousehold } = require(join(out, 'src/logic/migrate.js'));
+const { buildRecommendations } = require(join(out, 'src/logic/recommend.js'));
 
 // ---- fixtures ----
 
@@ -349,6 +350,15 @@ check('a tag the model left out still appears once, and a photo report of the ta
   assert.equal(a.hazards.length, 1);
   assert.equal(a.hazards[0].source, 'user_tag');
 });
+check('off-limits areas the owner marked are not turned into "protect this" tag entries', () => {
+  const tags = [
+    { id: 't1', label: 'Vase', note: 'Valuable', frame: 0, x: 0.3, y: 0.3 },
+    { id: 't2', label: 'Kitchen', note: 'Off-limits', offLimits: true, frame: 1, x: 0.5, y: 0.5 },
+    { id: 't3', label: 'Balcony', note: 'Off-limits', offLimits: true, frame: -1, x: 0.4, y: 0.6 },
+  ];
+  const a = normaliseAssessment({ hazards: [] }, space(tags));
+  assert.deepEqual(a.hazards.map((h) => h.tag_id), ['t1']);
+});
 check('every finding carries object_key, confidence and (if scope object) a location', () => {
   const a = normaliseAssessment(
     { hazards: [{ category: 'B', title: 'Charger cable', scope: 'object', severity: 'low' }, { category: 'K', title: 'Busy road outside', scope: 'space', severity: 'low' }] },
@@ -471,6 +481,37 @@ console.log("\nWhat's new after a Re-run");
   });
   check('an identical run reports no changes', () => {
     assert.equal(hasChanges(diffRuns(before, structuredClone(before), 'x')), false);
+  });
+}
+
+console.log('\nRecommendations and shopping list');
+{
+  // A minimal evaluation, shaped like evaluate.ts's output.
+  const evalFor = (dogIn, q, r) => {
+    const sc = S.scoreSuitability(dogIn, q, r);
+    return { dog: { name: dogIn.name, energy: dogIn.energy }, effective: S.effectiveClass(dogIn.size, dogIn.energy), bands: sc.bands, score: sc };
+  };
+  check('findings, off-limits suggestions, additions and dog spots become recommendations and shopping, without duplicates', () => {
+    const r = result([hz({ id: 'h1', title: 'Cord behind the TV' }), hz({ id: 'h2', title: 'Second cord', object_key: 'cord-2' })], {
+      off_limit_suggestions: [{ zone: 'kitchen', reason: 'Bins within reach.', frame_index: 0 }],
+      safety_additions: [{ type: 'gate', detail: 'Gate at the kitchen door', reason: 'Keeps the dog out of the kitchen.', frame_index: 0 }, { type: 'cord_cover', detail: '', reason: 'Covers the TV cords.', frame_index: 0 }],
+      dog_spots: [{ purpose: 'bed', reason: 'Quiet corner.', frame_index: 0 }],
+      room_assessment: room({ retreat_spot: 'possible' }),
+    });
+    const set = buildRecommendations(evalFor(lab, household(), r), r);
+    const titles = set.recommendations.map((x) => x.title);
+    assert.ok(titles.includes('Cord behind the TV') && titles.includes('Keep the dog out of the kitchen'));
+    assert.ok(set.recommendations.find((x) => x.title === 'Keep the dog out of the kitchen').offLimits);
+    const items = set.shopping.map((x) => x.item);
+    assert.equal(items.filter((i) => i === 'Cable covers or cord concealer').length, 1); // two cords + a cord cover = one product
+    assert.equal(items.filter((i) => i === 'Dog bed').length, 1); // bed spot + "spot of their own" = one product
+    assert.ok(set.shopping[0].offLimits); // gates first
+  });
+  check('room and routine recommendations only when they are known, not guessed', () => {
+    const sample = buildRecommendations(evalFor(collie, household({ owner_activity: undefined, exercise_time: undefined, hours_alone: undefined }), result([], { room_assessment: undefined })), result([], { room_assessment: undefined }));
+    assert.equal(sample.recommendations.length, 0);
+    const known = buildRecommendations(evalFor(collie, household({ owner_activity: 'sedentary', exercise_time: 'under_30' }), result([], { room_assessment: room({ openness: 'cramped' }) })), result([], { room_assessment: room({ openness: 'cramped' }) }));
+    assert.ok(known.recommendations.some((x) => x.id === 'dog-exercise') && known.recommendations.some((x) => x.id === 'dog-space'));
   });
 }
 

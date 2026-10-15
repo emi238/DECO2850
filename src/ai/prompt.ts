@@ -22,6 +22,7 @@ INPUTS (the CONTEXT JSON and the photos)
    - allergies: true / false (someone at home is allergic to pets).
    - existing_pets: dogs (breeds already in the home) and other (other pets in the home: cat / bird / small_animal = rabbit, guinea pig or similar / fish / reptile / other; an empty list means none).
 4. TAGS ("tags"): objects the owner marked themselves, each with id, label, note ("Valuable" or "Fragile"), frame, x and y. They are things to PROTECT FROM the dog, not dangers to the dog.
+5. OFF-LIMITS AREAS ("off_limit_areas"): areas the owner has already decided the dog will not be allowed into, each with label, frame and x, y (frame null = marked in a 3D view, not on a photo). Do not repeat them in off_limit_suggestions. If you can see no way to close one off (a door or a gate), add a safety_additions entry for it (gate, or pen for an open-plan area).
 
 WHAT TO RETURN
 

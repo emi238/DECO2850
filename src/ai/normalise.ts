@@ -319,7 +319,9 @@ export function normaliseAssessment(raw: any, session: Space): Assessment {
   const parsed: Hazard[] = Array.isArray(raw?.hazards)
     ? raw.hazards.map((h: any) => normaliseHazard(h, frameCount)).filter((h: Hazard | null): h is Hazard => !!h)
     : [];
-  const hazards = applyTags(parsed, session.tags).map((h, i) => ({ ...h, id: `hz_${i + 1}` }));
+  // Off-limits areas are not things to protect, so they don't become tag entries.
+  const protectTags = session.tags.filter((t) => !t.offLimits);
+  const hazards = applyTags(parsed, protectTags).map((h, i) => ({ ...h, id: `hz_${i + 1}` }));
 
   const escape_routes: EscapeRoute[] = Array.isArray(raw?.escape_routes)
     ? dedupeByKey(
