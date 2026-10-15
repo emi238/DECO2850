@@ -373,6 +373,10 @@ console.log('\nOther pets');
     const never = migrateHousehold(base);
     assert.equal(never.has_other_pets, undefined); // still unanswered
   });
+  check('saved "Lots" experience answers convert to Yes', () => {
+    assert.equal(migrateHousehold(household({ experience: 'experienced' })).experience, 'some');
+    assert.equal(migrateHousehold(household({ experience: 'none' })).experience, 'none');
+  });
   check('"No other pets" means none, even if the old cat answer is gone', () => {
     assert.deepEqual(S.otherPets(household({ has_other_pets: false, other_pets: [] }), result()), []);
     assert.deepEqual(S.otherPets(household({ has_other_pets: true, other_pets: ['cat', 'reptile'] }), result()), ['cat', 'reptile']);

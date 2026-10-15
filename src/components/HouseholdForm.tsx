@@ -264,9 +264,8 @@ export function HouseholdForm({
       ], (v) => ({ exercise_time: v }))}
 
       {ask('experience', 'Have you owned a dog before?', q.experience, [
+        { value: 'some', label: 'Yes' },
         { value: 'none', label: 'No, first dog' },
-        { value: 'some', label: 'Some' },
-        { value: 'experienced', label: 'Lots' },
       ], (v) => ({ experience: v }))}
 
       {ask('household_atmosphere', 'What is your home usually like?', q.household_atmosphere, [

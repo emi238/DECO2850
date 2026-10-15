@@ -47,7 +47,7 @@ export type OutdoorUse = 'most_days' | 'sometimes' | 'rarely'; // will the dog a
 export type AlonePlan = 'none' | 'walker' | 'daycare'; // who checks in on long days alone
 export type OwnerActivity = 'sedentary' | 'moderate' | 'active';
 export type ExerciseTime = 'under_30' | '30_60' | 'over_60'; // minutes a day of walks/play
-export type Experience = 'none' | 'some' | 'experienced';
+export type Experience = 'none' | 'some'; // first dog / has owned a dog before
 export type Atmosphere = 'calm' | 'mixed' | 'busy';
 // Pets other than dogs (dogs are listed separately in existing_pets).
 export type OtherPet = 'cat' | 'bird' | 'small_animal' | 'fish' | 'reptile' | 'other';

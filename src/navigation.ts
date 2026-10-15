@@ -9,7 +9,7 @@ export type RootStackParamList = {
   Login: undefined;
   ResetPassword: undefined;
   Onboarding: undefined; // first-time questionnaire, step by step
-  Household: { onboarding?: boolean } | undefined;
+  Household: undefined;
   Profile: { editHousehold?: boolean } | undefined; // true = open with the household section unlocked
   Home: undefined;
   Capture: { fresh?: boolean } | undefined;

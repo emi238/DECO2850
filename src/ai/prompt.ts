@@ -17,7 +17,7 @@ INPUTS (the CONTEXT JSON and the photos)
    - children_at_home: none / young (a child under 5) / older (5 or older).
    - hours_alone: under_4 / 4_to_8 / over_8 (a typical day). alone_plan: none / walker / daycare.
    - owner_activity: sedentary / moderate / active. exercise_time: under_30 / 30_60 / over_60 (minutes of walks and play a day).
-   - experience: none / some / experienced (has owned dogs before).
+   - experience: none (first dog) / some (has owned a dog before).
    - household_atmosphere: calm / mixed / busy.
    - allergies: true / false (someone at home is allergic to pets).
    - existing_pets: dogs (breeds already in the home) and other (other pets in the home: cat / bird / small_animal = rabbit, guinea pig or similar / fish / reptile / other; an empty list means none).
