@@ -232,6 +232,13 @@ check('cramped flags mainly for big or high-energy dogs', () => {
   assert.equal(S.roomFit(room({ openness: 'cramped' }), 'large', 'moderate'), 'poor');
   assert.equal(S.roomFit(room({ openness: 'cramped' }), 'medium', 'high'), 'poor'); // high energy = one size up
 });
+check('a hard-to-get-through path lowers Room for a large dog, not a small one', () => {
+  const blocked = room({ openness: 'open', clear_path: 'poor' });
+  assert.equal(S.roomFit(blocked, 'large', 'moderate'), 'adequate');
+  assert.equal(S.roomFit(blocked, 'small', 'low'), 'good');
+  assert.equal(S.roomFit(room({ openness: 'cramped', clear_path: 'poor' }), 'large', 'moderate'), 'poor'); // not counted twice
+  assert.equal(S.roomFit(room({ openness: 'open', clear_path: 'partial' }), 'large', 'moderate'), 'good');
+});
 check('floor area is used only with medium/high confidence', () => {
   const small = (confidence) => room({ openness: 'moderate', floor_area_m2: { value: 8, confidence } });
   assert.equal(S.roomFit(small('low'), 'large', 'moderate'), 'adequate');

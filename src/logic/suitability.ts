@@ -8,7 +8,7 @@
 //   Safety (35%)           photo hazards, weighted by type × severity × size × confidence
 //   Energy & management    breed energy vs owner activity, exercise, outdoor space, time alone
 //   fit (25%)
-//   Room to move (15%)     photo: openness + retreat spot (+ floor area if confident)
+//   Room to move (15%)     photo: openness + retreat spot + clear path (+ floor area if confident)
 //   Household fit (15%)    children, other pets, experience, home atmosphere vs the breed
 //   Noise fit (10%)        breed noise vs how close the neighbours are (spec §4.4 table)
 //
@@ -225,6 +225,9 @@ export function roomFit(room: RoomAssessment | undefined, size: SizeClass, energ
         ? eff === 'large' ? 'adequate' : 'good'
         : eff === 'large' ? 'poor' : 'adequate'; // cramped flags mainly for big or high-energy dogs
   if (room.retreat_spot === 'absent') band = downgrade(band);
+  // Having to squeeze past furniture matters for big (or big-and-bouncy) dogs; a
+  // cramped room already counts as poor for them, so this only adds where it isn't.
+  if (room.clear_path === 'poor' && eff === 'large' && room.openness !== 'cramped') band = downgrade(band);
   const area = room.floor_area_m2;
   if (area.value != null && area.confidence !== 'low' && eff === 'large' && area.value < SMALL_ROOM_M2) {
     band = downgrade(band);
