@@ -1,11 +1,21 @@
-# PawSpace: how suitability is decided (prompt + rules)
+# PawSpace logic: how suitability is decided
 
-A hand-off for refining PawSpace's AI prompts and rules. It explains, end to end, how
-the app goes from room photos + questionnaire to "is this space suitable for this dog?",
-what the model is asked, what the app does with the answer, and what is still weak.
-Current version: **logic v2** (CHANGE PRD 15 Oct 2026), branch `feat/native-ar-foundation`.
+**The single logic document for PawSpace.** It merges the v2 spec
+(`PawSpace_CHANGE_PRD_logic_v2.md`, 15 Oct 2026) with the earlier `PROMPT_LOGIC.md`;
+both are superseded by this file. Everything here describes what is **built** on branch
+`feat/native-ar-foundation` and was checked against the code: the two prompts are copied
+from the source, and the rules are covered by `npm run check:logic`.
+
+It explains, end to end, how the app goes from room photos + questionnaire to "is this
+space suitable for this dog?", what the AI is asked, what the app does with the answer,
+where the build differs from the PRD, and what is still weak.
 
 **Changelog**
+- **15 Oct 2026, merged:** the PRD v2 and `PROMPT_LOGIC.md` combined into this file
+  (renamed from `docs/PROMPT_LOGIC.md`). Added the plain-English summary, the weighting
+  design note, the master variable table, the acceptance-criteria status (§9), where the
+  build differs from the PRD (§10) and out of scope (§11). **Clear path now counts** in
+  the Room score (§4.4): the PRD summary lists it, but it hadn't been built.
 - **15 Oct 2026, What's new:** after a Re-run the report has a collapsible "What's new
   since your last run" section (§4.11), replacing the paragraph box removed earlier.
 - **15 Oct 2026, Suggested setup:** the room prompt now also suggests where to keep the
@@ -23,6 +33,52 @@ Current version: **logic v2** (CHANGE PRD 15 Oct 2026), branch `feat/native-ar-f
 - **14 Oct 2026:** children at home and hours alone added to the questionnaire and both
   prompts; only answered questions sent (W3); Re-run shows what changed.
 - **11 Oct 2026:** first version.
+
+---
+
+## How the logic works (in short)
+
+PawSpace splits the work between the AI model and fixed app rules, so no single black
+box decides suitability. The model's job is **perception, not judgement**: it reads the
+room photos and returns *what is there and where*. That means hazards with a location,
+severity and confidence, plus qualitative space cues such as openness, a retreat spot
+and a clear path. It never decides "suitable or not". (Object detection would ground its
+findings further, but none is built yet; see §1.1.)
+
+The verdict is computed by the rules. They combine the model's findings with the breed's
+traits (size, energy, noise) and the household questionnaire into five weighted
+sub-scores. Because the room scan is the product's differentiator, **photo-derived
+signals carry half the verdict** (Safety 35% + Room to move 15%), and questionnaire-driven
+fit factors make up the rest. Two safeguards keep that honest: every finding carries a
+confidence level, and low-confidence findings count at half weight. On top of the weighted
+blend sit **hard gates**: a serious escape or fall risk, a toxic item that's hard to fix,
+or a severe energy mismatch caps the verdict however good the average looks. Anything the
+app couldn't check also stops a "Good fit". The user only ever sees words, never numbers.
+
+| Sub-score | Weight | Source | What's inside it |
+|---|---|---|---|
+| **Safety** | **35%** | Photos | Weighted load of hazards by type: escape/fall (highest) · toxic/ingestible · electrical/thermal · floor/stairs · fragile/valuable · clutter. Scaled by dog size (large → fragile, floor and escape count more; small → squeeze gaps and swallowable objects count more) and by confidence (low ×0.5). User-tagged valuables excluded. (§4.2) |
+| **Energy & management fit** | **25%** | Breed + questionnaire | Breed energy vs owner capacity: owner activity, daily exercise time, outdoor space and whether it's used, hours alone and any walker or daycare. The research-backed make-or-break factor. (§4.3) |
+| **Room to move** | **15%** | Photos (qualitative) | Openness, retreat spot, clear path. Floor area (m²) only counts at medium+ confidence. Bites mainly for large or high-energy dogs. (§4.4) |
+| **Household fit** | **15%** | Questionnaire + photo cross-check | Young children (+ retreat spot), a cat, other dogs, first-time owner, a busy home, each against the breed's size, energy and temperament. Photos cross-check the answers. (§4.5) |
+| **Noise fit** | **10%** | Breed + questionnaire | Breed vocalness vs neighbour proximity (attached / close / not close). (§4.6) |
+
+**What the model focuses on:**
+- hazards by category, each pinned on the 2D map with a severity and confidence;
+- the room as a place to live: openness, retreat spot, clear path, floor type;
+- escape routes;
+- suggested setup: keep-out areas, good spots for the dog's bed/crate/bowls/play, and
+  safety to add, such as gates, railings and netting;
+- specific improvements;
+- detected signals (pets, children, dwelling, outdoor space) that cross-check the
+  questionnaire.
+
+It treats the breed traits and questionnaire answers as facts, reasons only about *this*
+room, isn't allowed to judge breeds on stereotype, and never outputs a score or verdict.
+
+**Verdict:** the weighted blend of the five sub-scores becomes a word band ("Good fit /
+Good fit with a few changes / Not a good fit yet"). Then the hard gates and caps apply,
+and a plain list says what to change.
 
 ---
 
@@ -77,7 +133,7 @@ If real AI is off, the key is missing, the photos aren't in memory (after an app
 restart), or all 3 attempts fail, the **sample assessment** (`mock.ts`) is used. It can't
 see the photos, so the rules treat Safety and the room as **unknown** (§4.8), not as safe.
 
-### 1.1 Pre-flight results (PRD §1)
+### 1.1 Pre-flight results (PRD v2 §1)
 
 - **Object detection: not present on this branch.** No YOLO/TFLite/ONNX/Core ML/ML Kit
   dependency, model file or code. The only detection code is a YOLOv8 decoder on the
@@ -365,6 +421,39 @@ On screen: good → **"✓ Good fit"**; adequate → **"! Good fit with a few ch
 **"! Could be a good fit"** when the cap came from unknowns; poor → **"✕ Not a good fit
 yet"**.
 
+**Why photos get 50% (design note from the PRD).** Research on dog suitability and
+relinquishment weights *energy/management fit and expectations* highest. This setup
+deliberately weights the **photo-derived signals higher**, because the room scan is
+PawSpace's differentiator and users' main signal. To stop that from amplifying mistakes
+in what the AI reads from photos, three safeguards are built in:
+- every finding has a confidence, and low-confidence findings count at half weight (§4.2);
+- the hard gates (§4.7);
+- the unknowns rule (§4.8).
+
+Object detection grounding (PRD §7) would be the fourth safeguard, once a detector
+exists. Revisit the split after user testing with real rooms.
+
+**Master variable table** (from the PRD, with how each is built):
+
+| Variable | Source | Importance | Extraction reliability | Role in the verdict | Built as |
+|---|---|---|---|---|---|
+| Escape/fall hazards | photo | High (critical) | Moderate (high with detection) | Hard gate + top of Safety | `hazard_type: escape_fall`, `escape_routes[]` |
+| Toxic/ingestible | photo | High | Moderate | High in Safety; gate if hard to fix | `toxic_ingestible`, `easy_fix` |
+| Electrical/thermal | photo | Moderate | Moderate | Mid Safety | `electrical_thermal` |
+| Floor/stairs (size-scaled) | photo | Moderate | Moderate–high | Mid Safety | `floor_stairs` |
+| Fragile/valuable × size | photo + tag | Moderate (home) | Moderate–high | Low–mid Safety (tags excluded) | `fragile_valuable`; tags → `user_tag` |
+| Openness / room to move | photo | Low–moderate | Moderate (qualitative) | Room 15% | `room_assessment.openness` |
+| Retreat spot | photo | Moderate | Moderate | Room + household | `room_assessment.retreat_spot` |
+| Clear path | photo | Low–moderate | Moderate | Room (large dogs) | `room_assessment.clear_path` |
+| Clutter / management load | photo | Low–moderate | Moderate | Safety modifier | `clutter` (weight 0.5) |
+| Detected signals (pets, children, dwelling, outdoor) | photo | Cross-check | Moderate–high | Nudges; fills an unanswered "has a cat" | `detected_signals` |
+| Absolute floor m² | photo | Low | **Low** | About zero; medium+ confidence only | `floor_area_m2` |
+| Energy vs activity, exercise, hours alone, outdoor | breed + Q | Very high | — | Spine (25%) | §4.3 |
+| Noise vs neighbours | breed + Q | Moderate | — | 10% | §4.6 |
+| Children present | Q + photo | High | Moderate (photo) | Household (15%) | §4.5 |
+| Other pets | Q + photo | Moderate–high | Moderate (photo) | Household | §4.5 |
+| Owner experience / home atmosphere | Q | High | — | Household | §4.5 |
+
 ### 4.2 Safety (35%)
 
 ```
@@ -429,6 +518,9 @@ info" and asks the user to answer).
 | cramped | adequate | poor |
 
 - **Retreat spot:** `retreat_spot: absent` lowers the band one step.
+- **Clear path:** `clear_path: poor` (the dog would have to squeeze past furniture)
+  lowers the band one step for a large (or medium high-energy) dog, unless the room is
+  already rated cramped, so the same problem isn't counted twice. `partial` changes nothing.
 - **Floor area:** `floor_area_m2` under 10 m² lowers the band one step for a large (or
   medium high-energy) dog, but **only with medium or high confidence** (photo
   measurements are unreliable).
@@ -504,7 +596,8 @@ the household check.
   - Safety: Safe / Mostly safe / Move N things / Not safe yet / Not checked.
   - Exercise & routine: Well matched / Needs a plan / Hard to keep up / Not enough info.
   - Room to move: Plenty of room / Enough room / Too tight / Not checked, with chips
-    for openness and retreat spot.
+    for openness, retreat spot and clear path ("Clear path / Some squeezing past / Hard
+    to get through").
   - Your household: Suits your home / Some care needed / Tricky fit.
   - Neighbours: No problem / Some barking / Likely issue.
 - **Nudges** box with "Update profile".
@@ -555,7 +648,7 @@ open balcony door (medium, high confidence). Openness moderate, retreat possible
 
 | # | Issue | Status |
 |---|---|---|
-| W1 | No measured room size | **Partly fixed.** The constant is gone; Room uses the model's qualitative openness and retreat spot, and m² only at medium+ confidence. True measurement needs AR/LiDAR or detection (§1.1, §8). |
+| W1 | No measured room size | **Partly fixed.** The constant is gone; Room uses the model's qualitative openness, retreat spot and clear path, and m² only at medium+ confidence. True measurement needs AR/LiDAR or detection (§1.1, §8). |
 | W2 | Model asked for a score/verdict nobody used | **Fixed.** Removed from the prompt and schema; the rules own the verdict. |
 | W3 | Unasked defaults sent as facts | Fixed 14 Oct. |
 | W4 | Cat content in a dogs-only prompt | **Fixed.** Dogs only; H recast as "climb & jump". |
@@ -618,5 +711,53 @@ From user testing, October 2026:
 - **An animated dog wouldn't excite them.** They care about hazards and what to change.
 
 Logic v2 follows this by getting more out of the photos (room quality, escape routes,
-off-limit areas, household signals). The next step is object detection (§1.1) to ground
+suggested setup, household signals). The next step is object detection (§1.1) to ground
 those findings. The AR placement prototype on this branch is unchanged.
+
+---
+
+## 9. PRD v2 acceptance criteria: status
+
+| Criterion (PRD §9) | Status | How it's checked |
+|---|---|---|
+| Valid JSON every run via `responseSchema`; no cat content; no numeric score | **Built.** Schema sent with every room call (retry without it on HTTP 400). Dogs-only prompt; no score or verdict in the prompt or schema. | `check:logic` "Prompt and schema" checks; fake-API check for the 400 retry. **Not yet confirmed against the live API** (N6). |
+| Same object across frames counted once | **Built** (merge by `object_key` in the normaliser). | "dedup" check |
+| Tagged vase → `user_tag`, excluded from Safety, pinned at the tag's x,y | **Built.** | "tagged vase" check |
+| One high escape/fall caps the verdict; three low cords don't force "poor" | **Built.** | "hard gates" and "three low-severity cords" checks |
+| Changing `owner_activity` or `hours_alone` changes the verdict | **Built.** | Two regression checks |
+| Every finding has `object_key`, `confidence`, and a location if `scope: object` | **Built** (the normaliser fills any that are missing). | "every finding carries" check |
+| Pre-flight result recorded | **Done**: no object detection, so the LLM-only path, plus a recommendation (§1.1). | §1.1 and the v2 commit message |
+| Photo-derived ≈ 50%; low confidence at half weight | **Built.** | "Weights" and "half weight" checks |
+
+`npm run check:logic` currently runs **44 checks**, all passing.
+
+---
+
+## 10. Where the build differs from the PRD (and why)
+
+**Not built or done differently:**
+- **Object detection (PRD §7): not built.** No detector exists on this branch (§1.1).
+- **Chip words.** The PRD keeps the v1 words ("Spacious / Snug / Cramped", "Safe / Mostly
+  safe / Hazardous", "Good / Adequate / Poor"). The build uses plainer words with ✓ / ! / ✕
+  marks, because user testing found the v1 words unclear (§4.10).
+- **Off-limit areas** are labelled pins on the map with a reason, not drawn regions; the
+  model gives a point, not an outline.
+- **"What to change"** uses the model's improvements. Off-limit areas are listed under
+  Suggested setup instead, so nothing appears twice.
+- **Thresholds.** The PRD says "calibrate on test rooms". The build uses first estimates
+  (Safety poor at a load of 15; verdict good at 0.80, adequate at 0.45), tuned on worked
+  examples (§4.12, N1).
+
+**Added beyond the PRD:**
+- **Unknowns cap (§4.8):** anything the app couldn't check stops a "Good fit".
+- **Poor sub-score cap:** any "poor" sub-score also stops a "Good fit".
+- **Suggested setup:** dog spots and safety additions, alongside the off-limit areas.
+- **"What's new since your last run"** after a Re-run (§4.11).
+- **Retry without the schema** if the API rejects it.
+
+---
+
+## 11. Out of scope (from the PRD)
+
+True 3D / LiDAR reconstruction, absolute-measurement (m²) gating, AR capture, cats and
+other species, and training a new detection model from scratch.
