@@ -67,7 +67,7 @@ export interface Evaluation {
   speech: string;
   labels: Record<SubScore, string>; // the chip on each report row
   lines: Record<SubScore, string>; // the dog's first-person line
-  roomChips: string[]; // openness + retreat spot, as plain words (empty if unknown)
+  roomChips: string[]; // openness, retreat spot and clear path, as plain words (empty if unknown)
   verdictTitle: string;
   verdictLine: string;
   changes: string[]; // "What to change"
@@ -122,7 +122,7 @@ export function evaluate(space: Space, household: Questionnaire, dogOverride?: R
       household: householdLine(s.household.concerns),
       noise: NOISE_LINE[bands.noise],
     },
-    roomChips: room && photosChecked ? [OPENNESS_WORD[room.openness], RETREAT_WORD[room.retreat_spot]] : [],
+    roomChips: room && photosChecked ? [OPENNESS_WORD[room.openness], RETREAT_WORD[room.retreat_spot], PATH_WORD[room.clear_path]] : [],
     verdictTitle:
       verdict === 'adequate' && unknown.length && !gates.length
         ? 'Could be a good fit'
@@ -309,6 +309,7 @@ function energyLine(b: Band, e: EnergyResult): string {
 
 const OPENNESS_WORD = { open: 'Open layout', moderate: 'Some open floor', cramped: 'Cramped layout' } as const;
 const RETREAT_WORD = { present: 'Has a dog spot', possible: 'Room for a dog bed', absent: 'No spot for a dog bed' } as const;
+const PATH_WORD = { good: 'Clear path', partial: 'Some squeezing past', poor: 'Hard to get through' } as const;
 
 function roomLine(b: Band, room: RoomAssessment | undefined): string {
   if (!room) return "We couldn't see enough of the room to judge the space.";
@@ -319,9 +320,11 @@ function roomLine(b: Band, room: RoomAssessment | undefined): string {
   }
   if (b === 'adequate') {
     if (room.openness === 'cramped') return 'A bit tight for me, clearing some floor would help me move.';
+    if (room.clear_path === 'poor') return "There's room, but I'd have to squeeze past furniture to get around.";
     if (room.retreat_spot === 'absent') return "There's room, but nowhere quiet for my bed.";
     return 'Enough room to settle, a little more open floor would help me move.';
   }
+  if (room.openness !== 'cramped' && room.clear_path === 'poor') return "I'd keep bumping into furniture here, a clearer path through would help.";
   return 'This room feels tight for me right now, moving a few things could open it right up.';
 }
 
