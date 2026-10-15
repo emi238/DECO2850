@@ -49,6 +49,8 @@ export type OwnerActivity = 'sedentary' | 'moderate' | 'active';
 export type ExerciseTime = 'under_30' | '30_60' | 'over_60'; // minutes a day of walks/play
 export type Experience = 'none' | 'some' | 'experienced';
 export type Atmosphere = 'calm' | 'mixed' | 'busy';
+// Pets other than dogs (dogs are listed separately in existing_pets).
+export type OtherPet = 'cat' | 'bird' | 'small_animal' | 'fish' | 'reptile' | 'other';
 
 export interface Questionnaire {
   dwelling: 'apartment' | 'house';
@@ -75,7 +77,10 @@ export interface Questionnaire {
   experience?: Experience;
   household_atmosphere?: Atmosphere;
   allergies?: boolean;
-  has_cat?: boolean;
+  // "Do you have any other pets?" and, if yes, which kinds. Replaced "Do you have a
+  // cat?" (has_cat) on 15 Oct 2026; saved has_cat answers are converted on load.
+  has_other_pets?: boolean;
+  other_pets?: OtherPet[];
 }
 
 export interface Tag {

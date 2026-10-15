@@ -52,8 +52,10 @@ export function generateMockAssessment(session: Space): Assessment {
       'Give the dog a quiet retreat and use a baby gate to keep play areas separate.'));
   }
   const dogs = q.existing_pets.filter((p) => /dog/i.test(p.species));
-  if (dogs.length > 0 || q.has_cat) {
-    const others = [...dogs.map((p) => p.breed || 'dog'), ...(q.has_cat ? ['a cat'] : [])].join(', ');
+  const OTHER_WORD: Record<string, string> = { cat: 'a cat', bird: 'a bird', small_animal: 'a small pet', fish: 'fish', reptile: 'a reptile', other: 'another pet' };
+  const otherPets = q.has_other_pets ? (q.other_pets ?? []).map((p) => OTHER_WORD[p]) : [];
+  if (dogs.length > 0 || otherPets.length > 0) {
+    const others = [...dogs.map((p) => p.breed || 'dog'), ...otherPets].join(', ');
     findings.push(note('introductions', 'Introducing your pets', 'M', 'medium',
       `The home already has ${others}, so a new dog needs a careful introduction.`,
       'Introduce them slowly, scent first, with separate safe spaces and supervised meetings.'));

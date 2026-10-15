@@ -38,7 +38,7 @@ const PICKS = 8;
 export const BREED_SUGGEST_PROMPT = `You are PawSpace's dog-breed matchmaker. A person is checking whether their home suits a dog. Recommend dog breeds that would genuinely suit THIS home and household.
 
 You receive JSON with:
-- "household": the owner's own answers, treat them as facts ("not_answered" = unknown): dwelling, rental, neighbours (attached / close_separate / not_close), outdoor_access and outdoor_use (most_days / sometimes / rarely), children_at_home (none / young = under 5 / older = 5+), hours_alone (a typical day: under_4 / 4_to_8 / over_8), alone_plan (none / walker / daycare), owner_activity (sedentary / moderate / active), exercise_time (under_30 / 30_60 / over_60 minutes a day), experience (none / some / experienced), household_atmosphere (calm / mixed / busy), allergies (true / false), existing_pets (dogs, has_cat).
+- "household": the owner's own answers, treat them as facts ("not_answered" = unknown): dwelling, rental, neighbours (attached / close_separate / not_close), outdoor_access and outdoor_use (most_days / sometimes / rarely), children_at_home (none / young = under 5 / older = 5+), hours_alone (a typical day: under_4 / 4_to_8 / over_8), alone_plan (none / walker / daycare), owner_activity (sedentary / moderate / active), exercise_time (under_30 / 30_60 / over_60 minutes a day), experience (none / some / experienced), household_atmosphere (calm / mixed / busy), allergies (true / false), existing_pets (dogs, and other: cat / bird / small_animal / fish / reptile / other).
 - "room": a summary of the captured room, how many physical hazards were found, how many items the user tagged to protect, and how open the floor is and whether there is a spot for a dog bed.
 - "candidates": a shortlist of real breeds. Each has name, size (small <12kg, medium 12-25kg, large >25kg), energy (low/moderate/high), noise (quiet/moderate/vocal), temperament, breed group, and "rule_fit": how PawSpace's rules rate it for this home (energy, safety, room, household, noise and overall: poor/adequate/good).
 
@@ -48,7 +48,7 @@ How to choose:
 - Experience: for a first dog (experience none), favour easy-going, eager-to-please breeds and avoid stubborn, independent or very high energy ones.
 - Home atmosphere: a busy home suits confident, easy-going breeds; avoid shy or sensitive ones.
 - Allergies: if allergies is true, favour breeds known to shed little (for example poodles, bichons, schnauzers) when they are in the candidates, and mention grooming in "watch_out".
-- A cat at home (has_cat true): avoid breeds with a strong chase or prey drive (many hounds and terriers) and mention slow introductions in "watch_out".
+- A cat, bird or small animal at home (existing_pets.other): avoid breeds with a strong chase or prey drive (many hounds and terriers) and mention slow introductions or keeping them apart in "watch_out".
 - Children: with young children, favour breeds whose temperament is gentle, patient or tolerant, and avoid very boisterous or easily-startled ones; mention supervision in "watch_out". Older children suit most friendly, playful breeds.
 - Time alone: with 4 to 8 hours alone, favour moderate or low energy breeds that are described as independent or calm. With over 8 hours alone, strongly favour low energy, independent, quieter breeds, avoid high energy or very people-focused breeds, and unless alone_plan is walker or daycare say in "watch_out" that one would help. Long hours alone plus attached walls makes a vocal breed a poor match.
 - Offer variety (different sizes and temperaments) when several breeds fit similarly.
@@ -81,8 +81,8 @@ function ruleSuggestion(space: Space, household: Questionnaire, b: BreedProfile)
       ? 'It would be alone a long time, plan a walker or daycare.'
       : concerns.some((c) => c.startsWith('kids'))
       ? 'Supervise it around small children and give it a quiet retreat.'
-      : concerns.includes('cat_chase')
-      ? 'Introduce it to your cat slowly, it may want to chase.'
+      : concerns.includes('pet_chase')
+      ? 'Introduce it to your other pets slowly, it may want to chase.'
       : concerns.some((c) => c.startsWith('first_dog'))
       ? 'A lot to take on for a first dog, consider training classes.'
       : e.bands.safety !== 'good'

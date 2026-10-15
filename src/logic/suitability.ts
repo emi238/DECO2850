@@ -14,7 +14,7 @@
 //
 // Photo-derived weight = Safety + Room to move = 50%.
 
-import type { Assessment, Confidence, Hazard, HazardType, Questionnaire, RoomAssessment, Severity } from '../types';
+import type { Assessment, Confidence, Hazard, HazardType, OtherPet, Questionnaire, RoomAssessment, Severity } from '../types';
 import type { Energy, Noise, SizeClass } from './breeds';
 import { typeFromCategory } from '../ai/normalise';
 
@@ -240,6 +240,7 @@ export function roomFit(room: RoomAssessment | undefined, size: SizeClass, energ
 export interface Concern {
   id: string;
   strength: 'mild' | 'strong';
+  pets?: OtherPet[]; // for pet_chase: which pets the dog might chase
 }
 
 const GENTLE = /gentle|patient|tolerant|even[- ]tempered|good with (children|kids)/i;
@@ -249,11 +250,14 @@ const DOMINANT = /aggressive|dominant|territorial/i;
 const STUBBORN = /stubborn|independent|strong[- ]willed|dominant/i;
 const SENSITIVE = /shy|sensitive|timid|nervous|reserved|aloof/i;
 
-// has_cat: the user's answer; when unanswered, a cat seen in the photos counts.
-export function hasCat(q: Questionnaire, result: Assessment | null): boolean {
-  if (q.has_cat !== undefined) return q.has_cat;
-  return result?.detected_signals?.existing_pets === 'cat';
+// Pets other than dogs: the user's answer; when unanswered, a cat seen in the photos counts.
+export function otherPets(q: Questionnaire, result: Assessment | null): OtherPet[] {
+  if (q.has_other_pets !== undefined) return q.has_other_pets ? q.other_pets ?? [] : [];
+  return result?.detected_signals?.existing_pets === 'cat' ? ['cat'] : [];
 }
+
+// Pets a dog with a chase or prey drive might go after (fish and reptiles live in tanks).
+export const CHASEABLE: OtherPet[] = ['cat', 'bird', 'small_animal'];
 
 export function householdFit(dog: DogInput, q: Questionnaire, result: Assessment | null): { band: Band; concerns: Concern[] } {
   const concerns: Concern[] = [];
@@ -268,8 +272,9 @@ export function householdFit(dog: DogInput, q: Questionnaire, result: Assessment
       if (noRetreat) concerns.push({ id: 'kids_no_retreat', strength: 'mild' });
     }
   }
-  if (hasCat(q, result) && (CHASER_GROUP.test(dog.group ?? '') || CHASER_TEMPERAMENT.test(t))) {
-    concerns.push({ id: 'cat_chase', strength: 'mild' });
+  const chaseable = otherPets(q, result).filter((p) => CHASEABLE.includes(p));
+  if (chaseable.length && (CHASER_GROUP.test(dog.group ?? '') || CHASER_TEMPERAMENT.test(t))) {
+    concerns.push({ id: 'pet_chase', strength: 'mild', pets: chaseable });
   }
   const dogs = q.existing_pets.filter((p) => /dog/i.test(p.species));
   if (dogs.length > 0 && DOMINANT.test(t)) concerns.push({ id: 'other_dogs', strength: 'mild' });
@@ -331,11 +336,11 @@ export function crossCheck(q: Questionnaire, result: Assessment | null, energyUn
   const s = result?.detected_signals;
   const dogs = q.existing_pets.filter((p) => /dog/i.test(p.species)).length;
   if (s) {
-    if (s.existing_pets === 'cat' && q.has_cat !== true)
+    if (s.existing_pets === 'cat' && !(q.other_pets ?? []).includes('cat'))
       nudges.push({ id: 'cat', text: 'We spotted signs of a cat in your photos. Add it to your profile?' });
     if (s.existing_pets === 'dog' && dogs === 0)
       nudges.push({ id: 'dog', text: 'We spotted signs of a dog in your photos. Add it to your profile?' });
-    if (s.existing_pets === 'multiple' && dogs === 0 && q.has_cat !== true)
+    if (s.existing_pets === 'multiple' && dogs === 0 && q.has_other_pets !== true)
       nudges.push({ id: 'pets', text: 'We spotted signs of pets in your photos. Add them to your profile?' });
     if (s.children === 'yes' && q.children_at_home !== 'young' && q.children_at_home !== 'older')
       nudges.push({ id: 'children', text: 'We spotted signs of children in your photos. Update your profile?' });

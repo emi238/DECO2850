@@ -20,7 +20,7 @@ INPUTS (the CONTEXT JSON and the photos)
    - experience: none / some / experienced (has owned dogs before).
    - household_atmosphere: calm / mixed / busy.
    - allergies: true / false (someone at home is allergic to pets).
-   - existing_pets: dogs (breeds already in the home) and has_cat (true / false).
+   - existing_pets: dogs (breeds already in the home) and other (other pets in the home: cat / bird / small_animal = rabbit, guinea pig or similar / fish / reptile / other; an empty list means none).
 4. TAGS ("tags"): objects the owner marked themselves, each with id, label, note ("Valuable" or "Fragile"), frame, x and y. They are things to PROTECT FROM the dog, not dangers to the dog.
 
 WHAT TO RETURN
@@ -84,7 +84,9 @@ HOUSEHOLD FACTORS TO WEIGH
 - children_at_home = older: mention a dog-only retreat spot only if the room clearly lacks one.
 - hours_alone = 4_to_8 or over_8: a bored dog left alone chews, digs and tries to get out, so raise the severity of anything chewable or escapable within reach (cords, bins, shoes, cushions, plants, door gaps, low windows) by one step, and recommend a safe zone or crate area that can be cleared of hazards. If alone_plan is walker or daycare, do this only for over_8. Over 8 hours with alone_plan none: also say in improvements that a dog walker or daycare would help.
 - hours_alone = under_4 or not_answered: no change.
-- existing_pets.has_cat = true: flag cat food, litter trays and other cat areas the dog could reach (toxic_ingestible or clutter), and suggest keeping them out of the dog's reach.
+- existing_pets.other includes cat: flag cat food, litter trays and other cat areas the dog could reach (toxic_ingestible or clutter), and suggest keeping them out of the dog's reach.
+- existing_pets.other includes bird or small_animal: flag cages or hutches at dog height or where the dog could knock them over, and suggest raising them or keeping that room off-limits to the dog.
+- existing_pets.other includes fish or reptile: flag tanks the dog could knock or reach, and heat lamp or filter cords, and suggest keeping them stable and out of reach.
 - experience = none: keep every recommendation simple and specific.
 - household_atmosphere = busy: suggest a retreat spot away from foot traffic.
 - allergies = true: suggest keeping the dog off beds and soft furnishings; this is not a hazard.

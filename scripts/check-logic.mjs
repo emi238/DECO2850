@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const out = mkdtempSync(join(tmpdir(), 'pawspace-logic-'));
-for (const file of ['src/ai/schema.ts', 'src/ai/normalise.ts', 'src/ai/prompt.ts', 'src/ai/config.ts', 'src/ai/gemini.ts', 'src/logic/suitability.ts', 'src/logic/changes.ts']) {
+for (const file of ['src/ai/schema.ts', 'src/ai/normalise.ts', 'src/ai/prompt.ts', 'src/ai/config.ts', 'src/ai/gemini.ts', 'src/logic/suitability.ts', 'src/logic/changes.ts', 'src/logic/migrate.ts']) {
   const { outputText } = ts.transpileModule(readFileSync(join(root, file), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
   });
@@ -29,6 +29,7 @@ const { SYSTEM_PROMPT } = require(join(out, 'src/ai/prompt.js'));
 const { ROOM_RESPONSE_SCHEMA } = require(join(out, 'src/ai/schema.js'));
 const { callGemini } = require(join(out, 'src/ai/gemini.js'));
 const { diffRuns, hasChanges } = require(join(out, 'src/logic/changes.js'));
+const { migrateHousehold } = require(join(out, 'src/logic/migrate.js'));
 
 // ---- fixtures ----
 
@@ -38,7 +39,7 @@ const household = (over = {}) => ({
   activity_level: 'medium', wants_apartment_friendly: false,
   outdoor_use: 'most_days', children_at_home: 'none', hours_alone: 'under_4', alone_plan: 'none',
   owner_activity: 'active', exercise_time: '30_60', experience: 'some', household_atmosphere: 'calm',
-  allergies: false, has_cat: false,
+  allergies: false, has_other_pets: false, other_pets: [],
   ...over,
 });
 const collie = { name: 'Border Collie', size: 'medium', energy: 'high', noise: 'vocal' };
@@ -249,18 +250,48 @@ check('no room assessment (sample / old results) is "adequate", not a guess', ()
 });
 
 console.log('\nCross-check (photos vs answers)');
-check('a cat seen in the photos fills an unanswered "has cat" and nudges', () => {
+check('a cat seen in the photos fills an unanswered "other pets" and nudges', () => {
   const r = result([], { detected_signals: { existing_pets: 'cat', children: 'no', dwelling_cue: 'unknown', outdoor_access_cue: 'unknown' } });
-  assert.equal(S.hasCat(household({ has_cat: undefined }), r), true);
-  assert.ok(S.scoreSuitability(frenchie, household({ has_cat: undefined }), r).nudges.some((n) => n.id === 'cat'));
+  const q = household({ has_other_pets: undefined, other_pets: undefined });
+  assert.deepEqual(S.otherPets(q, r), ['cat']);
+  assert.ok(S.scoreSuitability(frenchie, q, r).nudges.some((n) => n.id === 'cat'));
 });
 check("the user's answer wins over the photos (nudge only, no override)", () => {
   const r = result([], { detected_signals: { existing_pets: 'cat', children: 'yes', dwelling_cue: 'apartment', outdoor_access_cue: 'unknown' } });
-  const q = household({ has_cat: false });
-  assert.equal(S.hasCat(q, r), false);
+  const q = household({ has_other_pets: false, other_pets: [] });
+  assert.deepEqual(S.otherPets(q, r), []);
   const ids = S.scoreSuitability(frenchie, q, r).nudges.map((n) => n.id);
   assert.ok(ids.includes('cat') && ids.includes('children') && ids.includes('dwelling'));
 });
+
+console.log('\nOther pets');
+{
+  const beagle = { name: 'Beagle', size: 'medium', energy: 'moderate', noise: 'vocal', group: 'Hound', temperament: 'Amiable, Even Tempered, Determined' };
+  check('a chase-prone breed with a cat, bird or small animal is a household concern naming them', () => {
+    const s = S.scoreSuitability(beagle, household({ has_other_pets: true, other_pets: ['bird', 'small_animal', 'fish'] }), result());
+    const c = s.household.concerns.find((x) => x.id === 'pet_chase');
+    assert.ok(c, 'pet_chase concern');
+    assert.deepEqual(c.pets, ['bird', 'small_animal']); // fish live in a tank: not a chase concern
+    assert.equal(s.bands.household, 'adequate');
+  });
+  check('fish or reptiles only, or a breed without a chase drive: no chase concern', () => {
+    assert.equal(S.scoreSuitability(beagle, household({ has_other_pets: true, other_pets: ['fish', 'reptile'] }), result()).bands.household, 'good');
+    assert.equal(S.scoreSuitability(lab, household({ has_other_pets: true, other_pets: ['cat'] }), result()).bands.household, 'good');
+  });
+  check('saved "Do you have a cat?" answers convert to the new question', () => {
+    const base = household({ has_other_pets: undefined, other_pets: undefined });
+    const yes = migrateHousehold({ ...base, has_cat: true });
+    assert.deepEqual([yes.has_other_pets, yes.other_pets, 'has_cat' in yes], [true, ['cat'], false]);
+    const no = migrateHousehold({ ...base, has_cat: false });
+    assert.deepEqual([no.has_other_pets, no.other_pets], [false, []]);
+    const never = migrateHousehold(base);
+    assert.equal(never.has_other_pets, undefined); // still unanswered
+  });
+  check('"No other pets" means none, even if the old cat answer is gone', () => {
+    assert.deepEqual(S.otherPets(household({ has_other_pets: false, other_pets: [] }), result()), []);
+    assert.deepEqual(S.otherPets(household({ has_other_pets: true, other_pets: ['cat', 'reptile'] }), result()), ['cat', 'reptile']);
+  });
+}
 
 console.log('\nNormaliser');
 check('the same object across overlapping frames is counted once (dedup)', () => {

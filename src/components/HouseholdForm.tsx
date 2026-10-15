@@ -9,7 +9,7 @@ import { CloseIcon } from './icons';
 import { OptionSheet } from './OptionSheet';
 import { colors, fonts } from '../theme';
 import { useBreedCatalogue } from '../logic/breeds';
-import type { Questionnaire, ExistingPet } from '../types';
+import type { Questionnaire, ExistingPet, OtherPet } from '../types';
 
 const OUTDOOR: { value: Questionnaire['outdoor_access']; label: string }[] = [
   { value: 'none', label: 'None' },
@@ -38,7 +38,8 @@ export const REQUIRED_QUESTIONS = [
   'experience',
   'household_atmosphere',
   'allergies',
-  'has_cat',
+  'has_other_pets',
+  'other_pets', // only when they have other pets
 ] as const;
 export type RequiredQuestion = (typeof REQUIRED_QUESTIONS)[number];
 
@@ -46,13 +47,26 @@ export type RequiredQuestion = (typeof REQUIRED_QUESTIONS)[number];
 function applies(k: RequiredQuestion, q: Questionnaire, blank?: ReadonlySet<RequiredQuestion>): boolean {
   if (k === 'outdoor_use') return !blank?.has('outdoor_access') && q.outdoor_access !== 'none';
   if (k === 'alone_plan') return !blank?.has('hours_alone') && !!q.hours_alone && q.hours_alone !== 'under_4';
+  if (k === 'other_pets') return !blank?.has('has_other_pets') && q.has_other_pets === true;
   return true;
 }
 
-// The required questions still waiting for an answer.
+// The required questions still waiting for an answer. "What kind?" needs at least one
+// pet picked (un-ticking the last one counts as unanswered again).
 export function stillToAnswer(q: Questionnaire, blank: ReadonlySet<RequiredQuestion>): RequiredQuestion[] {
-  return REQUIRED_QUESTIONS.filter((k) => blank.has(k) && applies(k, q, blank));
+  return REQUIRED_QUESTIONS.filter(
+    (k) => applies(k, q, blank) && (blank.has(k) || (k === 'other_pets' && !q.other_pets?.length))
+  );
 }
+
+export const OTHER_PETS: { value: OtherPet; label: string }[] = [
+  { value: 'cat', label: 'Cat' },
+  { value: 'bird', label: 'Bird' },
+  { value: 'small_animal', label: 'Rabbit, guinea pig or similar' },
+  { value: 'fish', label: 'Fish' },
+  { value: 'reptile', label: 'Reptile' },
+  { value: 'other', label: 'Other' },
+];
 const petLabel = (p: ExistingPet) => p.breed || 'Dog';
 
 export function HouseholdForm({
@@ -248,10 +262,35 @@ export function HouseholdForm({
         { value: 'no', label: 'No' },
       ], (v) => ({ allergies: v === 'yes' }))}
 
-      {ask('has_cat', 'Do you have a cat?', yesNo(q.has_cat), [
+      {ask('has_other_pets', 'Do you have any other pets?', yesNo(q.has_other_pets), [
         { value: 'yes', label: 'Yes' },
         { value: 'no', label: 'No' },
-      ], (v) => ({ has_cat: v === 'yes' }))}
+      ], (v) => (v === 'yes' ? { has_other_pets: true } : { has_other_pets: false, other_pets: [] }))}
+
+      {applies('other_pets', q, blank) && (
+        <View style={{ marginBottom: gap }}>
+          <SectionLabel style={label}>What kind? (choose all that apply)</SectionLabel>
+          <View style={styles.chips}>
+            {OTHER_PETS.map((o) => {
+              const picked = !blank?.has('other_pets') && (q.other_pets ?? []).includes(o.value);
+              return (
+                <Chip
+                  key={o.value}
+                  disabled={disabled}
+                  label={o.label}
+                  selected={picked}
+                  onPress={() => {
+                    const now = blank?.has('other_pets') ? [] : q.other_pets ?? [];
+                    onChange({ other_pets: picked ? now.filter((p) => p !== o.value) : [...now, o.value] });
+                  }}
+                  style={big && styles.chipBig}
+                  textStyle={big && styles.chipTxtBig}
+                />
+              );
+            })}
+          </View>
+        </View>
+      )}
 
       <View>
         <SectionLabel style={label}>Existing Dogs</SectionLabel>

@@ -332,19 +332,26 @@ const CONCERN_TEXT: Record<string, string> = {
   kids_bouncy_no_retreat: "I could be too boisterous for little ones, and there's nowhere for me to take a break.",
   kids_bouncy: "I could be a bit boisterous around little ones, so I'd need supervising.",
   kids_no_retreat: "I'd need a quiet spot to get away from little ones.",
-  cat_chase: 'I might want to chase your cat, so introductions need care.',
   other_dogs: 'I might not get along easily with your other dog at first.',
   first_dog_energy: "I'm a lot of work for a first dog.",
   first_dog_stubborn: 'I can be stubborn, which is hard for a first dog.',
   busy_sensitive: 'A busy home could stress me out.',
 };
 
+const PET_NOUN: Record<string, string> = { cat: 'cat', bird: 'bird', small_animal: 'small pets' };
+
+function concernText(c: Concern): string {
+  if (c.id === 'pet_chase') {
+    const nouns = (c.pets ?? []).map((p) => PET_NOUN[p] ?? 'pets');
+    const list = nouns.length > 1 ? `${nouns.slice(0, -1).join(', ')} and ${nouns[nouns.length - 1]}` : nouns[0] ?? 'pets';
+    return `I might want to chase your ${list}, so introductions need care.`;
+  }
+  return CONCERN_TEXT[c.id];
+}
+
 function householdLine(concerns: Concern[]): string {
   if (!concerns.length) return "I'd fit right in with your household.";
-  return concerns
-    .slice(0, 2)
-    .map((c) => CONCERN_TEXT[c.id])
-    .join(' ');
+  return concerns.slice(0, 2).map(concernText).join(' ');
 }
 
 const NOISE_LINE: Record<Band, string> = {

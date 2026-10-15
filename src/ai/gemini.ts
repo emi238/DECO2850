@@ -35,7 +35,8 @@ export function householdContext(q: Space['questionnaire']) {
     allergies: q.allergies ?? na,
     existing_pets: {
       dogs: q.existing_pets.filter((p) => /dog/i.test(p.species)).map((p) => p.breed || 'dog'),
-      has_cat: q.has_cat ?? na,
+      // Pets other than dogs: a list (empty = none), or not_answered.
+      other: q.has_other_pets === undefined ? na : q.has_other_pets ? q.other_pets ?? [] : [],
     },
   };
 }

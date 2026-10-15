@@ -11,6 +11,12 @@ space suitable for this dog?", what the AI is asked, what the app does with the 
 where the build differs from the PRD, and what is still weak.
 
 **Changelog**
+- **15 Oct 2026, other pets:** "Do you have a cat?" became **"Do you have any other
+  pets?"** plus "What kind?" (cat, bird, rabbit/guinea pig or similar, fish, reptile,
+  other; pick all that apply). Saved cat answers convert automatically
+  (`src/logic/migrate.ts`). A breed known to chase now counts as a household concern
+  with a cat, bird **or** small animal (§4.5). Both prompts get the list, and the room
+  prompt has guidance for each type (§2.4).
 - **15 Oct 2026, merged:** the PRD v2 and `PROMPT_LOGIC.md` combined into this file
   (renamed from `docs/PROMPT_LOGIC.md`). Added the plain-English summary, the weighting
   design note, the master variable table, the acceptance-criteria status (§9), where the
@@ -60,7 +66,7 @@ app couldn't check also stops a "Good fit". The user only ever sees words, never
 | **Safety** | **35%** | Photos | Weighted load of hazards by type: escape/fall (highest) · toxic/ingestible · electrical/thermal · floor/stairs · fragile/valuable · clutter. Scaled by dog size (large → fragile, floor and escape count more; small → squeeze gaps and swallowable objects count more) and by confidence (low ×0.5). User-tagged valuables excluded. (§4.2) |
 | **Energy & management fit** | **25%** | Breed + questionnaire | Breed energy vs owner capacity: owner activity, daily exercise time, outdoor space and whether it's used, hours alone and any walker or daycare. The research-backed make-or-break factor. (§4.3) |
 | **Room to move** | **15%** | Photos (qualitative) | Openness, retreat spot, clear path. Floor area (m²) only counts at medium+ confidence. Bites mainly for large or high-energy dogs. (§4.4) |
-| **Household fit** | **15%** | Questionnaire + photo cross-check | Young children (+ retreat spot), a cat, other dogs, first-time owner, a busy home, each against the breed's size, energy and temperament. Photos cross-check the answers. (§4.5) |
+| **Household fit** | **15%** | Questionnaire + photo cross-check | Young children (+ retreat spot), other pets (cat, bird, small animal), other dogs, first-time owner, a busy home, each against the breed's size, energy and temperament. Photos cross-check the answers. (§4.5) |
 | **Noise fit** | **10%** | Breed + questionnaire | Breed vocalness vs neighbour proximity (attached / close / not close). (§4.6) |
 
 **What the model focuses on:**
@@ -88,6 +94,7 @@ and a plain list says what to change.
 |---|---|
 | Suitability rules: weights, formulas, gates, unknowns, cross-check | `src/logic/suitability.ts` (pure logic, no app code) |
 | "What's new" comparison after a Re-run | `src/logic/changes.ts` (pure logic) |
+| Converting answers saved by older versions (e.g. the old cat question) | `src/logic/migrate.ts` (pure logic) |
 | Words the user sees: verdict, chips, lines, "What to change", nudges | `src/logic/evaluate.ts` |
 | Room prompt text | `src/ai/prompt.ts` |
 | Output contract: allowed values + Gemini `responseSchema` | `src/ai/schema.ts` |
@@ -168,7 +175,7 @@ One request with three parts in a single `user` turn (`gemini.ts → callGemini`
        "children_at_home": "young", "hours_alone": "4_to_8", "alone_plan": "none",
        "owner_activity": "moderate", "exercise_time": "30_60", "experience": "none",
        "household_atmosphere": "mixed", "allergies": false,
-       "existing_pets": { "dogs": [], "has_cat": false }
+       "existing_pets": { "dogs": [], "other": ["cat", "bird"] }
      },
      "tags": [ { "id": "tag_1", "label": "Vase", "note": "Fragile", "frame": 0, "x": 0.3, "y": 0.6 } ]
    }
@@ -250,7 +257,7 @@ INPUTS (the CONTEXT JSON and the photos)
    - experience: none / some / experienced (has owned dogs before).
    - household_atmosphere: calm / mixed / busy.
    - allergies: true / false (someone at home is allergic to pets).
-   - existing_pets: dogs (breeds already in the home) and has_cat (true / false).
+   - existing_pets: dogs (breeds already in the home) and other (other pets in the home: cat / bird / small_animal = rabbit, guinea pig or similar / fish / reptile / other; an empty list means none).
 4. TAGS ("tags"): objects the owner marked themselves, each with id, label, note ("Valuable" or "Fragile"), frame, x and y. They are things to PROTECT FROM the dog, not dangers to the dog.
 
 WHAT TO RETURN
@@ -314,7 +321,9 @@ HOUSEHOLD FACTORS TO WEIGH
 - children_at_home = older: mention a dog-only retreat spot only if the room clearly lacks one.
 - hours_alone = 4_to_8 or over_8: a bored dog left alone chews, digs and tries to get out, so raise the severity of anything chewable or escapable within reach (cords, bins, shoes, cushions, plants, door gaps, low windows) by one step, and recommend a safe zone or crate area that can be cleared of hazards. If alone_plan is walker or daycare, do this only for over_8. Over 8 hours with alone_plan none: also say in improvements that a dog walker or daycare would help.
 - hours_alone = under_4 or not_answered: no change.
-- existing_pets.has_cat = true: flag cat food, litter trays and other cat areas the dog could reach (toxic_ingestible or clutter), and suggest keeping them out of the dog's reach.
+- existing_pets.other includes cat: flag cat food, litter trays and other cat areas the dog could reach (toxic_ingestible or clutter), and suggest keeping them out of the dog's reach.
+- existing_pets.other includes bird or small_animal: flag cages or hutches at dog height or where the dog could knock them over, and suggest raising them or keeping that room off-limits to the dog.
+- existing_pets.other includes fish or reptile: flag tanks the dog could knock or reach, and heat lamp or filter cords, and suggest keeping them stable and out of reach.
 - experience = none: keep every recommendation simple and specific.
 - household_atmosphere = busy: suggest a retreat spot away from foot traffic.
 - allergies = true: suggest keeping the dog off beds and soft furnishings; this is not a hazard.
@@ -365,7 +374,7 @@ first dog; hazards to move; no outdoor space; otherwise "a quiet corner of its o
 You are PawSpace's dog-breed matchmaker. A person is checking whether their home suits a dog. Recommend dog breeds that would genuinely suit THIS home and household.
 
 You receive JSON with:
-- "household": the owner's own answers, treat them as facts ("not_answered" = unknown): dwelling, rental, neighbours (attached / close_separate / not_close), outdoor_access and outdoor_use (most_days / sometimes / rarely), children_at_home (none / young = under 5 / older = 5+), hours_alone (a typical day: under_4 / 4_to_8 / over_8), alone_plan (none / walker / daycare), owner_activity (sedentary / moderate / active), exercise_time (under_30 / 30_60 / over_60 minutes a day), experience (none / some / experienced), household_atmosphere (calm / mixed / busy), allergies (true / false), existing_pets (dogs, has_cat).
+- "household": the owner's own answers, treat them as facts ("not_answered" = unknown): dwelling, rental, neighbours (attached / close_separate / not_close), outdoor_access and outdoor_use (most_days / sometimes / rarely), children_at_home (none / young = under 5 / older = 5+), hours_alone (a typical day: under_4 / 4_to_8 / over_8), alone_plan (none / walker / daycare), owner_activity (sedentary / moderate / active), exercise_time (under_30 / 30_60 / over_60 minutes a day), experience (none / some / experienced), household_atmosphere (calm / mixed / busy), allergies (true / false), existing_pets (dogs, and other: cat / bird / small_animal / fish / reptile / other).
 - "room": a summary of the captured room, how many physical hazards were found, how many items the user tagged to protect, and how open the floor is and whether there is a spot for a dog bed.
 - "candidates": a shortlist of real breeds. Each has name, size (small <12kg, medium 12-25kg, large >25kg), energy (low/moderate/high), noise (quiet/moderate/vocal), temperament, breed group, and "rule_fit": how PawSpace's rules rate it for this home (energy, safety, room, household, noise and overall: poor/adequate/good).
 
@@ -375,7 +384,7 @@ How to choose:
 - Experience: for a first dog (experience none), favour easy-going, eager-to-please breeds and avoid stubborn, independent or very high energy ones.
 - Home atmosphere: a busy home suits confident, easy-going breeds; avoid shy or sensitive ones.
 - Allergies: if allergies is true, favour breeds known to shed little (for example poodles, bichons, schnauzers) when they are in the candidates, and mention grooming in "watch_out".
-- A cat at home (has_cat true): avoid breeds with a strong chase or prey drive (many hounds and terriers) and mention slow introductions in "watch_out".
+- A cat, bird or small animal at home (existing_pets.other): avoid breeds with a strong chase or prey drive (many hounds and terriers) and mention slow introductions or keeping them apart in "watch_out".
 - Children: with young children, favour breeds whose temperament is gentle, patient or tolerant, and avoid very boisterous or easily-startled ones; mention supervision in "watch_out". Older children suit most friendly, playful breeds.
 - Time alone: with 4 to 8 hours alone, favour moderate or low energy breeds that are described as independent or calm. With over 8 hours alone, strongly favour low energy, independent, quieter breeds, avoid high energy or very people-focused breeds, and unless alone_plan is walker or daycare say in "watch_out" that one would help. Long hours alone plus attached walls makes a vocal breed a poor match.
 - Offer variety (different sizes and temperaments) when several breeds fit similarly.
@@ -533,7 +542,7 @@ info" and asks the user to answer).
 |---|---|---|
 | Boisterous dog around little ones | young children + (large or high energy) + temperament not gentle/patient/tolerant | mild; **strong** if the room also has no retreat spot |
 | No retreat from little ones | young children + `retreat_spot: absent` | mild |
-| May chase the cat | has a cat (answer, or seen in photos if unanswered) + hound/terrier group or prey/chase temperament | mild |
+| May chase your other pets | a cat, bird or small animal at home (from the answer; if unanswered, a cat seen in the photos counts) + hound/terrier group or prey/chase temperament. Fish and reptiles don't count (they live in tanks). The line names the pets ("I might want to chase your cat and bird…"). | mild |
 | Other dogs | existing dogs + aggressive/dominant/territorial temperament | mild |
 | First dog | no experience + high energy; or + stubborn/independent temperament | mild each |
 | Busy home | busy + shy/sensitive/timid temperament | mild |
@@ -576,8 +585,8 @@ Any unknown blocks "Good fit". The verdict reads "Could be a good fit" plus what
 `detected_signals` never change an answer. They produce gentle nudges with an "Update
 profile" link: a cat, a dog, pets or children seen; a dwelling or outdoor space that
 differs from the profile; and a reminder when routine questions are unanswered. One
-exception: when "Do you have a cat?" is unanswered, a cat seen in the photos counts for
-the household check.
+exception: when "Do you have any other pets?" is unanswered, a cat seen in the photos
+counts for the household check.
 
 ### 4.10 What the user sees (`evaluate.ts` + `AnalysisScreen.tsx`)
 
@@ -729,7 +738,7 @@ those findings. The AR placement prototype on this branch is unchanged.
 | Pre-flight result recorded | **Done**: no object detection, so the LLM-only path, plus a recommendation (§1.1). | §1.1 and the v2 commit message |
 | Photo-derived ≈ 50%; low confidence at half weight | **Built.** | "Weights" and "half weight" checks |
 
-`npm run check:logic` currently runs **44 checks**, all passing.
+`npm run check:logic` currently runs **48 checks**, all passing.
 
 ---
 

@@ -16,6 +16,7 @@ import type {
   Space,
   Tag,
 } from '../types';
+import { migrateHousehold } from '../logic/migrate';
 
 function uuid(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -180,10 +181,8 @@ export const useSession = create<SessionState>()(
           (sp) => !sp.capture.frames.some((f) => f.uri.startsWith('asset:') || f.uri.startsWith('demo:'))
         );
         const currentSpaceId = spaces.some((sp) => sp.id === p.currentSpaceId) ? p.currentSpaceId! : spaces[0]?.id ?? null;
-        // Dogs only: drop any non-dog existing pets saved before the app went dogs-only.
-        const household = p.household
-          ? { ...p.household, existing_pets: (p.household.existing_pets ?? []).filter((e) => /dog/i.test(e.species)) }
-          : current.household;
+        // Older saved answers: non-dog pets dropped, the cat question converted.
+        const household = p.household ? migrateHousehold(p.household) : current.household;
         return { ...current, ...p, spaces, currentSpaceId, household };
       },
       // Persist everything except the heavy per-frame base64 bytes.
