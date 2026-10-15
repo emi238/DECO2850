@@ -156,7 +156,7 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
   // ---------- REVIEW ----------
   if (phase === 'review' && !preparing) {
     const n = captured.length;
-    const subtitle = `${n} ${source === 'upload' ? 'uploaded ' : ''}${n === 1 ? 'frame' : 'frames'} to be mapped into a 2D/3D map, double check all corners are captured and no personal identifiable information is shown.`;
+    const subtitle = `${n} ${source === 'upload' ? 'uploaded ' : ''}${n === 1 ? 'frame' : 'frames'} to be mapped onto a room map, double check all corners are captured and no personal identifiable information is shown.`;
     return (
       <View style={styles.root}>
         <SafeAreaView edges={['top']} style={{ flex: 1 }}>

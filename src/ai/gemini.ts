@@ -50,7 +50,7 @@ function contextJson(session: Space, dog: DogTraits | null): string {
     tags: session.tags
       .filter((t) => !t.offLimits)
       .map((t) => ({ id: t.id, label: t.label, note: t.note, frame: t.frame, x: t.x ?? null, y: t.y ?? null })),
-    // Areas the owner has marked off-limits (frame null = marked in the 3D view).
+    // Areas the owner has marked off-limits (frame null = not tied to a photo).
     off_limit_areas: session.tags
       .filter((t) => t.offLimits)
       .map((t) => ({

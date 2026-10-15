@@ -92,8 +92,8 @@ export interface Tag {
   x?: number;
   y?: number;
   // An area the owner wants the dog kept out of (from ar-immersive-scan 51d2e26),
-  // rather than a valuable/fragile item. frame -1 = placed in the 3D view, where x,y
-  // are 0-1 of the view, not of a photo.
+  // rather than a valuable/fragile item. frame -1 = not tied to a photo (marked in the
+  // 3D view, which has since been removed; only older saved tags have this).
   offLimits?: boolean;
 }
 

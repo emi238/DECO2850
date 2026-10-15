@@ -1,6 +1,6 @@
 // Space analysis — the "Living Room" view. Runs the assessment (with the
-// "Un-fur-ling details…" loading state), then shows the room as a 2D photo map or
-// 3D model with risk pins, the "Potential Risks!" sheet, and — once a breed is
+// "Un-fur-ling details…" loading state), then shows the room as a 2D photo map with
+// risk pins, the "Potential Risks!" sheet, and — once a breed is
 // attached — the peeking dog avatar whose mood/movement follows the room tone
 // (spec §4.1) plus the qualitative summary report (spec §6.3). No scores shown.
 
@@ -26,7 +26,6 @@ import { BlurView } from 'expo-blur';
 
 import { TopBar, AvatarButton, Segmented, PrimaryButton } from '../components/kit';
 import { FrameView, useFrameImageSize, imageToView, viewToImage } from '../components/FrameView';
-import { Room3DView } from '../components/Room3DView';
 import { LoadingView } from '../components/LoadingView';
 import { SwipeUpNav } from '../components/SwipeUpNav';
 import { AlertIcon, ChevronIcon, CloseIcon, EditIcon, RefreshRingIcon, TrashIcon } from '../components/icons';
@@ -52,7 +51,7 @@ import type { ScreenProps } from '../navigation';
 
 const MIN_LOADING_MS = 2200;
 
-// Marking an area off-limits: the next tap on the map (or 3D view) drops the tag.
+// Marking an area off-limits: the next tap on the map drops the tag.
 type Placing = { area: string } | null;
 
 export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analysis'>) {
@@ -66,7 +65,6 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
   const needsRun = hasPet && (!!route.params?.run || !space?.result);
   const [loading, setLoading] = useState(needsRun);
   const [loadDone, setLoadDone] = useState(false);
-  const [view, setView] = useState<'2d' | '3d'>('2d');
   const [riskIndex, setRiskIndex] = useState<number | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
   const [recOpen, setRecOpen] = useState(false); // Recommendations / shopping panel
@@ -152,7 +150,7 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
   const recSet = useMemo(() => buildRecommendations(evaluation, result), [evaluation, result]);
   const offLimits = useMemo(() => (space?.tags ?? []).filter((t) => t.offLimits), [space?.tags]);
 
-  // Drop an off-limits tag at a tapped point (frame -1 = the 3D view).
+  // Drop an off-limits tag at a tapped point on a photo.
   const placeOffLimits = (frame: number, x: number, y: number) => {
     if (!placing) return;
     addTag({ label: placing.area || 'Off-limits', note: 'Off-limits', offLimits: true, frame, x, y });
@@ -223,59 +221,23 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
           setHeaderH(e.nativeEvent.layout.y); // the dog peeks over the card's top edge
         }}
       >
-        {view === '2d' ? (
-          <PhotoMap
-            frames={frames}
-            risks={risks}
-            setup={evaluation?.setup ?? []}
-            setupFocus={setupFocus}
-            offLimits={offLimits}
-            width={width}
-            height={cardH}
-            selectedId={riskIndex != null ? risks[riskIndex]?.id : undefined}
-            onPin={(id) => {
-              setSetupFocus(null);
-              setRiskIndex(risks.findIndex((r) => r.id === id));
-            }}
-            placing={!!placing}
-            onPlace={placeOffLimits}
-            onRemoveTag={removeOffLimits}
-          />
-        ) : result ? (
-          <View style={StyleSheet.absoluteFill}>
-            <Room3DView result={result} frameCount={frames.length} />
-
-            {/* Off-limits areas marked in 3D (frame -1, positioned in view space). */}
-            {offLimits
-              .filter((t) => t.frame === -1)
-              .map((t) => (
-                <Pressable
-                  key={t.id}
-                  onPress={() => removeOffLimits(t)}
-                  hitSlop={6}
-                  style={[styles.offTag, { left: (t.x ?? 0.5) * width - 52, top: (t.y ?? 0.5) * cardH - 15 }]}
-                >
-                  <Text style={styles.offTagTxt} numberOfLines={1}>✕ {t.label}</Text>
-                </Pressable>
-              ))}
-
-            {/* Tap-to-place while marking an off-limits area. */}
-            {placing && (
-              <Pressable
-                style={StyleSheet.absoluteFill}
-                onPress={(e) => placeOffLimits(-1, e.nativeEvent.locationX / width, e.nativeEvent.locationY / cardH)}
-              >
-                <View style={styles.placingVeil} pointerEvents="none" />
-              </Pressable>
-            )}
-
-            {!placing && hasDog && riskIndex == null && !reportOpen && !recOpen && (
-              <Pressable style={styles.addZoneBtn} onPress={() => setPlacing({ area: 'Off-limits area' })}>
-                <Text style={styles.addZoneTxt}>✕  Add off-limits area</Text>
-              </Pressable>
-            )}
-          </View>
-        ) : null}
+        <PhotoMap
+          frames={frames}
+          risks={risks}
+          setup={evaluation?.setup ?? []}
+          setupFocus={setupFocus}
+          offLimits={offLimits}
+          width={width}
+          height={cardH}
+          selectedId={riskIndex != null ? risks[riskIndex]?.id : undefined}
+          onPin={(id) => {
+            setSetupFocus(null);
+            setRiskIndex(risks.findIndex((r) => r.id === id));
+          }}
+          placing={!!placing}
+          onPlace={placeOffLimits}
+          onRemoveTag={removeOffLimits}
+        />
 
         {!hasDog && (
           <Pressable style={styles.selectBreed} onPress={selectBreed}>
@@ -291,13 +253,6 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
             <PrimaryButton label="Select breed" onPress={selectBreed} style={{ marginTop: 14, alignSelf: 'stretch' }} />
           </View>
         )}
-        <Segmented
-          value={view}
-          onChange={setView}
-          options={[{ value: '2d', label: '2D map' }, { value: '3d', label: '3D map' }]}
-          style={[styles.mapToggle, hasDog && { top: 38 }]}
-          textStyle={styles.mapToggleTxt}
-        />
 
         {/* Recommendations tab, top-left, level with the 2D/3D toggle. */}
         {hasDog && riskIndex == null && !reportOpen && !placing && (
@@ -313,14 +268,14 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
 
         {placing && (
           <View style={styles.placingHint} pointerEvents="box-none">
-            <Text style={styles.placingTxt}>Tap the {view === '2d' ? 'photo' : 'room'} to mark “{placing.area}” off-limits</Text>
+            <Text style={styles.placingTxt}>Tap the photo to mark “{placing.area}” off-limits</Text>
             <Pressable onPress={() => setPlacing(null)} hitSlop={8}>
               <Text style={styles.placingCancel}>Cancel</Text>
             </Pressable>
           </View>
         )}
 
-        {!!space.resultNote && view === '2d' && riskIndex == null && !reportOpen && !placing && (
+        {!!space.resultNote && riskIndex == null && !reportOpen && !placing && (
           <View style={[styles.note, hasDog && { top: 76 }]} pointerEvents="none">
             <Text style={styles.noteTxt} numberOfLines={3}>{space.resultNote}</Text>
           </View>
@@ -359,7 +314,6 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
             }}
             onShowSetup={(key) => {
               setReportOpen(false);
-              setView('2d');
               setSetupFocus(key);
             }}
           />
@@ -371,7 +325,6 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
             offLimitCount={offLimits.length}
             onFenceOff={(area) => {
               setRecOpen(false);
-              setView('2d');
               setPlacing({ area });
             }}
             onClose={() => setRecOpen(false)}
@@ -1064,8 +1017,6 @@ const styles = StyleSheet.create({
   pickPrompt: { position: 'absolute', left: 24, right: 24, top: '30%', backgroundColor: 'rgba(255,255,255,0.94)', borderRadius: 20, padding: 20, alignItems: 'center' },
   pickTitle: { fontFamily: fonts.semibold, fontSize: 17, color: colors.text, textAlign: 'center' },
   pickBody: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.textMuted, textAlign: 'center', marginTop: 6 },
-  mapToggle: { position: 'absolute', top: 11, right: 16, width: 127, height: 28, backgroundColor: colors.track, borderRadius: 10, borderWidth: 1, borderColor: '#fff' },
-  mapToggleTxt: { fontFamily: fonts.semibold, fontSize: 10.5 },
 
   pin: { position: 'absolute', width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(251,171,75,0.35)', alignItems: 'center', justifyContent: 'center' },
   pinOn: { backgroundColor: 'rgba(251,171,75,0.7)', transform: [{ scale: 1.15 }] },
@@ -1142,8 +1093,6 @@ const styles = StyleSheet.create({
   placingVeil: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(228,87,46,0.14)' },
   offTag: { position: 'absolute', width: 104, height: 30, borderRadius: 8, backgroundColor: 'rgba(228,87,46,0.92)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6, borderWidth: 1.5, borderColor: '#fff' },
   offTagTxt: { fontFamily: fonts.semibold, fontSize: 11, color: '#fff' },
-  addZoneBtn: { position: 'absolute', left: 16, bottom: 118, flexDirection: 'row', alignItems: 'center', backgroundColor: '#E4572E', borderRadius: 22, paddingVertical: 12, paddingHorizontal: 16, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
-  addZoneTxt: { fontFamily: fonts.semibold, fontSize: 13.5, color: '#fff' },
 
   // Recommendations panel cards.
   recEmpty: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.textMuted, textAlign: 'center', marginTop: 30 },
