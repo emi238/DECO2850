@@ -357,7 +357,8 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
 // Thin bars across the top of the carousel card; the orange one is the current frame.
 // With onSelect, tapping a bar jumps to its frame.
 export function ProgressBars({ count, active, onSelect }: { count: number; active: number; onSelect?: (i: number) => void }) {
-  const bars = Math.max(3, Math.min(count, 8));
+  // One bar per photo (so a single photo shows a single bar), at most 8.
+  const bars = Math.min(count, 8);
   const current = count > bars ? Math.round((active / Math.max(1, count - 1)) * (bars - 1)) : active;
   const frameFor = (bar: number) => (count > bars ? Math.round((bar / (bars - 1)) * (count - 1)) : bar);
   return (
