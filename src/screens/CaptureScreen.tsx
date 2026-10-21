@@ -4,7 +4,7 @@
 // (bottom right) opens "Review your space", which shows the frames in a
 // carousel before continuing to tagging.
 
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -21,16 +21,42 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 
-import { TopBar, JoinedButtons, PrimaryButton } from '../components/kit';
+import { TopBar, PrimaryButton } from '../components/kit';
 import { FrameView } from '../components/FrameView';
 import { ZoomBox } from '../components/ZoomBox';
 import { SwipeUpNav } from '../components/SwipeUpNav';
 import { ChevronIcon } from '../components/icons';
+import { GuideSheet, type GuideStep } from '../components/GuideSheet';
+import { ScanCornerArt, ScanOverlapArt, ScanLowArt, ScanExitsArt } from '../components/guideArt';
 import { colors, fonts } from '../theme';
 import { useSession } from '../store/session';
 import { pickPhotos, pickVideoFrames, type PickResult } from '../capture/upload';
 import type { Frame } from '../types';
 import type { ScreenProps } from '../navigation';
+
+// "How to scan": shown the first time someone opens Capture, and from the link.
+const SCAN_GUIDE: GuideStep[] = [
+  {
+    art: <ScanCornerArt />,
+    title: 'Start from a corner',
+    body: 'Stand in a corner and take your first photo looking across the whole room.',
+  },
+  {
+    art: <ScanOverlapArt />,
+    title: 'Turn slowly, 6 to 10 photos',
+    body: 'Turn a little between shots so each photo overlaps the last. Turn the lights on and hold steady.',
+  },
+  {
+    art: <ScanLowArt />,
+    title: 'Get down to dog height',
+    body: 'Tilt down to show the floor, cords, plants and low shelves. That’s where a dog explores.',
+  },
+  {
+    art: <ScanExitsArt />,
+    title: 'Show the ways out',
+    body: 'Include doors, windows, balconies and stairs so we can check for escapes and falls. A slow video works too.',
+  },
+];
 
 export default function CaptureScreen({ navigation, route }: ScreenProps<'Capture'>) {
   const fresh = !!route.params?.fresh;
@@ -46,6 +72,21 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
   const [page, setPage] = useState(0);
   const busy = useRef(false);
   const framesRef = useRef<Frame[]>([]);
+
+  const scanSeen = useSession((s) => s.seenGuides.includes('scan'));
+  const markGuideSeen = useSession((s) => s.markGuideSeen);
+  const [guideOpen, setGuideOpen] = useState(false);
+  useEffect(() => {
+    if (scanSeen) return;
+    const t = setTimeout(() => setGuideOpen(true), 400);
+    return () => clearTimeout(t);
+    // Only on arrival: closing the guide marks it seen.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const closeGuide = () => {
+    setGuideOpen(false);
+    markGuideSeen('scan');
+  };
 
   const { width } = useWindowDimensions();
   const cardW = width - 44;
@@ -224,6 +265,9 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
           <Text style={styles.sub}>
             Tap the shutter to take a photo, as many as you need to capture every corner of the room. Or upload photos or a video.
           </Text>
+          <Pressable onPress={() => setGuideOpen(true)} hitSlop={8} style={styles.howLink}>
+            <Text style={styles.howTxt}>How to scan →</Text>
+          </Pressable>
 
           <View style={[styles.card, styles.cameraCard, { width: cardW }]}>
             <View style={styles.viewport}>
@@ -289,13 +333,11 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
             </View>
           </View>
 
-          {/* Both upload options are neutral (white); only Next is orange. */}
-          <JoinedButtons
-            left={{ label: 'Upload Video', onPress: () => runUpload(pickVideoFrames, 'video') }}
-            right={{ label: 'Upload Photos', onPress: () => runUpload(pickPhotos, 'photos') }}
-            rightBg={colors.bg}
-            style={{ marginTop: 20 }}
-          />
+          {/* Two separate neutral (white) upload buttons; only Next is orange. */}
+          <View style={styles.uploadRow}>
+            <PrimaryButton label="Upload Video" onPress={() => runUpload(pickVideoFrames, 'video')} style={[styles.uploadBtn, { backgroundColor: colors.bg }]} />
+            <PrimaryButton label="Upload Photos" onPress={() => runUpload(pickPhotos, 'photos')} style={[styles.uploadBtn, { backgroundColor: colors.bg }]} />
+          </View>
 
           <View style={styles.footer}>
             <PrimaryButton
@@ -307,6 +349,7 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
           </View>
         </View>
       </SafeAreaView>
+      <GuideSheet visible={guideOpen} heading="How to scan" steps={SCAN_GUIDE} doneLabel="Start scanning" onClose={closeGuide} />
     </View>
   );
 }
@@ -354,6 +397,10 @@ const styles = StyleSheet.create({
   grantTxt: { fontFamily: fonts.semibold, color: colors.text, fontSize: 14 },
   countPill: { position: 'absolute', top: 12, alignSelf: 'center', backgroundColor: colors.orangeLight, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6 },
   countTxt: { fontFamily: fonts.semibold, color: colors.text, fontSize: 13 },
+  howLink: { alignSelf: 'flex-start', marginTop: 6 },
+  howTxt: { fontFamily: fonts.medium, fontSize: 12.5, color: colors.orangeDeep },
+  uploadRow: { flexDirection: 'row', gap: 12, marginTop: 20 },
+  uploadBtn: { flex: 1 },
   reviewActions: { flexDirection: 'row', gap: 12, marginTop: 24 },
   retakeBtn: { width: '38%' },
   continueBtn: { flex: 1 }, // takes the remaining, larger share

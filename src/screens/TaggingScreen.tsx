@@ -5,7 +5,7 @@
 // The tappable frame is a single NON-scrolling image with < > buttons to change
 // frame — a scroll view here swallowed taps on real devices.
 
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -24,6 +24,8 @@ import { TopBar, PrimaryButton, JoinedButtons, Segmented } from '../components/k
 import { FrameView, useFrameImageSize, viewToImage, imageToView } from '../components/FrameView';
 import { ChevronIcon } from '../components/icons';
 import { ZoomBox } from '../components/ZoomBox';
+import { GuideSheet, type GuideStep } from '../components/GuideSheet';
+import { FlagTapArt, FlagNameArt, FlagMoveArt } from '../components/guideArt';
 import { ProgressBars } from './CaptureScreen';
 import { colors, fonts } from '../theme';
 import { useSession, useCurrentSpace } from '../store/session';
@@ -31,6 +33,25 @@ import type { ScreenProps } from '../navigation';
 import type { Tag } from '../types';
 
 type TagKind = 'Valuable' | 'Fragile' | 'Off-limits';
+
+// "How to flag": shown the first time someone reaches this screen, and from the link.
+const FLAG_GUIDE: GuideStep[] = [
+  {
+    art: <FlagTapArt />,
+    title: 'Tap what you want to protect',
+    body: 'Tap the photo on anything precious or fragile, or an area the dog shouldn’t go. Pinch to zoom in first.',
+  },
+  {
+    art: <FlagNameArt />,
+    title: 'Name it and pick a type',
+    body: 'Give it a short name, choose Valuable, Fragile or Off-limits, then tap Save tag.',
+  },
+  {
+    art: <FlagMoveArt />,
+    title: 'Move or change a flag',
+    body: 'Drag a flag to move it, or tap it to edit or remove it. Flagging is optional, so skip it if nothing needs protecting.',
+  },
+];
 
 export default function TaggingScreen({ navigation }: ScreenProps<'Tagging'>) {
   const space = useCurrentSpace();
@@ -52,6 +73,21 @@ export default function TaggingScreen({ navigation }: ScreenProps<'Tagging'>) {
   const [dragging, setDragging] = useState(false);
   const [label, setLabel] = useState('');
   const [kind, setKind] = useState<TagKind>('Valuable');
+
+  const flagSeen = useSession((s) => s.seenGuides.includes('flag'));
+  const markGuideSeen = useSession((s) => s.markGuideSeen);
+  const [guideOpen, setGuideOpen] = useState(false);
+  useEffect(() => {
+    if (flagSeen) return;
+    const t = setTimeout(() => setGuideOpen(true), 400);
+    return () => clearTimeout(t);
+    // Only on arrival: closing the guide marks it seen.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const closeGuide = () => {
+    setGuideOpen(false);
+    markGuideSeen('flag');
+  };
 
   const frameIndex = Math.min(active, Math.max(0, frames.length - 1));
   const img = useFrameImageSize(frames[frameIndex]);
@@ -111,6 +147,9 @@ export default function TaggingScreen({ navigation }: ScreenProps<'Tagging'>) {
             Tap the photo to mark an object or an off-limits area. E.g a fragile vase, a valuable, or a zone your dog isn’t
             allowed in. This is optional but if flagged, the AI will treat it as a top priority.
           </Text>
+          <Pressable onPress={() => setGuideOpen(true)} hitSlop={8} style={styles.howLink}>
+            <Text style={styles.howTxt}>How to flag →</Text>
+          </Pressable>
 
           <View style={[styles.card, { width: cardW }]}>
             <ProgressBars count={frames.length} active={frameIndex} onSelect={goToFrame} />
@@ -174,7 +213,7 @@ export default function TaggingScreen({ navigation }: ScreenProps<'Tagging'>) {
           )}
 
           <PrimaryButton
-            label="Save Space!"
+            label="Save Scan"
             onPress={() => navigation.navigate('SpaceSaved')}
           />
         </ScrollView>
@@ -223,6 +262,8 @@ export default function TaggingScreen({ navigation }: ScreenProps<'Tagging'>) {
           </View>
         </View>
       </Modal>
+
+      <GuideSheet visible={guideOpen} heading="How to flag" steps={FLAG_GUIDE} doneLabel="Start flagging" onClose={closeGuide} />
     </View>
   );
 }
@@ -297,6 +338,8 @@ const styles = StyleSheet.create({
   body: { paddingHorizontal: 22, paddingBottom: 40 },
   h1: { fontFamily: fonts.bold, color: colors.text, fontSize: 20, marginTop: 14 },
   sub: { fontFamily: fonts.regular, color: colors.text, fontSize: 15, lineHeight: 21, marginTop: 6 },
+  howLink: { alignSelf: 'flex-start', marginTop: 6 },
+  howTxt: { fontFamily: fonts.medium, fontSize: 12.5, color: colors.orangeDeep },
 
   card: { backgroundColor: colors.bg, borderRadius: 20, paddingTop: 13, paddingBottom: 22, marginTop: 16 },
   frames: { alignItems: 'center' }, // one whole frame, centred; no clipped neighbour

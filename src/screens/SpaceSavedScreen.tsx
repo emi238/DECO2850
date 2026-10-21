@@ -1,4 +1,4 @@
-// "Purrfect! Space Saved" — name + label the new space, then either start the
+// "Purrfect! Scan Saved" — name + label the new space, then either start the
 // analysis, edit the household questionnaire first, or go home.
 
 import React, { useEffect, useRef } from 'react';
@@ -43,7 +43,7 @@ export default function SpaceSavedScreen({ navigation }: ScreenProps<'SpaceSaved
       <SafeAreaView edges={['top', 'bottom']} style={{ flex: 1 }}>
         <TopBar onBack={() => navigation.goBack()} onClose={() => navigation.navigate('Home')} style={styles.topBar} />
         <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-          <Text style={styles.h1}>Purrfect! Space Saved</Text>
+          <Text style={styles.h1}>Purrfect! Scan Saved</Text>
           <Text style={styles.sub}>
             Ensure that your household questionnaire (in profile!) is filled out before analysing the space for better
             results and analysis. You can edit or tag any new items through the home → specific space.
@@ -57,7 +57,7 @@ export default function SpaceSavedScreen({ navigation }: ScreenProps<'SpaceSaved
             )}
           </View>
 
-          <Text style={styles.label}>Space Saved Under:</Text>
+          <Text style={styles.label}>Scan Saved Under:</Text>
           <Pressable style={styles.nameBox} onPress={() => nameRef.current?.focus()}>
             <TextInput
               ref={nameRef}
@@ -92,7 +92,7 @@ export default function SpaceSavedScreen({ navigation }: ScreenProps<'SpaceSaved
             onPress={() => navigation.navigate('Household')}
             style={{ marginTop: 10, backgroundColor: colors.bg }}
           />
-          <PrimaryButton label="Start Space Analysis" onPress={startAnalysis} style={{ marginTop: 16 }} />
+          <PrimaryButton label="Start Scan Analysis" onPress={startAnalysis} style={{ marginTop: 16 }} />
           <Pressable onPress={() => navigation.reset({ index: 0, routes: [{ name: 'Home' }] })} style={styles.home} hitSlop={8}>
             <Text style={styles.homeTxt}>Go Home Instead</Text>
           </Pressable>

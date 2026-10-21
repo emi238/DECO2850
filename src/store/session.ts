@@ -67,7 +67,9 @@ interface SessionState {
   onboarded: boolean;
   household: Questionnaire; // shared across spaces, set at onboarding, edited in Profile
   profile: Profile;
+  seenGuides: string[]; // "how to" guides already shown once ('scan', 'flag')
 
+  markGuideSeen: (id: string) => void;
   setHousehold: (patch: Partial<Questionnaire>) => void;
   setProfile: (patch: Partial<Profile>) => void;
   resetAll: () => void;
@@ -113,7 +115,9 @@ export const useSession = create<SessionState>()(
       onboarded: false,
       household: { ...defaultQuestionnaire },
       profile: { name: '', email: '' },
+      seenGuides: [],
 
+      markGuideSeen: (id) => set((s) => (s.seenGuides.includes(id) ? {} : { seenGuides: [...s.seenGuides, id] })),
       setHousehold: (patch) => set((s) => ({ household: { ...s.household, ...patch } })),
       setProfile: (patch) => set((s) => ({ profile: { ...s.profile, ...patch } })),
       resetAll: () =>
@@ -123,6 +127,7 @@ export const useSession = create<SessionState>()(
           onboarded: false,
           household: { ...defaultQuestionnaire },
           profile: { name: '', email: '' },
+          seenGuides: [],
         }),
 
       current: () => {
@@ -198,6 +203,7 @@ export const useSession = create<SessionState>()(
         onboarded: state.onboarded,
         household: state.household,
         profile: state.profile,
+        seenGuides: state.seenGuides,
       }),
     }
   )

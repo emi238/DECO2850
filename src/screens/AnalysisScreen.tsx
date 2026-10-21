@@ -254,16 +254,24 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
           </View>
         )}
 
-        {/* Recommendations tab, top-left, level with the 2D/3D toggle. */}
+        {/* Top-left tabs: Recommendations, and Report to reopen the fit report after
+            it's been closed (testers couldn't find the way back via the dog). */}
         {hasDog && riskIndex == null && !reportOpen && !placing && (
-          <Pressable style={styles.recTab} onPress={() => setRecOpen(true)}>
-            <Text style={styles.recTabTxt}>Recommendations</Text>
-            {recSet.recommendations.length > 0 && (
-              <View style={styles.recCount}>
-                <Text style={styles.recCountTxt}>{recSet.recommendations.length}</Text>
-              </View>
+          <View style={styles.tabRow}>
+            <Pressable style={styles.recTab} onPress={() => setRecOpen(true)}>
+              <Text style={styles.recTabTxt}>Recommendations</Text>
+              {recSet.recommendations.length > 0 && (
+                <View style={styles.recCount}>
+                  <Text style={styles.recCountTxt}>{recSet.recommendations.length}</Text>
+                </View>
+              )}
+            </Pressable>
+            {!recOpen && (
+              <Pressable style={[styles.recTab, styles.reportTab]} onPress={() => setReportOpen(true)} accessibilityLabel="Open the fit report">
+                <Text style={styles.recTabTxt}>Report</Text>
+              </Pressable>
             )}
-          </Pressable>
+          </View>
         )}
 
         {placing && (
@@ -1081,7 +1089,9 @@ const styles = StyleSheet.create({
   whatsNew: { borderLeftWidth: 4, borderLeftColor: colors.orangeDeep },
 
   // Recommendations tab (top-left, level with the 2D/3D toggle when a dog is chosen).
-  recTab: { position: 'absolute', top: 34, left: 16, height: 36, flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 14, borderWidth: 1, borderColor: colors.orange },
+  tabRow: { position: 'absolute', top: 34, left: 16, flexDirection: 'row', gap: 8 },
+  reportTab: { backgroundColor: colors.orange },
+  recTab: { height: 36, flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 14, borderWidth: 1, borderColor: colors.orange },
   recTabTxt: { fontFamily: fonts.semibold, fontSize: 14, color: colors.text },
   recCount: { minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 5, backgroundColor: colors.orange, alignItems: 'center', justifyContent: 'center' },
   recCountTxt: { fontFamily: fonts.bold, fontSize: 11.5, color: '#fff' },
