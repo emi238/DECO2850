@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const out = mkdtempSync(join(tmpdir(), 'pawspace-logic-'));
-for (const file of ['src/ai/schema.ts', 'src/ai/normalise.ts', 'src/ai/prompt.ts', 'src/ai/config.ts', 'src/ai/gemini.ts', 'src/logic/suitability.ts', 'src/logic/changes.ts', 'src/logic/migrate.ts', 'src/logic/recommend.ts']) {
+for (const file of ['src/ai/schema.ts', 'src/ai/normalise.ts', 'src/ai/prompt.ts', 'src/ai/config.ts', 'src/ai/gemini.ts', 'src/logic/suitability.ts', 'src/logic/changes.ts', 'src/logic/migrate.ts', 'src/logic/recommend.ts', 'src/capture/panorama.ts']) {
   const { outputText } = ts.transpileModule(readFileSync(join(root, file), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
   });
@@ -31,6 +31,7 @@ const { callGemini } = require(join(out, 'src/ai/gemini.js'));
 const { diffRuns, hasChanges } = require(join(out, 'src/logic/changes.js'));
 const { migrateHousehold } = require(join(out, 'src/logic/migrate.js'));
 const { buildRecommendations } = require(join(out, 'src/logic/recommend.js'));
+const P = require(join(out, 'src/capture/panorama.js'));
 
 // ---- fixtures ----
 
@@ -641,6 +642,29 @@ console.log('\nGemini request (fake API, no network)');
   } finally {
     globalThis.fetch = realFetch;
   }
+}
+
+// ---- Panorama uploads are cut into overlapping frames ----
+{
+  const covers = (crops, W) =>
+    crops[0].originX === 0 &&
+    crops[crops.length - 1].originX + crops[crops.length - 1].width >= W - 1 &&
+    crops.every((c, i) => i === 0 || c.originX < crops[i - 1].originX + crops[i - 1].width); // each overlaps the last
+  check('a normal photo stays one frame', () => {
+    assert.deepEqual(P.panoramaSlices(4032, 3024), [{ originX: 0, originY: 0, width: 4032, height: 3024 }]);
+    assert.equal(P.panoramaSlices(1920, 1080).length, 1); // 16:9 is not a panorama
+  });
+  check('an iPhone panorama becomes several overlapping 4:3 slices, edge to edge', () => {
+    const crops = P.panoramaSlices(12000, 3000);
+    assert.ok(crops.length >= 3 && crops.length <= P.MAX_SLICES);
+    assert.ok(covers(crops, 12000));
+    assert.ok(crops.every((c) => c.height === 3000 && c.width >= 4000));
+  });
+  check('a very long panorama is capped at the slice limit and still overlaps', () => {
+    const crops = P.panoramaSlices(40000, 3000);
+    assert.equal(crops.length, P.MAX_SLICES);
+    assert.ok(covers(crops, 40000));
+  });
 }
 
 console.log(`\n${passed} passed, ${failures.length} failed`);

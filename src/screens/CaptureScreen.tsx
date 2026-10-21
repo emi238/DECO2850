@@ -20,6 +20,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
+import { Gyroscope } from 'expo-sensors';
 
 import { TopBar, PrimaryButton } from '../components/kit';
 import { FrameView } from '../components/FrameView';
@@ -34,6 +35,12 @@ import { pickPhotos, pickVideoFrames, type PickResult } from '../capture/upload'
 import type { Frame } from '../types';
 import type { ScreenProps } from '../navigation';
 
+// Hold and sweep: one photo every 30° of turn, up to a full turn (12 photos).
+// Turning faster than ~70°/s blurs photos, so the screen says "Slow down".
+const SWEEP_STEP = 30;
+const SWEEP_FULL = 360;
+const SWEEP_FAST = 1.2; // rad/s
+
 // "How to scan": shown the first time someone opens Capture, and from the link.
 const SCAN_GUIDE: GuideStep[] = [
   {
@@ -44,7 +51,7 @@ const SCAN_GUIDE: GuideStep[] = [
   {
     art: <ScanOverlapArt />,
     title: 'Turn slowly, 6 to 10 photos',
-    body: 'Turn a little between shots so each photo overlaps the last. Turn the lights on and hold steady.',
+    body: 'Turn a little between shots so each photo overlaps the last, or hold the shutter and turn slowly to sweep. Lights on.',
   },
   {
     art: <ScanLowArt />,
@@ -54,7 +61,7 @@ const SCAN_GUIDE: GuideStep[] = [
   {
     art: <ScanExitsArt />,
     title: 'Show the ways out',
-    body: 'Include doors, windows, balconies and stairs so we can check for escapes and falls. A slow video works too.',
+    body: 'Include doors, windows, balconies and stairs so we can check for escapes and falls. A video or a Pano photo works too.',
   },
 ];
 
@@ -119,6 +126,56 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
       busy.current = false;
     }
   }, []);
+
+  // ---- Hold and sweep: hold the shutter and turn slowly; a photo is taken
+  // every SWEEP_STEP degrees of turn (read from the gyroscope), up to a full turn.
+  const [sweepDeg, setSweepDeg] = useState<number | null>(null); // null = not sweeping
+  const [tooFast, setTooFast] = useState(false);
+  const sweepSub = useRef<{ remove: () => void } | null>(null);
+  const holding = useRef(false); // finger still on the shutter
+  const stopSweep = useCallback(() => {
+    holding.current = false;
+    if (!sweepSub.current) return;
+    sweepSub.current.remove();
+    sweepSub.current = null;
+    setSweepDeg(null);
+    setTooFast(false);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+  }, []);
+  useEffect(() => stopSweep, [stopSweep]); // stop listening if the screen closes mid-sweep
+
+  const startSweep = useCallback(async () => {
+    if (sweepSub.current) return;
+    holding.current = true;
+    if (!(await Gyroscope.isAvailableAsync().catch(() => false))) {
+      holding.current = false;
+      Alert.alert('Sweep needs a phone', 'Hold and sweep uses your phone’s motion sensor. Tap the shutter to take photos one at a time.');
+      return;
+    }
+    if (!holding.current) return; // let go while we were checking
+    let angle = 0; // degrees turned, either way
+    let nextShot = SWEEP_STEP;
+    let last = Date.now();
+    setSweepDeg(0);
+    takePhoto(); // the starting view
+    Gyroscope.setUpdateInterval(50);
+    sweepSub.current = Gyroscope.addListener(({ y }) => {
+      const now = Date.now();
+      const dt = Math.min(0.2, (now - last) / 1000);
+      last = now;
+      angle += (y * dt * 180) / Math.PI; // portrait: turning on the spot spins around the phone's y axis
+      const turned = Math.abs(angle);
+      setSweepDeg(Math.round(turned));
+      setTooFast(Math.abs(y) > SWEEP_FAST);
+      // Shoot when the next step is reached (and the camera is free; otherwise try again next reading).
+      if (turned >= nextShot && !busy.current) {
+        nextShot += SWEEP_STEP;
+        takePhoto();
+      }
+      if (turned >= SWEEP_FULL) stopSweep();
+    });
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+  }, [takePhoto, stopSweep]);
 
   const finishPhotos = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
@@ -278,7 +335,16 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
                   <Text style={styles.centerTxt}>{preparing}</Text>
                 </View>
               ) : granted ? (
-                <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="back" />
+                <>
+                  <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="back" />
+                  {/* Rule-of-thirds grid to help line up each shot. */}
+                  <View style={StyleSheet.absoluteFill} pointerEvents="none">
+                    <View style={[styles.gridV, { left: '33.33%' }]} />
+                    <View style={[styles.gridV, { left: '66.66%' }]} />
+                    <View style={[styles.gridH, { top: '33.33%' }]} />
+                    <View style={[styles.gridH, { top: '66.66%' }]} />
+                  </View>
+                </>
               ) : (
                 <View style={styles.center}>
                   <Text style={styles.centerTitle}>Camera not available</Text>
@@ -304,16 +370,34 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
                     </View>
                     <Pressable
                       onPress={takePhoto}
-                      accessibilityLabel="Take photo"
-                      style={({ pressed }) => [styles.shutter, pressed && { transform: [{ scale: 0.92 }] }]}
+                      onLongPress={startSweep}
+                      delayLongPress={350}
+                      onPressOut={stopSweep}
+                      accessibilityLabel="Take photo. Hold and turn slowly to sweep the room."
+                      style={({ pressed }) => [styles.shutter, pressed && { transform: [{ scale: 0.92 }] }, sweepDeg != null && styles.shutterSweep]}
                     >
-                      <View style={styles.shutterInner} />
+                      <View style={[styles.shutterInner, sweepDeg != null && styles.shutterInnerSweep]} />
                     </Pressable>
                     <View style={styles.thumbSlot} />
                   </View>
                 </>
               )}
-              {captured.length > 0 && !preparing && (
+              {sweepDeg != null && (
+                <View style={styles.sweepHud} pointerEvents="none">
+                  <Text style={styles.sweepTxt}>
+                    {tooFast ? 'Slow down a little' : 'Keep holding and turn slowly →'} · {Math.min(sweepDeg, SWEEP_FULL)}°
+                  </Text>
+                  <View style={styles.sweepTrack}>
+                    <View style={[styles.sweepFill, { width: `${Math.min(100, (sweepDeg / SWEEP_FULL) * 100)}%` }]} />
+                  </View>
+                </View>
+              )}
+              {granted && !preparing && sweepDeg == null && captured.length === 0 && (
+                <Text style={styles.shutterHint} pointerEvents="none">
+                  Tap for a photo, or hold and turn to sweep
+                </Text>
+              )}
+              {captured.length > 0 && !preparing && sweepDeg == null && (
                 <View style={styles.countPill} pointerEvents="none">
                   <Text style={styles.countTxt}>
                     {captured.length} {captured.length === 1 ? 'photo' : 'photos'}
@@ -427,5 +511,14 @@ const styles = StyleSheet.create({
   thumbSlot: { width: 44, height: 44 },
   shutter: { width: 72, height: 72, borderRadius: 36, borderWidth: 4, borderColor: '#fff', alignItems: 'center', justifyContent: 'center' },
   shutterInner: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.orange },
+  shutterSweep: { borderColor: colors.orange },
+  shutterInnerSweep: { width: 30, height: 30, borderRadius: 8, backgroundColor: colors.orangeDeep },
+  gridV: { position: 'absolute', top: 0, bottom: 0, width: StyleSheet.hairlineWidth * 2, backgroundColor: 'rgba(255,255,255,0.55)' },
+  gridH: { position: 'absolute', left: 0, right: 0, height: StyleSheet.hairlineWidth * 2, backgroundColor: 'rgba(255,255,255,0.55)' },
+  sweepHud: { position: 'absolute', top: 12, left: 16, right: 16, alignItems: 'center', backgroundColor: 'rgba(36,30,24,0.7)', borderRadius: 12, paddingVertical: 8, paddingHorizontal: 12 },
+  sweepTxt: { fontFamily: fonts.semibold, fontSize: 13, color: '#fff' },
+  sweepTrack: { alignSelf: 'stretch', height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.3)', marginTop: 6, overflow: 'hidden' },
+  sweepFill: { height: 5, borderRadius: 3, backgroundColor: colors.orange },
+  shutterHint: { position: 'absolute', bottom: 100, left: 16, right: 16, textAlign: 'center', fontFamily: fonts.semibold, fontSize: 12.5, color: '#fff', textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 4 },
 
 });

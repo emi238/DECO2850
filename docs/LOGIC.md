@@ -176,6 +176,13 @@ see the photos, so the rules treat Safety and the room as **unknown** (§4.8), n
 
 ### 2.1 What gets sent
 
+**Where the photos come from** (`CaptureScreen.tsx`, `src/capture/`): camera shots (tap the
+shutter; a rule-of-thirds grid helps line them up), **hold and sweep** (hold the shutter
+and turn: the gyroscope takes a photo every 30° of turn, up to 360°; real phone only),
+uploaded photos, or frames sampled from a video. An uploaded **panorama** (wider than
+2:1) is cut into 2 to 6 overlapping 4:3 slices, left to right (`panorama.ts`), so the
+model and the pins see normal-shaped frames. At most 10 frames are kept.
+
 One request with three parts in a single `user` turn (`gemini.ts → callGemini`):
 
 1. The system prompt (§2.4).

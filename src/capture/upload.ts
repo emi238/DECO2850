@@ -6,6 +6,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import type { Frame } from '../types';
+import { isPanorama, panoramaSlices } from './panorama';
 
 const MAX_FRAMES = 10;
 const TARGET_WIDTH = 1024;
@@ -32,6 +33,26 @@ async function toFrame(uri: string): Promise<Frame> {
   }
 }
 
+// A panorama becomes several overlapping frames (see panorama.ts); a normal photo
+// stays one frame.
+async function toFrames(asset: ImagePicker.ImagePickerAsset): Promise<Frame[]> {
+  if (!isPanorama(asset.width, asset.height)) return [await toFrame(asset.uri)];
+  const out: Frame[] = [];
+  for (const crop of panoramaSlices(asset.width, asset.height)) {
+    try {
+      const r = await manipulateAsync(asset.uri, [{ crop }, { resize: { width: TARGET_WIDTH } }], {
+        base64: true,
+        compress: 0.6,
+        format: SaveFormat.JPEG,
+      });
+      out.push({ uri: r.uri, base64: r.base64 ?? undefined, mime: 'image/jpeg' });
+    } catch {
+      // Skip a slice that couldn't be cut; the others still cover the room.
+    }
+  }
+  return out.length ? out : [await toFrame(asset.uri)];
+}
+
 async function ensurePermission(): Promise<boolean> {
   const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
   return perm.granted;
@@ -48,8 +69,8 @@ export async function pickPhotos(): Promise<PickResult> {
   });
   if (res.canceled) return { status: 'cancelled' };
   if (!res.assets?.length) return { status: 'empty' };
-  const uris = res.assets.slice(0, MAX_FRAMES).map((a) => a.uri);
-  const frames = await Promise.all(uris.map(toFrame));
+  const perAsset = await Promise.all(res.assets.slice(0, MAX_FRAMES).map(toFrames));
+  const frames = perAsset.flat().slice(0, MAX_FRAMES);
   return { status: 'ok', frames };
 }
 
