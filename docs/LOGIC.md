@@ -242,6 +242,13 @@ normaliser checks every value either way. A fake-API check covers this.
 - **Escape/fall findings filed as whole-room** are turned into pinned objects with `low`
   confidence (W7). **Slippery floors and stairs** get the same treatment, with the pin
   placed low in frame 0 (y = 0.85), where the floor is.
+- **Photo check:** if the model reports `photo_check.usable: false` (blank, black, too
+  dark, blurry or not a room), every photo finding, escape route, setup suggestion and
+  improvement is dropped (only the owner's own tags remain). Scoring then treats the
+  photos as **not checked**, exactly like the sample assessment: Safety reads "Not
+  checked", the verdict can't be "Good fit", and the Analysis screen shows the model's
+  one-line note (e.g. "The photos are almost black…") in a red banner and in the report.
+  A reply without `photo_check` counts as usable.
 - **Merges duplicates**: one entry per `object_key`, keeping the stronger report (W8/W9).
 - **Tags** (W5): every tag appears exactly once, as `source: "user_tag"`,
   `risk_to: "home"`, pinned at the tag's own x, y. A tag the model left out is added. A
@@ -323,6 +330,12 @@ SUGGESTED SETUP: practical suggestions for setting this room up for this dog, ea
 - dog_spots (up to 3): good places for the dog's things. purpose: bed (a quiet corner away from doors, foot traffic, hazards, heaters and direct sun), crate (the same, out of the way but within sight of the family), food_water (a wipe-clean floor, away from the bed), play (clear open floor away from fragile things). Suggest a bed spot even when retreat_spot is "possible", and say why that spot works.
 - safety_additions (up to 5): things to add or fit, each tied to something you can see: gate (doorways, stairs, kitchen, or to separate a young child's play area), railing (to close gaps in a railing or an open edge the dog could fall from), netting (balcony gaps a dog could squeeze through), window_guard (low or openable windows), pen (a safe zone for time alone), cord_cover (exposed cords), non_slip_mat (slippery floors in the dog's path), other. detail says exactly what and where, such as "clear acrylic panels along the lower half of the balcony railing". If household.rental is true, prefer options that need no drilling (pressure-fit gates, removable netting, adhesive cord covers).
 Each reason is one sentence of at most 25 words.
+
+photo_check (decide this FIRST, before anything else): can you actually see a room?
+- usable: false if every photo is blank, black or nearly black, too dark or too blurry to make out the room, or shows no indoor room (a screenshot, a close-up of one object, a landscape). One or two bad photos among good ones are fine: usable true.
+- issue: none / blank / too_dark / blurry / not_a_room.
+- note: one plain sentence telling the owner what to retake, such as "The photos are almost black, so turn the lights on and take them again."; empty when usable.
+When usable is false, do not guess: return empty hazards, escape_routes, off_limit_suggestions, dog_spots, safety_additions and improvements, and use the most cautious room_assessment values.
 
 detected_signals: what the photos suggest about the household, used only to cross-check the owner's answers.
 - existing_pets: dog / cat / multiple / none / unknown (food bowls, beds, litter trays, pet hair, toys).

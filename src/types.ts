@@ -212,6 +212,15 @@ export interface RecommendedPet {
   caveats: string;
 }
 
+// Can the model actually see a room in the photos? (blank, black or dark frames,
+// a blurry mess, or no room at all → not usable, and the owner is told to retake.)
+export type PhotoIssue = 'none' | 'blank' | 'too_dark' | 'blurry' | 'not_a_room';
+export interface PhotoCheck {
+  usable: boolean;
+  issue: PhotoIssue;
+  note: string;
+}
+
 export interface Assessment {
   mode: Mode;
   space_summary: string;
@@ -230,6 +239,7 @@ export interface Assessment {
   dog_spots?: DogSpot[];
   safety_additions?: SafetyAddition[];
   detected_signals?: DetectedSignals;
+  photo_check?: PhotoCheck; // missing on results saved before 21 Oct 2026 = usable
 }
 
 export interface Session {

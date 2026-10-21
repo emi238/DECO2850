@@ -139,6 +139,12 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
   }, [route.params?.report, loading, navigation]);
 
   const result = space?.result ?? null;
+  // The model couldn't see a room in the photos: say so, in place of the usual note.
+  const photoNote =
+    result?.photo_check?.usable === false
+      ? result.photo_check.note || 'We couldn’t see a room in these photos, so nothing was checked. Retake them with the lights on.'
+      : null;
+  const bannerNote = photoNote ?? space?.resultNote;
   const evaluation = useMemo(() => (space ? evaluate(space, household) : null), [space, household]);
 
   // Located hazards first (they have pins), then whole-room findings.
@@ -283,9 +289,9 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
           </View>
         )}
 
-        {!!space.resultNote && riskIndex == null && !reportOpen && !placing && (
-          <View style={[styles.note, hasDog && { top: 76 }]} pointerEvents="none">
-            <Text style={styles.noteTxt} numberOfLines={3}>{space.resultNote}</Text>
+        {!!bannerNote && riskIndex == null && !reportOpen && !placing && (
+          <View style={[styles.note, hasDog && { top: 76 }, !!photoNote && styles.noteWarn]} pointerEvents="none">
+            <Text style={[styles.noteTxt, !!photoNote && styles.noteWarnTxt]} numberOfLines={3}>{bannerNote}</Text>
           </View>
         )}
 
@@ -306,7 +312,7 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
             evaluation={evaluation}
             changes={space.lastChanges}
             changesOpen={whatsNewOpen}
-            roomName={title}
+            photoNote={photoNote}
             riskCount={risks.length}
             onRisks={() => {
               setReportOpen(false);
@@ -666,12 +672,13 @@ function DogAvatar({ evaluation, top, onPress }: { evaluation: Evaluation; top: 
 
 const BAND_COLOR: Record<Band, string> = { poor: '#E4572E', adequate: colors.orange, good: '#5FAE7F' };
 const BAND_MARK: Record<Band, string> = { poor: '✕', adequate: '!', good: '✓' };
+const BAND_TINT: Record<Band, string> = { poor: '#FBE3DC', adequate: colors.peach, good: '#E3F2E8' };
 
 function ReportOverlay({
   evaluation: e,
   changes,
   changesOpen,
-  roomName,
+  photoNote,
   riskCount,
   onRisks,
   onClose,
@@ -681,7 +688,7 @@ function ReportOverlay({
   evaluation: Evaluation;
   changes?: RunChanges;
   changesOpen: boolean;
-  roomName: string;
+  photoNote: string | null; // the photos couldn't be read (blank, dark, not a room)
   riskCount: number;
   onRisks: () => void;
   onClose: () => void;
@@ -728,15 +735,18 @@ function ReportOverlay({
         </View>
         </View>
         <ScrollView contentContainerStyle={{ paddingBottom: 90 }} showsVerticalScrollIndicator={false}>
-          {/* Plain verdict first (user testing asked for a clear good-fit / bad-fit answer). */}
-          <View style={[styles.verdict, { backgroundColor: BAND_COLOR[e.verdict] }]}>
-            {/* Dark text on the light orange, white on green/red, for contrast. */}
-            <Text style={[styles.verdictTitle, e.verdict === 'adequate' && { color: colors.text }]}>
-              {BAND_MARK[e.verdict]}  {e.verdictTitle}
-            </Text>
-            <Text style={[styles.verdictRoom, e.verdict === 'adequate' && { color: colors.text }]}>{roomName}</Text>
-            <Text style={[styles.verdictLine, e.verdict === 'adequate' && { color: colors.text }]}>{e.verdictLine}</Text>
+          {/* Plain verdict first (user testing asked for a clear good-fit / bad-fit answer):
+              a soft tint of the verdict colour, a round badge with the mark, then the words. */}
+          <View style={[styles.verdict, { backgroundColor: BAND_TINT[e.verdict] }]}>
+            <View style={[styles.verdictBadge, { backgroundColor: BAND_COLOR[e.verdict] }]}>
+              <Text style={styles.verdictMark}>{BAND_MARK[e.verdict]}</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.verdictTitle}>{e.verdictTitle}</Text>
+              <Text style={styles.verdictLine}>{e.verdictLine}</Text>
+            </View>
           </View>
+          {!!photoNote && <Text style={styles.photoWarn}>{photoNote}</Text>}
 
           {!!changes && <WhatsNew changes={changes} initiallyOpen={changesOpen} />}
 
@@ -1038,6 +1048,8 @@ const styles = StyleSheet.create({
 
   note: { position: 'absolute', left: 16, right: 16, top: 50, backgroundColor: 'rgba(255,255,255,0.88)', borderRadius: 10, padding: 8 },
   noteTxt: { fontFamily: fonts.regular, fontSize: 10.5, color: colors.text },
+  noteWarn: { backgroundColor: '#FBE3DC', borderWidth: 1, borderColor: '#E4572E' },
+  noteWarnTxt: { fontFamily: fonts.semibold, fontSize: 12, color: colors.orangeDeep },
 
   sheetWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, height: `${SHEET_SHARE * 100}%`, borderTopLeftRadius: 22, borderTopRightRadius: 22, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.8)' },
   sheet: { flex: 1, backgroundColor: 'rgba(255,255,255,0.72)', paddingHorizontal: 27, paddingTop: 22 },
@@ -1063,10 +1075,12 @@ const styles = StyleSheet.create({
   report: { flex: 1, backgroundColor: 'rgba(255,255,255,0.72)', borderTopLeftRadius: 22, borderTopRightRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.8)', overflow: 'hidden', paddingHorizontal: 22, paddingTop: 10 },
   dragZone: { paddingTop: 2 },
   grabber: { alignSelf: 'center', width: 44, height: 5, borderRadius: 3, backgroundColor: 'rgba(0,0,0,0.18)', marginBottom: 14 },
-  verdict: { borderRadius: 12, padding: 14, marginBottom: 6 },
-  verdictTitle: { fontFamily: fonts.bold, fontSize: 18, color: '#fff' },
-  verdictRoom: { fontFamily: fonts.medium, fontSize: 12.5, color: '#fff', marginTop: 2, opacity: 0.9 },
-  verdictLine: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 19, color: '#fff', marginTop: 6 },
+  verdict: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, borderRadius: 16, padding: 16, marginBottom: 6 },
+  verdictBadge: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  verdictMark: { fontFamily: fonts.bold, fontSize: 17, color: '#fff' },
+  verdictTitle: { fontFamily: fonts.bold, fontSize: 18, lineHeight: 23, color: colors.text, marginTop: 5 },
+  verdictLine: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.text, marginTop: 4 },
+  photoWarn: { fontFamily: fonts.medium, fontSize: 13, lineHeight: 18, color: colors.orangeDeep, marginTop: 6, marginBottom: 4 },
   reportRow: { backgroundColor: colors.bg, borderRadius: 12, padding: 12, marginTop: 8 },
   reportRowHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
   reportRowTitle: { fontFamily: fonts.semibold, fontSize: 13, color: colors.text },

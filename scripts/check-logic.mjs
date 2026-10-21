@@ -440,6 +440,19 @@ check('escape/fall findings are forced to pinnable objects (W7)', () => {
   assert.ok(a.hazards[0].location);
   assert.equal(a.hazards[0].confidence, 'low');
 });
+check('blank or dark photos: findings are dropped and the owner gets a note', () => {
+  const a = normaliseAssessment(
+    { photo_check: { usable: false, issue: 'too_dark', note: 'The photos are almost black.' }, hazards: [hz({ hazard_type: 'toxic_ingestible', category: 'C' })], improvements: ['Move the plant'] },
+    space()
+  );
+  assert.deepEqual([a.photo_check.usable, a.photo_check.issue, a.photo_check.note], [false, 'too_dark', 'The photos are almost black.']);
+  assert.equal(a.hazards.filter((h) => h.source === 'photo').length, 0);
+  assert.equal(a.improvements.length, 0);
+});
+check('a missing photo check counts as usable (older results and replies)', () => {
+  const a = normaliseAssessment({ hazards: [] }, space());
+  assert.deepEqual([a.photo_check.usable, a.photo_check.issue, a.photo_check.note], [true, 'none', '']);
+});
 check('slippery floors and stairs filed as whole-room still get a pin, low on the photo', () => {
   const a = normaliseAssessment({ hazards: [hz({ hazard_type: 'floor_stairs', category: 'E', scope: 'space', location: null, severity: 'medium' })] }, space());
   assert.equal(a.hazards[0].scope, 'object');

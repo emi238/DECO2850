@@ -71,6 +71,12 @@ SUGGESTED SETUP: practical suggestions for setting this room up for this dog, ea
 - safety_additions (up to 5): things to add or fit, each tied to something you can see: gate (doorways, stairs, kitchen, or to separate a young child's play area), railing (to close gaps in a railing or an open edge the dog could fall from), netting (balcony gaps a dog could squeeze through), window_guard (low or openable windows), pen (a safe zone for time alone), cord_cover (exposed cords), non_slip_mat (slippery floors in the dog's path), other. detail says exactly what and where, such as "clear acrylic panels along the lower half of the balcony railing". If household.rental is true, prefer options that need no drilling (pressure-fit gates, removable netting, adhesive cord covers).
 Each reason is one sentence of at most 25 words.
 
+photo_check (decide this FIRST, before anything else): can you actually see a room?
+- usable: false if every photo is blank, black or nearly black, too dark or too blurry to make out the room, or shows no indoor room (a screenshot, a close-up of one object, a landscape). One or two bad photos among good ones are fine: usable true.
+- issue: none / blank / too_dark / blurry / not_a_room.
+- note: one plain sentence telling the owner what to retake, such as "The photos are almost black, so turn the lights on and take them again."; empty when usable.
+When usable is false, do not guess: return empty hazards, escape_routes, off_limit_suggestions, dog_spots, safety_additions and improvements, and use the most cautious room_assessment values.
+
 detected_signals: what the photos suggest about the household, used only to cross-check the owner's answers.
 - existing_pets: dog / cat / multiple / none / unknown (food bowls, beds, litter trays, pet hair, toys).
 - children: yes / no / unknown (children's toys, high chairs, stair gates, children's drawings).

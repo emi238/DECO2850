@@ -18,6 +18,7 @@ import type {
   HazardCategory,
   HazardType,
   OffLimitSuggestion,
+  PhotoCheck,
   RoomAssessment,
   SafetyAddition,
   Severity,
@@ -37,6 +38,7 @@ import {
   MAX_SAFETY_ADDITIONS,
   OFF_LIMIT_ZONES,
   OPENNESS,
+  PHOTO_ISSUES,
   RETREAT,
   RISK_TO,
   SAFETY_ADDITION_TYPES,
@@ -316,8 +318,18 @@ function normaliseSignals(s: any): DetectedSignals {
   };
 }
 
+function normalisePhotoCheck(raw: any): PhotoCheck {
+  const issue = pick(PHOTO_ISSUES, raw?.issue, 'none');
+  // Only "not usable" when the model says so explicitly; a missing check counts as usable.
+  const usable = !(raw?.usable === false || raw?.usable === 'false');
+  return { usable, issue: usable ? 'none' : issue === 'none' ? 'blank' : issue, note: usable ? '' : str(raw?.note, '') };
+}
+
 export function normaliseAssessment(raw: any, session: Space): Assessment {
   const frameCount = session.capture.frames.length;
+  const photo_check = normalisePhotoCheck(raw?.photo_check);
+  // Can't see a room: drop anything the model listed anyway (it would be a guess).
+  if (!photo_check.usable) raw = { ...raw, hazards: [], escape_routes: [], off_limit_suggestions: [], dog_spots: [], safety_additions: [], improvements: [] };
 
   const parsed: Hazard[] = Array.isArray(raw?.hazards)
     ? raw.hazards.map((h: any) => normaliseHazard(h, frameCount)).filter((h: Hazard | null): h is Hazard => !!h)
@@ -353,5 +365,6 @@ export function normaliseAssessment(raw: any, session: Space): Assessment {
     escape_routes,
     ...setup,
     detected_signals: normaliseSignals(raw?.detected_signals),
+    photo_check,
   };
 }

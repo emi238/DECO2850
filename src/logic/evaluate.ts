@@ -83,8 +83,9 @@ export function evaluate(space: Space, household: Questionnaire, dogOverride?: R
   if (!dog) return null;
 
   const result = space.result;
-  // The built-in sample assessment can't see the photos.
-  const photosChecked = space.resultSource !== 'mock';
+  // The built-in sample assessment can't see the photos, and neither could the model
+  // when it reported the photos as blank, dark or not a room.
+  const photosChecked = space.resultSource !== 'mock' && space.result?.photo_check?.usable !== false;
   const s = scoreSuitability(
     {
       name: dog.name,

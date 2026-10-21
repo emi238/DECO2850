@@ -29,6 +29,7 @@ export const OFF_LIMIT_ZONES = ['kitchen', 'balcony', 'nursery', 'office', 'stai
 export const DOG_SPOT_PURPOSES = ['bed', 'crate', 'food_water', 'play'] as const;
 export const SAFETY_ADDITION_TYPES = ['gate', 'railing', 'netting', 'window_guard', 'pen', 'cord_cover', 'non_slip_mat', 'other'] as const;
 // Most suggestions of each kind kept (the prompt asks for the same limits).
+export const PHOTO_ISSUES = ['none', 'blank', 'too_dark', 'blurry', 'not_a_room'] as const;
 export const MAX_OFF_LIMITS = 3;
 export const MAX_DOG_SPOTS = 3;
 export const MAX_SAFETY_ADDITIONS = 5;
@@ -104,6 +105,12 @@ const ESCAPE_ROUTE = obj({
 });
 
 export const ROOM_RESPONSE_SCHEMA = obj({
+  // First, so the model decides whether it can see a room before listing anything.
+  photo_check: obj({
+    usable: bool(),
+    issue: oneOf(PHOTO_ISSUES),
+    note: str('one sentence for the owner; empty when usable'),
+  }),
   space_summary: str('1-2 sentences describing the room'),
   confidence: oneOf(CONFIDENCES),
   hazards: list(HAZARD),
