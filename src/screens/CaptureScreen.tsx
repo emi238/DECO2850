@@ -519,6 +519,6 @@ const styles = StyleSheet.create({
   sweepTxt: { fontFamily: fonts.semibold, fontSize: 13, color: '#fff' },
   sweepTrack: { alignSelf: 'stretch', height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.3)', marginTop: 6, overflow: 'hidden' },
   sweepFill: { height: 5, borderRadius: 3, backgroundColor: colors.orange },
-  shutterHint: { position: 'absolute', bottom: 100, left: 16, right: 16, textAlign: 'center', fontFamily: fonts.semibold, fontSize: 12.5, color: '#fff', textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 4 },
+  shutterHint: { position: 'absolute', bottom: 100, left: 16, right: 16, textAlign: 'center', fontFamily: fonts.semibold, fontSize: 12.5, color: colors.orange, textShadowColor: 'rgba(0,0,0,0.35)', textShadowRadius: 3 },
 
 });
