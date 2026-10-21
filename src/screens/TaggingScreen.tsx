@@ -26,7 +26,7 @@ import { ChevronIcon } from '../components/icons';
 import { ZoomBox } from '../components/ZoomBox';
 import { GuideSheet, type GuideStep } from '../components/GuideSheet';
 import { FlagTapArt, FlagNameArt, FlagMoveArt } from '../components/guideArt';
-import { ProgressBars } from './CaptureScreen';
+import { ProgressBars, PhotoCount } from './CaptureScreen';
 import { colors, fonts } from '../theme';
 import { useSession, useCurrentSpace } from '../store/session';
 import type { ScreenProps } from '../navigation';
@@ -176,6 +176,7 @@ export default function TaggingScreen({ navigation }: ScreenProps<'Tagging'>) {
                   })}
                 </Pressable>
               </ZoomBox>
+              <PhotoCount index={frameIndex} total={frames.length} />
               {/* Side arrows (same as Review) show there are more frames that way. */}
               {frameIndex > 0 && (
                 <Pressable onPress={() => goToFrame(frameIndex - 1)} hitSlop={8} accessibilityLabel="Previous photo" style={[styles.sideArrow, { left: (cardW - FW) / 4 - 16, top: FH / 2 - 16 }]}>

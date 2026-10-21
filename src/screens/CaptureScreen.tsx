@@ -222,6 +222,7 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
                       <ZoomBox width={itemW} height={itemH}>
                         <FrameView frame={f} width={itemW} height={itemH} radius={12} />
                       </ZoomBox>
+                      <PhotoCount index={i} total={n} />
                     </View>
                   ))}
                 </ScrollView>
@@ -354,6 +355,18 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
   );
 }
 
+// "Photo 2 of 5" pill on the bottom of a photo, so the count is clear even when
+// the progress bars above are fewer or more than the photos.
+export function PhotoCount({ index, total }: { index: number; total: number }) {
+  return (
+    <View style={styles.photoCount} pointerEvents="none">
+      <Text style={styles.photoCountTxt}>
+        Photo {index + 1} of {total}
+      </Text>
+    </View>
+  );
+}
+
 // Thin bars across the top of the carousel card; the orange one is the current frame.
 // With onSelect, tapping a bar jumps to its frame.
 export function ProgressBars({ count, active, onSelect }: { count: number; active: number; onSelect?: (i: number) => void }) {
@@ -384,6 +397,8 @@ const styles = StyleSheet.create({
 
   card: { backgroundColor: colors.bg, borderRadius: 20, paddingTop: 13, paddingBottom: 22, marginTop: 16 },
   cameraCard: { paddingHorizontal: 12, paddingTop: 12, paddingBottom: 12 },
+  photoCount: { position: 'absolute', bottom: 10, alignSelf: 'center', backgroundColor: 'rgba(36,30,24,0.7)', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4 },
+  photoCountTxt: { fontFamily: fonts.semibold, fontSize: 12, color: '#fff' },
   bars: { flexDirection: 'row', justifyContent: 'center', gap: 5, marginBottom: 16 },
   bar: { height: 6, borderRadius: 3, backgroundColor: colors.dots },
   arrow: { position: 'absolute', width: 32, height: 32, borderRadius: 16, backgroundColor: colors.bg2, alignItems: 'center', justifyContent: 'center' },
