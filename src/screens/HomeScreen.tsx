@@ -36,13 +36,13 @@ const TOUR: TourStep<TourKey>[] = [
   },
   {
     key: 'featured',
-    title: 'Your most visited space',
-    body: 'The space you open the most sits here, so you can jump straight back in.',
+    title: 'Your most visited scan',
+    body: 'The scan you open the most sits here, so you can jump straight back in.',
   },
   {
     key: 'browse',
-    title: 'Saved spaces',
-    body: 'Every space you save is kept here with its tags, ready to re-run the analysis any time.',
+    title: 'Saved scans',
+    body: 'Every scan you save is kept here with its tags, ready to re-run the analysis any time.',
   },
   {
     key: 'changed',
@@ -138,7 +138,7 @@ export default function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
           </View>
         </View>
         <Text style={styles.hi}>Hi {name},</Text>
-        <Text style={styles.sub}>Explore your spaces</Text>
+        <Text style={styles.sub}>Explore your scans</Text>
       </SafeAreaView>
 
       <View style={styles.panel}>
@@ -155,12 +155,12 @@ export default function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
           {(featured || touring) && (
             <View ref={refs.featured} collapsable={false} onLayout={onPartLayout('featured')} style={styles.section}>
               <Pressable onPress={() => featured && openSpace(featured)}>
-                <Text style={[styles.label, { marginTop: 0 }]}>Most Frequently Visited Space →</Text>
+                <Text style={[styles.label, { marginTop: 0 }]}>Most Frequently Visited Scan →</Text>
                 {featured ? (
                   <FrameView frame={featured.capture.frames[0]} width={contentW} height={160} radius={12} />
                 ) : (
                   <View style={[styles.placeholder, { width: contentW, height: 160 }]}>
-                    <Text style={styles.placeholderTxt}>The space you open most will show here</Text>
+                    <Text style={styles.placeholderTxt}>The scan you open most will show here</Text>
                   </View>
                 )}
               </Pressable>
@@ -169,7 +169,7 @@ export default function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
 
           {(rest.length > 0 || touring) && (
             <View ref={refs.browse} collapsable={false} onLayout={onPartLayout('browse')} style={styles.section}>
-              <Text style={[styles.label, { marginTop: 0 }]}>Browse saved spaces →</Text>
+              <Text style={[styles.label, { marginTop: 0 }]}>Browse saved scans →</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.browse} style={styles.browseScroll}>
                 {rest.length > 0
                   ? rest.map((sp) => (
@@ -183,7 +183,7 @@ export default function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
           )}
 
           {saved.length === 0 && !touring && (
-            <Text style={styles.empty}>No saved spaces yet. Tap “Scan New Space” to capture your first room.</Text>
+            <Text style={styles.empty}>No saved scans yet. Tap “Scan New Space” to capture your first room.</Text>
           )}
 
           <Pressable
