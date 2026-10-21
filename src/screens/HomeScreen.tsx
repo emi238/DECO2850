@@ -31,7 +31,7 @@ const TOUR: TourStep<TourKey>[] = [
   },
   {
     key: 'upload',
-    title: 'Upload a new space',
+    title: 'Scan your space',
     body: 'Start here. Take or upload photos of a room, and we’ll check how well it suits a dog.',
   },
   {
@@ -146,7 +146,7 @@ export default function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
           <View ref={refs.upload} collapsable={false} onLayout={onPartLayout('upload')}>
             <Text style={[styles.label, { marginTop: 0 }]}>Scan your Space</Text>
             <Pressable style={({ pressed }) => [styles.upload, pressed && { opacity: 0.7 }]} onPress={startCapture}>
-              <Text style={styles.uploadTxt}>Upload New Space</Text>
+              <Text style={styles.uploadTxt}>Scan New Space</Text>
               <UploadIcon size={26} />
             </Pressable>
           </View>
@@ -183,7 +183,7 @@ export default function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
           )}
 
           {saved.length === 0 && !touring && (
-            <Text style={styles.empty}>No saved spaces yet. Tap “Upload New Space” to capture your first room.</Text>
+            <Text style={styles.empty}>No saved spaces yet. Tap “Scan New Space” to capture your first room.</Text>
           )}
 
           <Pressable
