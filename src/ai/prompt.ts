@@ -39,7 +39,7 @@ hazards: one entry per physical object or place.
   clutter: loose things at dog height that need managing (shoes, cushions, bins, toys).
   other: a finding that is not a physical danger (room size, noise, how the dog fits the household).
 - category: the matching CHECKLIST letter.
-- scope: "object" for anything you can point to in a photo; "space" only for whole-room findings. Escape and fall findings are ALWAYS "object" with a location.
+- scope: "object" for anything you can point to in a photo; "space" only for whole-room findings. Escape and fall findings are ALWAYS "object" with a location. Slippery floors, stairs and steps are also ALWAYS "object": point at the floor or the stairs in the photo where they show most clearly.
 - location: for "object", frame_index plus x and y from 0 to 1 across the original photo (0,0 = top-left) and, if you can, bbox [x, y, w, h]; null for "space".
 - severity:
   high = could seriously injure or kill the dog, or let it escape.

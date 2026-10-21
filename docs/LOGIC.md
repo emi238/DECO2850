@@ -240,7 +240,8 @@ normaliser checks every value either way. A fake-API check covers this.
 - **Clamps** pins to 0–1. A missing pin goes to the centre of frame 0 and becomes `low`
   confidence.
 - **Escape/fall findings filed as whole-room** are turned into pinned objects with `low`
-  confidence (W7).
+  confidence (W7). **Slippery floors and stairs** get the same treatment, with the pin
+  placed low in frame 0 (y = 0.85), where the floor is.
 - **Merges duplicates**: one entry per `object_key`, keeping the stronger report (W8/W9).
 - **Tags** (W5): every tag appears exactly once, as `source: "user_tag"`,
   `risk_to: "home"`, pinned at the tag's own x, y. A tag the model left out is added. A
@@ -291,7 +292,7 @@ hazards: one entry per physical object or place.
   clutter: loose things at dog height that need managing (shoes, cushions, bins, toys).
   other: a finding that is not a physical danger (room size, noise, how the dog fits the household).
 - category: the matching CHECKLIST letter.
-- scope: "object" for anything you can point to in a photo; "space" only for whole-room findings. Escape and fall findings are ALWAYS "object" with a location.
+- scope: "object" for anything you can point to in a photo; "space" only for whole-room findings. Escape and fall findings are ALWAYS "object" with a location. Slippery floors, stairs and steps are also ALWAYS "object": point at the floor or the stairs in the photo where they show most clearly.
 - location: for "object", frame_index plus x and y from 0 to 1 across the original photo (0,0 = top-left) and, if you can, bbox [x, y, w, h]; null for "space".
 - severity:
   high = could seriously injure or kill the dog, or let it escape.

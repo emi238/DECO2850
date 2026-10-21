@@ -146,6 +146,10 @@ export function parseSuggestions(raw: any, list: BreedProfile[]): Omit<BreedSugg
 
 // Cache per space + household + catalogue size so flipping tabs doesn't re-call the model.
 const cache = new Map<string, SuggestionResult>();
+// After a failure, reuse the rules answer for a short while instead of asking again
+// on every tab switch (each ask tries up to three models).
+const failed = new Map<string, { result: SuggestionResult; until: number }>();
+const RETRY_AFTER_MS = 2 * 60 * 1000;
 
 export async function suggestBreeds(
   space: Space,
@@ -155,6 +159,8 @@ export async function suggestBreeds(
   const key = JSON.stringify([space.id, space.result?.space_summary, space.tags.length, household, breeds.length]);
   const hit = cache.get(key);
   if (hit) return hit;
+  const recent = failed.get(key);
+  if (recent && Date.now() < recent.until) return recent.result;
 
   const list = shortlist(space, household, breeds);
   const rules: SuggestionResult = {
@@ -185,8 +191,17 @@ export async function suggestBreeds(
     const result: SuggestionResult = { suggestions: picks, source: 'ai' };
     cache.set(key, result);
     return result;
-  } catch {
-    return { ...rules, note: 'The AI couldn’t be reached, so these suggestions come from PawSpace’s space rules.' };
+  } catch (e) {
+    if (typeof __DEV__ !== 'undefined' && __DEV__) console.warn('[breedSuggest] AI failed, using rules:', e instanceof Error ? e.message : e);
+    const busy = e instanceof Error && /Gemini HTTP (429|500|503)\b/.test(e.message);
+    const result: SuggestionResult = {
+      ...rules,
+      note: busy
+        ? 'Google’s AI is busy right now, so these suggestions come from PawSpace’s space rules. Try again in a few minutes.'
+        : 'The AI couldn’t be reached, so these suggestions come from PawSpace’s space rules.',
+    };
+    failed.set(key, { result, until: Date.now() + RETRY_AFTER_MS });
+    return result;
   } finally {
     clearTimeout(timer);
   }

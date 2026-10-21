@@ -440,6 +440,12 @@ check('escape/fall findings are forced to pinnable objects (W7)', () => {
   assert.ok(a.hazards[0].location);
   assert.equal(a.hazards[0].confidence, 'low');
 });
+check('slippery floors and stairs filed as whole-room still get a pin, low on the photo', () => {
+  const a = normaliseAssessment({ hazards: [hz({ hazard_type: 'floor_stairs', category: 'E', scope: 'space', location: null, severity: 'medium' })] }, space());
+  assert.equal(a.hazards[0].scope, 'object');
+  assert.equal(a.hazards[0].location.y, 0.85);
+  assert.equal(a.hazards[0].confidence, 'low');
+});
 check('unknown values are dropped or defaulted, never silently mapped to "I"', () => {
   const a = normaliseAssessment(
     { hazards: [hz({ category: 'Z' })], room_assessment: { openness: 'huge' }, escape_routes: [{ type: 'trapdoor' }], detected_signals: { existing_pets: 'parrot' } },

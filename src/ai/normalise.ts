@@ -110,7 +110,10 @@ function normaliseHazard(h: any, frameCount: number): Hazard | null {
 
   // W7: escape and fall findings must be pinnable. If the model filed one as a
   // whole-room finding, pin it at the centre of frame 0 and mark it low confidence.
-  if (hazard_type === 'escape_fall' && scope === 'space') {
+  // Floors and stairs too (a slippery floor covers the room, so the model tends to
+  // call it whole-room); their fallback pin goes low in the photo, where the floor is.
+  const floorFallback = hazard_type === 'floor_stairs' && scope === 'space';
+  if ((hazard_type === 'escape_fall' || hazard_type === 'floor_stairs') && scope === 'space') {
     scope = 'object';
     confidence = 'low';
   }
@@ -123,7 +126,7 @@ function normaliseHazard(h: any, frameCount: number): Hazard | null {
     location = {
       frame_index: frameIndex(raw?.frame_index, frameCount),
       x: clamp01(raw?.x, 0.5),
-      y: clamp01(raw?.y, 0.5),
+      y: clamp01(raw?.y, floorFallback ? 0.85 : 0.5),
     };
     const bb = raw?.bbox;
     if (Array.isArray(bb) && bb.length === 4) {

@@ -124,9 +124,27 @@ export async function callGemini(session: Space, dog: DogTraits | null, signal: 
   return normaliseAssessment(raw, session);
 }
 
-// Sends a Gemini request body (direct with the key, or via the proxy) and returns
-// the model's text. Shared by the room assessment and breed suggestions.
+// Sends a Gemini request body and returns the model's text. Shared by the room
+// assessment and breed suggestions. If the main model is busy, the same request
+// goes to each fallback model in turn; any other error is thrown straight away.
 export async function generateText(body: unknown, signal: AbortSignal): Promise<string> {
+  const models = [AI_CONFIG.MODEL, ...AI_CONFIG.FALLBACK_MODELS.filter((m) => m !== AI_CONFIG.MODEL)];
+  let lastError: unknown;
+  for (const model of models) {
+    const t0 = Date.now();
+    try {
+      return await generateWith(model, body, signal);
+    } catch (e) {
+      lastError = e;
+      const busy = e instanceof Error && /Gemini HTTP (429|500|503)\b/.test(e.message);
+      if (typeof __DEV__ !== 'undefined' && __DEV__) console.warn(`[gemini] ${model} failed after ${Date.now() - t0}ms:`, e instanceof Error ? e.message.slice(0, 60) : e);
+      if (!busy || signal.aborted) throw e;
+    }
+  }
+  throw lastError;
+}
+
+async function generateWith(model: string, body: unknown, signal: AbortSignal): Promise<string> {
   let url: string;
   let init: RequestInit;
 
@@ -136,11 +154,11 @@ export async function generateText(body: unknown, signal: AbortSignal): Promise<
     init = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: AI_CONFIG.MODEL, body }),
+      body: JSON.stringify({ model, body }),
       signal,
     };
   } else {
-    url = `https://generativelanguage.googleapis.com/v1beta/models/${AI_CONFIG.MODEL}:generateContent?key=${AI_CONFIG.GEMINI_API_KEY.trim()}`;
+    url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${AI_CONFIG.GEMINI_API_KEY.trim()}`;
     init = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

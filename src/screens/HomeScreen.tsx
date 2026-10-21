@@ -144,7 +144,7 @@ export default function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
       <View style={styles.panel}>
         <ScrollView ref={scrollRef} contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
           <View ref={refs.upload} collapsable={false} onLayout={onPartLayout('upload')}>
-            <Text style={[styles.label, { marginTop: 0 }]}>Create new space</Text>
+            <Text style={[styles.label, { marginTop: 0 }]}>Scan your Space</Text>
             <Pressable style={({ pressed }) => [styles.upload, pressed && { opacity: 0.7 }]} onPress={startCapture}>
               <Text style={styles.uploadTxt}>Upload New Space</Text>
               <UploadIcon size={26} />

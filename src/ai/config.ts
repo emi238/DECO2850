@@ -32,6 +32,10 @@ export const AI_CONFIG = {
   // (gemini-2.5-flash is retired for new keys; 3.6-flash is the current free one.)
   MODEL: env.EXPO_PUBLIC_GEMINI_MODEL ?? 'gemini-3.6-flash',
 
+  // Tried in order when the model above answers "busy" (HTTP 503/429/500), which
+  // Google does at peak times even with plenty of quota left.
+  FALLBACK_MODELS: ['gemini-3.5-flash', 'gemini-flash-latest'],
+
   // Optional thin proxy that holds the key server-side (PRD §4). Empty = call
   // Google directly with the key above.
   PROXY_URL: env.EXPO_PUBLIC_PROXY_URL ?? '',
