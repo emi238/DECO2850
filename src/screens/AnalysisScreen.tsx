@@ -193,7 +193,7 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
     <View style={[styles.root, { backgroundColor: hasDog ? colors.bg2 : colors.bg }]}>
       <SafeAreaView edges={['top']} style={styles.header}>
         <TopBar
-          onBack={hasDog ? goHome : undefined}
+          onBack={goHome}
           right={
             hasDog ? (
               <Pressable style={styles.breedPill} onPress={selectBreed}>
