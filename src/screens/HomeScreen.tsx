@@ -4,7 +4,7 @@
 // right after onboarding, and again from the Help button.
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Image, useWindowDimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Image, RefreshControl, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FrameView } from '../components/FrameView';
@@ -71,7 +71,37 @@ export default function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   };
 
   // Only finished spaces with a frame are shown.
-  const saved = [...spaces].reverse().filter((sp) => sp.saved !== false && sp.capture.frames.length > 0);
+  const withFrames = [...spaces].reverse().filter((sp) => sp.saved !== false && sp.capture.frames.length > 0);
+  // …and only once their photo is known to load. Photo files can vanish (Expo Go
+  // moves its storage folder when it updates), which left blank grey cards; those
+  // scans are hidden from Home, not deleted.
+  const [photoOk, setPhotoOk] = useState<Record<string, boolean>>({});
+  // Pull down to refresh: re-check every photo (and redraw the list).
+  const [refreshTick, setRefreshTick] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = () => {
+    setRefreshing(true);
+    setPhotoOk({});
+    setRefreshTick((t) => t + 1);
+    setTimeout(() => setRefreshing(false), 600);
+  };
+  const frameKey = withFrames.map((sp) => sp.capture.frames[0].uri).join('|');
+  useEffect(() => {
+    let alive = true;
+    for (const sp of withFrames) {
+      const uri = sp.capture.frames[0].uri;
+      Image.getSize(
+        uri,
+        () => alive && setPhotoOk((m) => ({ ...m, [uri]: true })),
+        () => alive && setPhotoOk((m) => ({ ...m, [uri]: false }))
+      );
+    }
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [frameKey, refreshTick]);
+  const saved = withFrames.filter((sp) => photoOk[sp.capture.frames[0].uri] === true);
   const featured = [...saved].sort((a, b) => (b.visits ?? 0) - (a.visits ?? 0))[0];
   const rest = saved.filter((sp) => sp !== featured);
 
@@ -142,7 +172,12 @@ export default function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
       </SafeAreaView>
 
       <View style={styles.panel}>
-        <ScrollView ref={scrollRef} contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={styles.body}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.orange} colors={[colors.orange]} />}
+        >
           <View ref={refs.upload} collapsable={false} onLayout={onPartLayout('upload')}>
             <Text style={[styles.label, { marginTop: 0 }]}>Scan your Space</Text>
             <Pressable style={({ pressed }) => [styles.upload, pressed && { opacity: 0.7 }]} onPress={startCapture}>
