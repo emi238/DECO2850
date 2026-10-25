@@ -1,0 +1,74 @@
+[
+  {
+    "id": "small",
+    "title": "Mia: first dog in a small rented city apartment",
+    "aim": "small dog",
+    "room": "Small apartment living room: two-seater sofa against a shared wall, TV unit with loose cables, floorboards, glass door to a narrow balcony",
+    "household": {
+      "dwelling": "apartment",
+      "rental": true,
+      "neighbours": "attached",
+      "outdoor_access": "balcony",
+      "outdoor_use": "rarely",
+      "children_at_home": "none",
+      "hours_alone": "4_to_8",
+      "alone_plan": "none",
+      "owner_activity": "sedentary",
+      "exercise_time": "under_30",
+      "experience": "none",
+      "household_atmosphere": "calm",
+      "allergies": true,
+      "has_other_pets": false,
+      "other_pets": [],
+      "existing_pets": []
+    }
+  },
+  {
+    "id": "medium",
+    "title": "The Nguyens: family townhouse with a cat and a courtyard",
+    "aim": "medium dog",
+    "room": "Open-plan family living and kitchen area: L-shaped sofa, kids' toys on the rug, low shelves with plants, sliding door to a small courtyard",
+    "household": {
+      "dwelling": "house",
+      "rental": false,
+      "neighbours": "close_separate",
+      "outdoor_access": "private yard",
+      "outdoor_use": "sometimes",
+      "children_at_home": "older",
+      "hours_alone": "under_4",
+      "alone_plan": "none",
+      "owner_activity": "moderate",
+      "exercise_time": "30_60",
+      "experience": "some",
+      "household_atmosphere": "mixed",
+      "allergies": false,
+      "has_other_pets": true,
+      "other_pets": ["cat"],
+      "existing_pets": []
+    }
+  },
+  {
+    "id": "large",
+    "title": "Sam and Priya: active couple, big suburban house and backyard",
+    "aim": "large dog",
+    "room": "Spacious living room with lots of clear floor, a dog-bed-sized corner, wide glass doors to a fenced grassy backyard",
+    "household": {
+      "dwelling": "house",
+      "rental": false,
+      "neighbours": "not_close",
+      "outdoor_access": "private yard",
+      "outdoor_use": "most_days",
+      "children_at_home": "none",
+      "hours_alone": "under_4",
+      "alone_plan": "none",
+      "owner_activity": "active",
+      "exercise_time": "over_60",
+      "experience": "some",
+      "household_atmosphere": "mixed",
+      "allergies": false,
+      "has_other_pets": false,
+      "other_pets": [],
+      "existing_pets": []
+    }
+  }
+]

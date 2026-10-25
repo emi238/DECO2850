@@ -46,3 +46,4 @@ CLAUDE.md
 AGENTS.md
 .cursor/
 .vscode/
+demo/.cache.json

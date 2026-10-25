@@ -1,0 +1,102 @@
+{
+  "scenario": {
+    "id": "large",
+    "title": "Sam and Priya: active couple, big suburban house and backyard",
+    "aim": "large dog",
+    "room": "Spacious living room with lots of clear floor, a dog-bed-sized corner, wide glass doors to a fenced grassy backyard",
+    "household": {
+      "dwelling": "house",
+      "rental": false,
+      "neighbours": "not_close",
+      "outdoor_access": "private yard",
+      "outdoor_use": "most_days",
+      "children_at_home": "none",
+      "hours_alone": "under_4",
+      "alone_plan": "none",
+      "owner_activity": "active",
+      "exercise_time": "over_60",
+      "experience": "some",
+      "household_atmosphere": "mixed",
+      "allergies": false,
+      "has_other_pets": false,
+      "other_pets": [],
+      "existing_pets": []
+    }
+  },
+  "source": "ai",
+  "note": null,
+  "suggestions": [
+    {
+      "name": "Border Collie",
+      "size": "medium",
+      "energy": "high",
+      "noise": "vocal",
+      "fit": "good",
+      "reason": "Your active lifestyle and large private backyard suit this energetic, highly trainable dog perfectly.",
+      "watch_out": "Plan for daily mental games alongside physical exercise to prevent boredom."
+    },
+    {
+      "name": "Labrador Retriever",
+      "size": "large",
+      "energy": "moderate",
+      "noise": "quiet",
+      "fit": "good",
+      "reason": "This friendly, adaptable dog easily matches your active routine and spacious home environment.",
+      "watch_out": "Prepare for regular brushing to manage hair around the house."
+    },
+    {
+      "name": "Australian Shepherd",
+      "size": "medium",
+      "energy": "high",
+      "noise": "moderate",
+      "fit": "good",
+      "reason": "Perfect for an active household with plenty of daily exercise and outdoor space available.",
+      "watch_out": "Keep their mind engaged daily with training exercises or puzzle toys."
+    },
+    {
+      "name": "Australian Cattle Dog",
+      "size": "medium",
+      "energy": "high",
+      "noise": "quiet",
+      "fit": "good",
+      "reason": "Great match for your active schedule and spacious yard that needs plenty of exercise.",
+      "watch_out": "Channel their herding instincts into structured activities and daily exercise routines."
+    },
+    {
+      "name": "Barbet",
+      "size": "medium",
+      "energy": "moderate",
+      "noise": "moderate",
+      "fit": "good",
+      "reason": "A versatile, friendly active companion that thoroughly enjoys spending quality time outdoors with you.",
+      "watch_out": "Schedule regular coat grooming to keep their curly coat free of tangles."
+    },
+    {
+      "name": "Australian Terrier",
+      "size": "small",
+      "energy": "high",
+      "noise": "vocal",
+      "fit": "good",
+      "reason": "A spirited small dog that thrives on outdoor adventures and your active daily routine.",
+      "watch_out": "Ensure your yard fencing is secure against digging tendencies."
+    },
+    {
+      "name": "Afghan Hound",
+      "size": "medium",
+      "energy": "high",
+      "noise": "moderate",
+      "fit": "could_work",
+      "reason": "Fits well with your active schedule and yard, though they have an independent nature.",
+      "watch_out": "Expect to invest consistent time into coat care and gentle training."
+    },
+    {
+      "name": "French Bulldog",
+      "size": "small",
+      "energy": "low",
+      "noise": "moderate",
+      "fit": "could_work",
+      "reason": "Easygoing and low-maintenance, fitting your short home hours well despite low exercise needs.",
+      "watch_out": "Be careful not to overexert them during warm weather outdoor activities."
+    }
+  ]
+}

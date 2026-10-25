@@ -1,0 +1,102 @@
+{
+  "scenario": {
+    "id": "small",
+    "title": "Mia: first dog in a small rented city apartment",
+    "aim": "small dog",
+    "room": "Small apartment living room: two-seater sofa against a shared wall, TV unit with loose cables, floorboards, glass door to a narrow balcony",
+    "household": {
+      "dwelling": "apartment",
+      "rental": true,
+      "neighbours": "attached",
+      "outdoor_access": "balcony",
+      "outdoor_use": "rarely",
+      "children_at_home": "none",
+      "hours_alone": "4_to_8",
+      "alone_plan": "none",
+      "owner_activity": "sedentary",
+      "exercise_time": "under_30",
+      "experience": "none",
+      "household_atmosphere": "calm",
+      "allergies": true,
+      "has_other_pets": false,
+      "other_pets": [],
+      "existing_pets": []
+    }
+  },
+  "source": "ai",
+  "note": null,
+  "suggestions": [
+    {
+      "name": "French Bulldog",
+      "size": "small",
+      "energy": "low",
+      "noise": "moderate",
+      "fit": "good",
+      "reason": "Small and low energy, this calm companion fits apartment living and a gentle daily routine.",
+      "watch_out": "Plan for regular coat care and grooming to manage potential allergy triggers."
+    },
+    {
+      "name": "Coton de Tulear",
+      "size": "small",
+      "energy": "moderate",
+      "noise": "quiet",
+      "fit": "good",
+      "reason": "Quiet and easy to train, this small companion suits first-time owners in quiet apartments.",
+      "watch_out": "Daily brushing and coat care are key for managing dander and allergies."
+    },
+    {
+      "name": "Cirneco dell’Etna",
+      "size": "small",
+      "energy": "moderate",
+      "noise": "quiet",
+      "fit": "could_work",
+      "reason": "Small, quiet, and highly trainable, this breed adapts well to compact apartment spaces.",
+      "watch_out": "Keep up with regular grooming sessions to manage dander and coat health."
+    },
+    {
+      "name": "Pug",
+      "size": "small",
+      "energy": "moderate",
+      "noise": "quiet",
+      "fit": "could_work",
+      "reason": "An easygoing, quiet small companion that thrives in a calm home with short walks.",
+      "watch_out": "Frequent brushing is essential to control shedding and keep dander levels low."
+    },
+    {
+      "name": "Bulldog",
+      "size": "medium",
+      "energy": "moderate",
+      "noise": "quiet",
+      "fit": "could_work",
+      "reason": "A calm, quiet medium-sized dog that suits a lower-activity lifestyle and attached walls.",
+      "watch_out": "Routine fold cleaning and brushing help control dander for allergy sufferers."
+    },
+    {
+      "name": "English Toy Spaniel",
+      "size": "small",
+      "energy": "moderate",
+      "noise": "quiet",
+      "fit": "could_work",
+      "reason": "Quiet and gentle, this small dog copes well with apartment living and moderate alone time.",
+      "watch_out": "Plan on frequent coat maintenance to manage dander and indoor shedding."
+    },
+    {
+      "name": "Japanese Chin",
+      "size": "small",
+      "energy": "moderate",
+      "noise": "quiet",
+      "fit": "could_work",
+      "reason": "A peaceful small dog that appreciates a quiet apartment and light daily exercise.",
+      "watch_out": "Regular brushing helps keep shedding controlled and minimizes potential dander."
+    },
+    {
+      "name": "Pekingese",
+      "size": "small",
+      "energy": "moderate",
+      "noise": "quiet",
+      "fit": "could_work",
+      "reason": "Low-exercise and quiet, this small breed suits a peaceful home with short walks.",
+      "watch_out": "Consistent grooming is important to manage hair loss and dander buildup."
+    }
+  ]
+}

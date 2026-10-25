@@ -1,0 +1,104 @@
+{
+  "scenario": {
+    "id": "medium",
+    "title": "The Nguyens: family townhouse with a cat and a courtyard",
+    "aim": "medium dog",
+    "room": "Open-plan family living and kitchen area: L-shaped sofa, kids' toys on the rug, low shelves with plants, sliding door to a small courtyard",
+    "household": {
+      "dwelling": "house",
+      "rental": false,
+      "neighbours": "close_separate",
+      "outdoor_access": "private yard",
+      "outdoor_use": "sometimes",
+      "children_at_home": "older",
+      "hours_alone": "under_4",
+      "alone_plan": "none",
+      "owner_activity": "moderate",
+      "exercise_time": "30_60",
+      "experience": "some",
+      "household_atmosphere": "mixed",
+      "allergies": false,
+      "has_other_pets": true,
+      "other_pets": [
+        "cat"
+      ],
+      "existing_pets": []
+    }
+  },
+  "source": "ai",
+  "note": null,
+  "suggestions": [
+    {
+      "name": "Labrador Retriever",
+      "size": "large",
+      "energy": "moderate",
+      "noise": "quiet",
+      "fit": "good",
+      "reason": "Great moderate family dog that thrives with older children and regular daily exercise.",
+      "watch_out": "Plan careful introductions and clear boundaries around your resident cat."
+    },
+    {
+      "name": "Cavalier King Charles Spaniel",
+      "size": "small",
+      "energy": "moderate",
+      "noise": "moderate",
+      "fit": "good",
+      "reason": "Gentle and affectionate companion that fits very well into a family home.",
+      "watch_out": "Monitor initial interactions with your cat until both pets feel secure."
+    },
+    {
+      "name": "Coton de Tulear",
+      "size": "small",
+      "energy": "moderate",
+      "noise": "quiet",
+      "fit": "good",
+      "reason": "Playful and sweet small dog that easily adapts to your household routine.",
+      "watch_out": "Introduce gradually to your cat to foster a peaceful relationship."
+    },
+    {
+      "name": "Barbet",
+      "size": "medium",
+      "energy": "moderate",
+      "noise": "moderate",
+      "fit": "good",
+      "reason": "Friendly and eager to please medium breed that suits older children.",
+      "watch_out": "Supervise early meetings with your cat to ensure safety."
+    },
+    {
+      "name": "French Bulldog",
+      "size": "small",
+      "energy": "low",
+      "noise": "moderate",
+      "fit": "good",
+      "reason": "Calm and affectionate companion suited for a comfortable house with older kids.",
+      "watch_out": "Keep initial cat meetings controlled and brief at first."
+    },
+    {
+      "name": "Bohemian Shepherd",
+      "size": "medium",
+      "energy": "moderate",
+      "noise": "moderate",
+      "fit": "good",
+      "reason": "Intelligent and trainable medium dog well suited to a family household.",
+      "watch_out": "Plan slow cat introductions to establish calm cohabitation."
+    },
+    {
+      "name": "Clumber Spaniel",
+      "size": "large",
+      "energy": "moderate",
+      "noise": "quiet",
+      "fit": "could_work",
+      "reason": "Easygoing large companion that fits seamlessly into your moderate daily activity.",
+      "watch_out": "Allow your cat time and safe space to adjust gradually."
+    },
+    {
+      "name": "Bulldog",
+      "size": "medium",
+      "energy": "moderate",
+      "noise": "quiet",
+      "fit": "could_work",
+      "reason": "Quiet and gentle medium dog that matches your moderate activity routine.",
+      "watch_out": "Supervise interactions with your cat during the adjustment period."
+    }
+  ]
+}
