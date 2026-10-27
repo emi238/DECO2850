@@ -54,6 +54,11 @@ const STEPS: Step[] = [
     questions: ['owner_activity', 'exercise_time'],
   },
   {
+    title: 'The dog you’d like',
+    why: 'We put breeds of that size first, and tell you if one you pick is bigger or smaller.',
+    questions: ['size_preference'],
+  },
+  {
     title: 'Dog experience',
     why: 'Some breeds are a lot to take on as a first dog.',
     questions: ['experience', 'existing_dogs'],

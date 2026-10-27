@@ -40,6 +40,7 @@ export const REQUIRED_QUESTIONS = [
   'allergies',
   'has_other_pets',
   'other_pets', // only when they have other pets
+  'size_preference',
 ] as const;
 export type RequiredQuestion = (typeof REQUIRED_QUESTIONS)[number];
 
@@ -273,6 +274,13 @@ export function HouseholdForm({
         { value: 'mixed', label: 'A mix' },
         { value: 'busy', label: 'Busy and noisy' },
       ], (v) => ({ household_atmosphere: v }), true)}
+
+      {ask('size_preference', 'What size of dog would you like?', q.size_preference, [
+        { value: 'small', label: 'Small' },
+        { value: 'medium', label: 'Medium' },
+        { value: 'large', label: 'Large' },
+        { value: 'any', label: 'Any size' },
+      ], (v) => ({ size_preference: v }))}
 
       {ask('allergies', 'Does anyone at home have pet allergies?', yesNo(q.allergies), [
         { value: 'yes', label: 'Yes' },

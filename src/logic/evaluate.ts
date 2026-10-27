@@ -349,6 +349,8 @@ const CONCERN_TEXT: Record<string, string> = {
   first_dog_energy: "I'm a lot of work for a first dog.",
   first_dog_stubborn: 'I can be stubborn, which is hard for a first dog.',
   busy_sensitive: 'A busy home could stress me out.',
+  size_bigger: "I'm bigger than the size of dog you said you'd like.",
+  size_smaller: "I'm smaller than the size of dog you said you'd like.",
 };
 
 const PET_NOUN: Record<string, string> = { cat: 'cat', bird: 'bird', small_animal: 'small pets' };

@@ -6,7 +6,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import type { Frame } from '../types';
-import { isPanorama, panoramaSlices } from './panorama';
+import { needsSplit, panoramaSlices } from './panorama';
 
 const MAX_FRAMES = 10;
 const TARGET_WIDTH = 1024;
@@ -33,10 +33,10 @@ async function toFrame(uri: string): Promise<Frame> {
   }
 }
 
-// A panorama becomes several overlapping frames (see panorama.ts); a normal photo
-// stays one frame.
+// A wide photo or panorama becomes several overlapping frames (see panorama.ts); a
+// normal photo stays one frame.
 async function toFrames(asset: ImagePicker.ImagePickerAsset): Promise<Frame[]> {
-  if (!isPanorama(asset.width, asset.height)) return [await toFrame(asset.uri)];
+  if (!needsSplit(asset.width, asset.height)) return [await toFrame(asset.uri)];
   const out: Frame[] = [];
   for (const crop of panoramaSlices(asset.width, asset.height)) {
     try {

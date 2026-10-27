@@ -78,7 +78,7 @@ app couldn't check also stops a "Good fit". The user only ever sees words, never
 | **Safety** | **35%** | Photos | Weighted load of hazards by type: escape/fall (highest) · toxic/ingestible · electrical/thermal · floor/stairs · fragile/valuable · clutter. Scaled by dog size (large → fragile, floor and escape count more; small → squeeze gaps and swallowable objects count more) and by confidence (low ×0.5). User-tagged valuables excluded. (§4.2) |
 | **Energy & management fit** | **25%** | Breed + questionnaire | Breed energy vs owner capacity: owner activity, daily exercise time, outdoor space and whether it's used, hours alone and any walker or daycare. The research-backed make-or-break factor. (§4.3) |
 | **Room to move** | **15%** | Photos (qualitative) | Openness, retreat spot, clear path. Floor area (m²) only counts at medium+ confidence. Bites mainly for large or high-energy dogs. (§4.4) |
-| **Household fit** | **15%** | Questionnaire + photo cross-check | Young children (+ retreat spot), other pets (cat, bird, small animal), other dogs, first-time owner, a busy home, each against the breed's size, energy and temperament. Photos cross-check the answers. (§4.5) |
+| **Household fit** | **15%** | Questionnaire + photo cross-check | Young children (+ retreat spot), other pets (cat, bird, small animal), other dogs, first-time owner, a busy home, the size of dog wanted, each against the breed's size, energy and temperament. Photos cross-check the answers. (§4.5) |
 | **Noise fit** | **10%** | Breed + questionnaire | Breed vocalness vs neighbour proximity (attached / close / not close). (§4.6) |
 
 **What the model focuses on:**
@@ -179,9 +179,10 @@ see the photos, so the rules treat Safety and the room as **unknown** (§4.8), n
 **Where the photos come from** (`CaptureScreen.tsx`, `src/capture/`): camera shots (tap the
 shutter; a rule-of-thirds grid helps line them up), **hold and sweep** (hold the shutter
 and turn: the gyroscope takes a photo every 30° of turn, up to 360°; real phone only),
-uploaded photos, or frames sampled from a video. An uploaded **panorama** (wider than
-2:1) is cut into 2 to 6 overlapping 4:3 slices, left to right (`panorama.ts`), so the
-model and the pins see normal-shaped frames. At most 10 frames are kept.
+uploaded photos, or frames sampled from a video. An uploaded **wide photo** (wider than
+1.4:1, e.g. 16:9) is cut into two overlapping halves, and a **panorama** (wider than 2:1)
+into 2 to 6 overlapping 4:3 slices, left to right (`panorama.ts`), so the photo cards
+(which are portrait) show the whole room and the pins land on normal-shaped frames. At most 10 frames are kept.
 
 One request with three parts in a single `user` turn (`gemini.ts → callGemini`):
 
@@ -285,6 +286,7 @@ INPUTS (the CONTEXT JSON and the photos)
    - hours_alone: under_4 / 4_to_8 / over_8 (a typical day). alone_plan: none / walker / daycare.
    - owner_activity: sedentary / moderate / active. exercise_time: under_30 / 30_60 / over_60 (minutes of walks and play a day).
    - experience: none (first dog) / some (has owned a dog before).
+   - size_preference: small / medium / large / any (the size of dog they would like; the dog's own size is in "dog").
    - household_atmosphere: calm / mixed / busy.
    - allergies: true / false (someone at home is allergic to pets).
    - existing_pets: dogs (breeds already in the home) and other (other pets in the home: cat / bird / small_animal = rabbit, guinea pig or similar / fish / reptile / other; an empty list means none).
@@ -411,7 +413,7 @@ first dog; hazards to move; no outdoor space; otherwise "a quiet corner of its o
 You are PawSpace's dog-breed matchmaker. A person is checking whether their home suits a dog. Recommend dog breeds that would genuinely suit THIS home and household.
 
 You receive JSON with:
-- "household": the owner's own answers, treat them as facts ("not_answered" = unknown): dwelling, rental, neighbours (attached / close_separate / not_close), outdoor_access and outdoor_use (most_days / sometimes / rarely), children_at_home (none / young = under 5 / older = 5+), hours_alone (a typical day: under_4 / 4_to_8 / over_8), alone_plan (none / walker / daycare), owner_activity (sedentary / moderate / active), exercise_time (under_30 / 30_60 / over_60 minutes a day), experience (none = first dog / some = has owned a dog before), household_atmosphere (calm / mixed / busy), allergies (true / false), existing_pets (dogs, and other: cat / bird / small_animal / fish / reptile / other).
+- "household": the owner's own answers, treat them as facts ("not_answered" = unknown): dwelling, rental, neighbours (attached / close_separate / not_close), outdoor_access and outdoor_use (most_days / sometimes / rarely), children_at_home (none / young = under 5 / older = 5+), hours_alone (a typical day: under_4 / 4_to_8 / over_8), alone_plan (none / walker / daycare), owner_activity (sedentary / moderate / active), exercise_time (under_30 / 30_60 / over_60 minutes a day), experience (none = first dog / some = has owned a dog before), household_atmosphere (calm / mixed / busy), allergies (true / false), existing_pets (dogs, and other: cat / bird / small_animal / fish / reptile / other), size_preference (small / medium / large / any = the size of dog they would like).
 - "room": a summary of the captured room, how many physical hazards were found, how many items the user tagged to protect, and how open the floor is and whether there is a spot for a dog bed.
 - "candidates": a shortlist of real breeds. Each has name, size (small <12kg, medium 12-25kg, large >25kg), energy (low/moderate/high), noise (quiet/moderate/vocal), temperament, breed group, 1–5 scores where known (good_with_children, good_with_other_dogs, trainability, shedding; 5 = most, null = unknown), and "rule_fit": how PawSpace's rules rate it for this home (energy, safety, room, household, noise and overall: poor/adequate/good).
 - When temperament or group is empty, use the 1–5 scores instead: good_with_children 4–5 counts as gentle and patient with children, good_with_other_dogs 4–5 as sociable with dogs, trainability 4–5 as eager to please (easier for a first dog), and shedding 1–2 as low shedding.
@@ -419,6 +421,7 @@ You receive JSON with:
 How to choose:
 - ONLY choose breeds from "candidates". Copy each name exactly.
 - Favour breeds whose rule_fit overall is good, then adequate. Weigh: energy vs owner_activity, exercise_time and outdoor space the dog will actually use (a high energy dog needs an active owner and over an hour a day); floor space vs size and energy; neighbour closeness vs noise (attached walls + vocal is a poor match); rentals favour smaller, quieter dogs; tagged items and hazards favour calmer, less destructive dogs; existing dogs favour sociable breeds.
+- Size: if size_preference is small, medium or large, most picks should be that size; include another size only when it is a clearly better fit, and say so in "watch_out". With "any" or not_answered, offer a mix of sizes.
 - Experience: for a first dog (experience none), favour easy-going, eager-to-please breeds and avoid stubborn, independent or very high energy ones.
 - Home atmosphere: a busy home suits confident, easy-going breeds; avoid shy or sensitive ones.
 - Allergies: if allergies is true, favour breeds known to shed little (for example poodles, bichons, schnauzers) when they are in the candidates, and mention grooming in "watch_out".
@@ -588,8 +591,12 @@ info" and asks the user to answer).
 | Other dogs | existing dogs + aggressive/dominant/territorial temperament, or a good-with-other-dogs score of 1–2 | mild |
 | First dog | no experience + high energy; or + stubborn/independent temperament or a trainability score of 1–2 | mild each |
 | Busy home | busy + shy/sensitive/timid temperament | mild |
+| Not the size you wanted | `size_preference` is small, medium or large and the breed is a different size ("I'm bigger/smaller than the size of dog you said you'd like."). "Any size" or unanswered never counts. | mild |
 
 No concerns → good; one mild → adequate; two or more, or a strong one → poor.
+**Size wanted** (onboarding step "The dog you'd like", 28 Oct 2026) is a preference, not
+a safety rule: it only nudges Household fit, so on Explore breeds the rules rank breeds of
+the wanted size first, and the breed prompt tells the AI to keep most picks that size.
 **Where the breed facts come from:** API Ninjas (preferred, `EXPO_PUBLIC_NINJA_API_KEY`)
 has no temperament text but real 1–5 scores (good with children, good with other dogs,
 trainability, shedding), so those scores stand in for the temperament words. The Dog API

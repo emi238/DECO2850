@@ -31,11 +31,12 @@ the 30 breeds the rules hand to the AI (no AI calls). Full results:
 | | Will someone check in on the dog? | **No** |
 | 6 Your routine | How active are you day to day? | **Mostly relaxed** |
 | | Time for walks and play each day? | **Under 30 min** |
-| 7 Dog experience | Have you owned a dog before? | **No, first dog** |
+| 7 The dog you’d like | What size of dog would you like? | **Small** |
+| 8 Dog experience | Have you owned a dog before? | **No, first dog** |
 | | Any dogs already at home? | *(leave empty)* |
-| 8 Life at home | What is your home usually like? | **Calm** |
+| 9 Life at home | What is your home usually like? | **Calm** |
 | | Does anyone at home have pet allergies? | **Yes** |
-| 9 Other pets | Do you have any other pets? | **No** |
+| 10 Other pets | Do you have any other pets? | **No** |
 
 **AI suggestions (run 25 Oct 2026, Gemini, 281-breed catalogue):** French Bulldog
 (good), Coton de Tulear (good), Cirneco dell'Etna, Pug, Bulldog, English Toy
@@ -65,10 +66,11 @@ watch-out mentions grooming for the allergy.
 | 5 A typical day | How long would the dog be home alone? | **Under 4 hours** |
 | 6 Your routine | How active are you day to day? | **Fairly active** |
 | | Time for walks and play each day? | **30 to 60 min** |
-| 7 Dog experience | Have you owned a dog before? | **Yes** |
-| 8 Life at home | What is your home usually like? | **A mix** |
+| 7 The dog you’d like | What size of dog would you like? | **Medium** |
+| 8 Dog experience | Have you owned a dog before? | **Yes** |
+| 9 Life at home | What is your home usually like? | **A mix** |
 | | Does anyone at home have pet allergies? | **No** |
-| 9 Other pets | Do you have any other pets? | **Yes** → What kind? **Cat** |
+| 10 Other pets | Do you have any other pets? | **Yes** → What kind? **Cat** |
 
 **AI suggestions (25 Oct 2026):** Labrador Retriever, Cavalier King Charles
 Spaniel, Coton de Tulear, Barbet, French Bulldog, Bohemian Shepherd (good),
@@ -97,10 +99,11 @@ Clumber Spaniel, Bulldog (could work). A mix of sizes, with three medium breeds
 | 5 A typical day | How long would the dog be home alone? | **Under 4 hours** |
 | 6 Your routine | How active are you day to day? | **Very active** |
 | | Time for walks and play each day? | **Over an hour** |
-| 7 Dog experience | Have you owned a dog before? | **Yes** |
-| 8 Life at home | What is your home usually like? | **A mix** |
+| 7 The dog you’d like | What size of dog would you like? | **Large** |
+| 8 Dog experience | Have you owned a dog before? | **Yes** |
+| 9 Life at home | What is your home usually like? | **A mix** |
 | | Does anyone at home have pet allergies? | **No** |
-| 9 Other pets | Do you have any other pets? | **No** |
+| 10 Other pets | Do you have any other pets? | **No** |
 
 **AI suggestions (25 Oct 2026):** Border Collie, Labrador Retriever, Australian
 Shepherd, Australian Cattle Dog, Barbet, Australian Terrier (good), Afghan Hound,

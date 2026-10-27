@@ -644,6 +644,21 @@ console.log('\nGemini request (fake API, no network)');
   }
 }
 
+// ---- Size wanted (onboarding "The dog you'd like") ----
+{
+  const sizes = (size_preference) => household({ size_preference });
+  check('a breed of a different size than wanted is a mild household concern', () => {
+    const big = S.householdFit(lab, sizes('small'), result());
+    assert.deepEqual([big.band, big.concerns.map((c) => c.id)], ['adequate', ['size_bigger']]);
+    assert.deepEqual(S.householdFit(frenchie, sizes('large'), result()).concerns.map((c) => c.id), ['size_smaller']);
+  });
+  check('the wanted size, "Any size" or no answer adds no concern', () => {
+    assert.equal(S.householdFit(frenchie, sizes('small'), result()).band, 'good');
+    assert.equal(S.householdFit(lab, sizes('any'), result()).band, 'good');
+    assert.equal(S.householdFit(lab, sizes(undefined), result()).band, 'good');
+  });
+}
+
 // ---- Panorama uploads are cut into overlapping frames ----
 {
   const covers = (crops, W) =>
@@ -652,7 +667,13 @@ console.log('\nGemini request (fake API, no network)');
     crops.every((c, i) => i === 0 || c.originX < crops[i - 1].originX + crops[i - 1].width); // each overlaps the last
   check('a normal photo stays one frame', () => {
     assert.deepEqual(P.panoramaSlices(4032, 3024), [{ originX: 0, originY: 0, width: 4032, height: 3024 }]);
-    assert.equal(P.panoramaSlices(1920, 1080).length, 1); // 16:9 is not a panorama
+    assert.equal(P.panoramaSlices(1600, 1200).length, 1); // 4:3 landscape stays whole
+  });
+  check('a wide (16:9) photo is cut into two overlapping halves, edge to edge', () => {
+    const crops = P.panoramaSlices(1920, 1080);
+    assert.equal(crops.length, 2);
+    assert.ok(covers(crops, 1920));
+    assert.equal(P.panoramaSlices(1408, 768).length, 2); // the demo room photos
   });
   check('an iPhone panorama becomes several overlapping 4:3 slices, edge to edge', () => {
     const crops = P.panoramaSlices(12000, 3000);

@@ -52,6 +52,9 @@ export type Atmosphere = 'calm' | 'mixed' | 'busy';
 // Pets other than dogs (dogs are listed separately in existing_pets).
 export type OtherPet = 'cat' | 'bird' | 'small_animal' | 'fish' | 'reptile' | 'other';
 
+// The size of dog the owner would like ('any' = no preference). Asked 28 Oct 2026.
+export type SizePreference = 'small' | 'medium' | 'large' | 'any';
+
 export interface Questionnaire {
   dwelling: 'apartment' | 'house';
   rental: boolean;
@@ -81,6 +84,7 @@ export interface Questionnaire {
   // cat?" (has_cat) on 15 Oct 2026; saved has_cat answers are converted on load.
   has_other_pets?: boolean;
   other_pets?: OtherPet[];
+  size_preference?: SizePreference;
 }
 
 export interface Tag {

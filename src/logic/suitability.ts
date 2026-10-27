@@ -9,7 +9,7 @@
 //   Energy & management    breed energy vs owner activity, exercise, outdoor space, time alone
 //   fit (25%)
 //   Room to move (15%)     photo: openness + retreat spot + clear path (+ floor area if confident)
-//   Household fit (15%)    children, other pets, experience, home atmosphere vs the breed
+//   Household fit (15%)    children, other pets, experience, home atmosphere, size wanted vs the breed
 //   Noise fit (10%)        breed noise vs how close the neighbours are (spec §4.4 table)
 //
 // Photo-derived weight = Safety + Room to move = 50%.
@@ -252,6 +252,7 @@ export interface Concern {
   pets?: OtherPet[]; // for pet_chase: which pets the dog might chase
 }
 
+const SIZE_ORDER: Record<SizeClass, number> = { small: 0, medium: 1, large: 2 };
 const GENTLE = /gentle|patient|tolerant|even[- ]tempered|good with (children|kids)/i;
 const CHASER_GROUP = /hound|terrier/i;
 const CHASER_TEMPERAMENT = /prey|hunt|chase/i;
@@ -295,6 +296,11 @@ export function householdFit(dog: DogInput, q: Questionnaire, result: Assessment
     if (STUBBORN.test(t) || low(dog.trainability)) concerns.push({ id: 'first_dog_stubborn', strength: 'mild' });
   }
   if (q.household_atmosphere === 'busy' && SENSITIVE.test(t)) concerns.push({ id: 'busy_sensitive', strength: 'mild' });
+  // Not the size the owner asked for ("Any size" or unanswered = no preference).
+  const wanted = q.size_preference;
+  if (wanted && wanted !== 'any' && dog.size !== wanted) {
+    concerns.push({ id: SIZE_ORDER[dog.size] > SIZE_ORDER[wanted] ? 'size_bigger' : 'size_smaller', strength: 'mild' });
+  }
 
   const strong = concerns.some((c) => c.strength === 'strong');
   const band: Band = strong || concerns.length >= 2 ? 'poor' : concerns.length === 1 ? 'adequate' : 'good';

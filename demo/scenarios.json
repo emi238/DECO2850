@@ -20,7 +20,8 @@
       "allergies": true,
       "has_other_pets": false,
       "other_pets": [],
-      "existing_pets": []
+      "existing_pets": [],
+      "size_preference": "small"
     }
   },
   {
@@ -43,8 +44,11 @@
       "household_atmosphere": "mixed",
       "allergies": false,
       "has_other_pets": true,
-      "other_pets": ["cat"],
-      "existing_pets": []
+      "other_pets": [
+        "cat"
+      ],
+      "existing_pets": [],
+      "size_preference": "medium"
     }
   },
   {
@@ -68,7 +72,8 @@
       "allergies": false,
       "has_other_pets": false,
       "other_pets": [],
-      "existing_pets": []
+      "existing_pets": [],
+      "size_preference": "large"
     }
   }
 ]
