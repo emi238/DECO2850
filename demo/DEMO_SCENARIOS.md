@@ -116,18 +116,22 @@ answers asks for a big dog (see findings).
 
 ---
 
-## Room photos
+## In-app test run (27 Oct 2026, iPhone 17 Simulator)
 
-The API key's free tier allows **no** image generation (Google returns "limit: 0"
-for its image models), so these photos aren't generated yet. Two options:
+Each household was entered in Profile → Household Questionnaire, checked against
+`scenarios.json` straight from the app's saved data (all 15 answers matched every
+time), then its photo (`demo/images/<id>.jpg`) was uploaded as a new scan and run
+through **Explore breeds for my space** and the room check.
 
-- **Free:** paste each prompt into the Gemini app (gemini.google.com), download the
-  image, and save it as `demo/images/small.jpg`, `medium.jpg`, `large.jpg`. Re-running
-  the script then also runs the real room check for each household's top breed.
-- **Paid:** turn on billing for the key's Google project, and the script can generate
-  them directly (a small charge per image; check Google’s current pricing).
+| Household | Breed list in the app | Room check |
+|---|---|---|
+| Small (Mia) | Google busy → **rules fallback**: Broholmer, Neapolitan Mastiff, Pyrenean Mastiff, French Bulldog… | **Real AI**, French Bulldog: *Good fit with a few changes*. Found the balcony railing gaps (escape), peace lily (toxic), power board and cords, lit candle; suggested balcony netting, cord cover, dog bed spot. |
+| Medium (Nguyens) | **Real AI**: Labrador, Cavalier, Barbet, Coton de Tulear, French Bulldog (good); Bohemian Shepherd, Bulldog, Clumber Spaniel (could work). Every watch-out mentions the cat. | Not completed: Google's daily quota ran out, so the app showed its sample assessment. |
+| Large (Sam and Priya) | **Real AI**: Border Collie, Labrador, Australian Shepherd, Barbet, Australian Cattle Dog, Airedale (good); French Bulldog, Basset Hound (could work). | **Real AI**, Labrador: ✓ *Good fit*. Found the open bifold doors (check yard fence), houseplants, slippery timber; spotted the existing dog bed; suggested a non-slip runner. |
 
-To demo in the app, put the photos on the phone and use **Upload Photos**.
+Re-run the medium room check once the quota resets (`node scripts/demo-scenarios.mjs
+medium --breed Barbet`, or in the app). The free key's daily quota is enough for
+roughly one full household per sitting when Google is busy.
 
 ## Findings from these runs
 

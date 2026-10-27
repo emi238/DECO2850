@@ -77,7 +77,7 @@ const { evaluate, rankBreeds } = require(join(out, 'src/logic/evaluate.js'));
 // ---- 3. Scenarios ----
 const scenarios = JSON.parse(readFileSync(join(root, 'demo/scenarios.json'), 'utf8'));
 const shortlistOnly = process.argv.includes('--shortlist'); // rules only, no AI calls
-const only = process.argv.slice(2).find((a) => !a.startsWith('--')); // optional: one scenario id
+const only = process.argv.slice(2).find((a, i, all) => !a.startsWith('--') && all[i - 1] !== '--breed'); // optional: one scenario id
 const base = {
   floor_level: null, adults: 1, children: 0, children_ages: '', infant_present: false,
   off_limit_zones: [], activity_level: 'medium', wants_apartment_friendly: false,
@@ -130,7 +130,9 @@ for (const sc of scenarios.filter((s) => !only || s.id === only)) {
   };
 
   // Room check for the top pick, if there's a demo photo (like picking it in the app).
-  const top = res.suggestions[0]?.breed;
+  // --breed "Name" picks which suggested breed gets the room check (default: the top one).
+  const want = process.argv.includes('--breed') ? process.argv[process.argv.indexOf('--breed') + 1] : null;
+  const top = (want && res.suggestions.find((s) => s.breed.name === want)?.breed) || res.suggestions[0]?.breed;
   if (frame && top) {
     space.pet = { species: 'Dog', breed: top.name, size: top.size, energy: top.energy, noise: top.noise };
     const a = await runAssessment(space);
