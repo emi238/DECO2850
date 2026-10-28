@@ -134,7 +134,9 @@ export async function generateText(body: unknown, signal: AbortSignal): Promise<
   for (const model of models) {
     const t0 = Date.now();
     try {
-      return await generateWith(model, body, signal);
+      const text = await generateWith(model, body, signal);
+      if (typeof __DEV__ !== 'undefined' && __DEV__) console.warn(`[gemini] ${model} OK in ${Date.now() - t0}ms`);
+      return text;
     } catch (e) {
       lastError = e;
       const busy = e instanceof Error && /Gemini HTTP (429|500|503)\b/.test(e.message);
