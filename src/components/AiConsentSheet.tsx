@@ -3,15 +3,21 @@
 // phone and uses the built-in example result. The choice can be changed in Profile.
 
 import React from 'react';
-import { View, Text, StyleSheet, Pressable, Modal, Image } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Modal, Image, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PackIcon } from './icons';
 import type { PackIconName } from './packIcons';
 import { colors, fonts } from '../theme';
 import { IMAGES } from '../assets';
 
-const POINTS: { icon: PackIconName; text: string }[] = [
-  { icon: 'camera-01', text: 'Your room photos and household answers are sent to Google’s Gemini AI to spot things a dog could get into.' },
+const GEMINI_TERMS_URL = 'https://ai.google.dev/gemini-api/terms';
+
+const POINTS: { icon: PackIconName; text: string; link?: { label: string; url: string } }[] = [
+  {
+    icon: 'camera-01',
+    text: 'Your room photos and household answers are sent to Google’s Gemini AI to spot things a dog could get into.',
+    link: { label: 'Gemini T&Cs', url: GEMINI_TERMS_URL },
+  },
   { icon: 'shield-tick', text: 'They’re used only to check this room. We don’t sell them or share them with anyone else.' },
   { icon: 'info-circle', text: 'Before you scan, put away anything personal: faces, mail, documents or screens.' },
   { icon: 'refresh-cw-01', text: 'You can change your mind any time in your Profile, or delete all your data there.' },
@@ -32,7 +38,17 @@ export function AiConsentSheet({ visible, onAllow, onDecline }: { visible: boole
               <View style={styles.icon}>
                 <PackIcon name={p.icon} size={18} />
               </View>
-              <Text style={styles.pointTxt}>{p.text}</Text>
+              <Text style={styles.pointTxt}>
+                {p.text}
+                {p.link && (
+                  <>
+                    {' '}
+                    <Text style={styles.link} accessibilityRole="link" onPress={() => Linking.openURL(p.link!.url)}>
+                      {p.link.label}
+                    </Text>
+                  </>
+                )}
+              </Text>
             </View>
           ))}
         </View>
@@ -58,6 +74,7 @@ const styles = StyleSheet.create({
   point: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
   icon: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.peach, alignItems: 'center', justifyContent: 'center' },
   pointTxt: { flex: 1, fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.text },
+  link: { fontFamily: fonts.semibold, color: colors.orangeDeep, textDecorationLine: 'underline' },
   primary: { height: 48, borderRadius: 12, backgroundColor: colors.orange, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   secondary: { height: 48, borderRadius: 12, backgroundColor: '#fff', borderWidth: 1, borderColor: 'rgba(36,30,24,0.18)', alignItems: 'center', justifyContent: 'center' },
   btnTxt: { fontFamily: fonts.semibold, fontSize: 15, color: colors.text },
