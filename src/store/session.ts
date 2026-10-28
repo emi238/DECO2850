@@ -17,6 +17,7 @@ import type {
   Tag,
 } from '../types';
 import { migrateHousehold } from '../logic/migrate';
+import { setAiConsent as setAiConsentFlag } from '../ai/config';
 
 function uuid(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -68,6 +69,8 @@ interface SessionState {
   household: Questionnaire; // shared across spaces, set at onboarding, edited in Profile
   profile: Profile;
   seenGuides: string[]; // "how to" guides already shown once ('scan', 'flag')
+  aiConsent: boolean | null; // null = not asked yet; false = opted out of sending data to the AI
+  setAiConsent: (v: boolean) => void;
 
   markGuideSeen: (id: string) => void;
   setHousehold: (patch: Partial<Questionnaire>) => void;
@@ -116,6 +119,11 @@ export const useSession = create<SessionState>()(
       household: { ...defaultQuestionnaire },
       profile: { name: '', email: '' },
       seenGuides: [],
+      aiConsent: null,
+      setAiConsent: (v) => {
+        setAiConsentFlag(v);
+        set({ aiConsent: v });
+      },
 
       markGuideSeen: (id) => set((s) => (s.seenGuides.includes(id) ? {} : { seenGuides: [...s.seenGuides, id] })),
       setHousehold: (patch) => set((s) => ({ household: { ...s.household, ...patch } })),
@@ -128,6 +136,7 @@ export const useSession = create<SessionState>()(
           household: { ...defaultQuestionnaire },
           profile: { name: '', email: '' },
           seenGuides: [],
+          aiConsent: null,
         }),
 
       current: () => {
@@ -188,6 +197,7 @@ export const useSession = create<SessionState>()(
         const currentSpaceId = spaces.some((sp) => sp.id === p.currentSpaceId) ? p.currentSpaceId! : spaces[0]?.id ?? null;
         // Older saved answers: non-dog pets dropped, the cat question converted.
         const household = p.household ? migrateHousehold(p.household) : current.household;
+        setAiConsentFlag(p.aiConsent !== false);
         return { ...current, ...p, spaces, currentSpaceId, household };
       },
       // Persist everything except the heavy per-frame base64 bytes.
@@ -204,6 +214,7 @@ export const useSession = create<SessionState>()(
         household: state.household,
         profile: state.profile,
         seenGuides: state.seenGuides,
+        aiConsent: state.aiConsent,
       }),
     }
   )

@@ -48,7 +48,14 @@ export const AI_CONFIG = {
 };
 
 // Real AI is only attempted when explicitly enabled AND a key (or proxy) exists.
+// The person's choice in the AI consent sheet (set from the store). false = they
+// opted out: no photos or answers are sent; the built-in example result is used.
+let aiConsent = true;
+export function setAiConsent(v: boolean) {
+  aiConsent = v;
+}
+
 export function realAiEnabled(): boolean {
-  if (AI_CONFIG.USE_MOCK) return false;
+  if (AI_CONFIG.USE_MOCK || !aiConsent) return false;
   return AI_CONFIG.GEMINI_API_KEY.trim() !== '' || AI_CONFIG.PROXY_URL.trim() !== '';
 }
