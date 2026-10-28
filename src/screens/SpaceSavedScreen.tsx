@@ -1,7 +1,7 @@
 // "Purrfect! Scan Saved" — name + label the new space, then either start the
 // analysis, edit the household questionnaire first, or go home.
 
-import React, { useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Pressable, TextInput, ScrollView, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -9,6 +9,7 @@ import { TopBar, PrimaryButton, Chip } from '../components/kit';
 import { FrameView } from '../components/FrameView';
 import { EditIcon } from '../components/icons';
 import { colors, fonts } from '../theme';
+import { AiConsentSheet } from '../components/AiConsentSheet';
 import { useSession, useCurrentSpace } from '../store/session';
 import type { ScreenProps } from '../navigation';
 
@@ -32,7 +33,15 @@ export default function SpaceSavedScreen({ navigation }: ScreenProps<'SpaceSaved
 
   if (!space) return <View style={styles.root} />;
 
+  // Ask once, right before anything could be sent to the AI.
+  const aiConsent = useSession((st) => st.aiConsent);
+  const setAiConsent = useSession((st) => st.setAiConsent);
+  const [consentOpen, setConsentOpen] = useState(false);
   const startAnalysis = () => {
+    if (aiConsent === null) return setConsentOpen(true);
+    goAnalysis();
+  };
+  const goAnalysis = () => {
     // Opens the space; the analysis itself waits until a breed is picked there.
     patchSpace({ questionnaire: { ...useSession.getState().household }, result: null });
     navigation.navigate('Analysis');
@@ -98,6 +107,19 @@ export default function SpaceSavedScreen({ navigation }: ScreenProps<'SpaceSaved
           </Pressable>
         </ScrollView>
       </SafeAreaView>
+      <AiConsentSheet
+        visible={consentOpen}
+        onAllow={() => {
+          setAiConsent(true);
+          setConsentOpen(false);
+          goAnalysis();
+        }}
+        onDecline={() => {
+          setAiConsent(false);
+          setConsentOpen(false);
+          goAnalysis();
+        }}
+      />
     </View>
   );
 }

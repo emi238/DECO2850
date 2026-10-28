@@ -4,7 +4,7 @@
 // No real auth in this prototype, so the password field is display-only.
 
 import React, { useRef, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert, KeyboardAvoidingView, Platform, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AvatarButton, Field, PrimaryButton, TopBar } from '../components/kit';
@@ -23,6 +23,8 @@ export default function ProfileScreen({ navigation, route }: ScreenProps<'Profil
   const setHousehold = useSession((s) => s.setHousehold);
   const resetAll = useSession((s) => s.resetAll);
 
+  const aiConsent = useSession((st) => st.aiConsent);
+  const setAiConsent = useSession((st) => st.setAiConsent);
   const [editDetails, setEditDetails] = useState(false);
   const openHousehold = !!route.params?.editHousehold;
   const [editHousehold, setEditHousehold] = useState(openHousehold);
@@ -116,6 +118,18 @@ export default function ProfileScreen({ navigation, route }: ScreenProps<'Profil
 
             <PrimaryButton label="Save changes" onPress={save} disabled={!dirty} style={styles.save} />
 
+            <View style={styles.aiRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.aiTitle}>Use AI to check my photos</Text>
+                <Text style={styles.aiSub}>
+                  {aiConsent === false
+                    ? 'Off: nothing is sent; you see example results.'
+                    : 'On: photos and answers are sent to Google’s Gemini AI only to check your rooms.'}
+                </Text>
+              </View>
+              <Switch value={aiConsent !== false} onValueChange={setAiConsent} trackColor={{ true: colors.orange }} />
+            </View>
+
             <View style={styles.controls}>
               <PrimaryButton
                 label="Delete All Data"
@@ -137,6 +151,9 @@ export default function ProfileScreen({ navigation, route }: ScreenProps<'Profil
 }
 
 const styles = StyleSheet.create({
+  aiRow: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.bg, borderRadius: 20, padding: 16, marginTop: 20 },
+  aiTitle: { fontFamily: fonts.semibold, fontSize: 15, color: colors.text },
+  aiSub: { fontFamily: fonts.regular, fontSize: 12.5, lineHeight: 17, color: colors.textMuted, marginTop: 2 },
   root: { flex: 1, backgroundColor: colors.bg2 },
   topBar: { paddingHorizontal: 22, paddingTop: 6 },
   body: { paddingHorizontal: 22, paddingTop: 0, paddingBottom: 120 },
