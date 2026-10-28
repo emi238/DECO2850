@@ -32,9 +32,16 @@ function friendlyFailure(err: unknown): string {
     return 'The AI model was briefly busy, so this is an example result, not your room. Tap “Start over” and try again in a moment.';
   }
   if (/tim-?out|abort|network|fetch/i.test(msg)) {
-    return 'The AI could not be reached (network/timeout), so this is an example result, not your room.';
+    return 'The AI took too long or couldn’t be reached, so this is an example result, not your room. Fewer photos check faster.';
   }
   return 'The AI call did not complete, so this is an example result, not your room.';
+}
+
+// Time allowed for one room check: more photos, more time (a fixed 30s cancelled
+// checks with several photos before Gemini could answer).
+export function roomTimeout(session: Space): number {
+  const n = Math.min(session.capture.frames.filter((f) => !!f.base64).length, AI_CONFIG.MAX_FRAMES);
+  return Math.min(AI_CONFIG.TIMEOUT_MAX_MS, AI_CONFIG.TIMEOUT_MS + n * AI_CONFIG.TIMEOUT_PER_FRAME_MS);
 }
 
 const MAX_ATTEMPTS = 3; // initial try + 2 retries (PRD F5.5), with backoff
@@ -55,11 +62,13 @@ export async function runAssessment(session: Space): Promise<AssessResult> {
       try {
         const assessment = await withTimeout(
           (signal) => callGemini(session, dog, signal),
-          AI_CONFIG.TIMEOUT_MS
+          roomTimeout(session)
         );
         return { assessment, source: 'ai' };
       } catch (err) {
         lastErr = err;
+        // Ran out of time: a retry would just wait as long again, so stop here.
+        if (err instanceof Error && /cancel|abort/i.test(err.message)) break;
         if (attempt < MAX_ATTEMPTS - 1) {
           await sleep(1200 * (attempt + 1)); // 1.2s, then 2.4s
         }
