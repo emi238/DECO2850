@@ -53,6 +53,24 @@ async function toFrames(asset: ImagePicker.ImagePickerAsset): Promise<Frame[]> {
   return out.length ? out : [await toFrame(asset.uri)];
 }
 
+// The photo bytes sent to the AI aren't saved between app launches, only the photo
+// files. Before an analysis, re-read any frame that lost them so a re-run after a
+// restart checks the real photos instead of falling back to the sample. A frame
+// whose file is gone is left as it is.
+export async function withPhotoData(frames: Frame[]): Promise<Frame[]> {
+  return Promise.all(
+    frames.map(async (f) => {
+      if (f.base64) return f;
+      try {
+        const r = await manipulateAsync(f.uri, [{ resize: { width: TARGET_WIDTH } }], { base64: true, compress: 0.6, format: SaveFormat.JPEG });
+        return r.base64 ? { ...f, base64: r.base64, mime: 'image/jpeg' } : f;
+      } catch {
+        return f;
+      }
+    })
+  );
+}
+
 async function ensurePermission(): Promise<boolean> {
   const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
   return perm.granted;

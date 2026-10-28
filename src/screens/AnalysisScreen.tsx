@@ -33,6 +33,7 @@ import { HELP_TEXT } from './HomeScreen';
 import { colors, fonts } from '../theme';
 import { useSession, useCurrentSpace } from '../store/session';
 import { runAssessment } from '../ai/assess';
+import { withPhotoData } from '../capture/upload';
 import {
   evaluate,
   isTagEntry,
@@ -93,7 +94,9 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
       // What the user saw last time: saved after the previous run (so edited answers
       // and tags count as changes too), or worked out now for older spaces.
       const before = opts?.openReport ? cur.runSnapshot ?? runSnapshot(cur, household) : null;
-      const r = await runAssessment({ ...cur, questionnaire: { ...household } });
+      const frames = await withPhotoData(cur.capture.frames);
+      if (id !== runRef.current) return;
+      const r = await runAssessment({ ...cur, capture: { ...cur.capture, frames }, questionnaire: { ...household } });
       if (id !== runRef.current) return;
       setResult(r.assessment, r.source, r.fallbackReason);
       const after = useSession.getState().current();
@@ -145,6 +148,15 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
       ? result.photo_check.note || 'We couldn’t see a room in these photos, so nothing was checked. Retake them with the lights on.'
       : null;
   const bannerNote = photoNote ?? space?.resultNote;
+  // The report always says what to do when the photos weren't really checked:
+  // no result yet, or the built-in sample because the AI was busy or unreachable.
+  const notChecked: string | null = !result
+    ? 'This room hasn’t been analysed yet. Tap Re-run analysis to check your photos.'
+    : photoNote
+      ? `${photoNote} Then tap Re-run analysis.`
+      : space?.resultSource === 'mock'
+        ? `${/busy/i.test(space.resultNote ?? '') ? 'Google’s AI was busy' : 'The AI couldn’t be reached'}, so this report is a sample, not your photos. Tap Re-run analysis to check your room.`
+        : null;
   const evaluation = useMemo(() => (space ? evaluate(space, household) : null), [space, household]);
 
   // Located hazards first (they have pins), then whole-room findings.
@@ -312,7 +324,6 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
             evaluation={evaluation}
             changes={space.lastChanges}
             changesOpen={whatsNewOpen}
-            photoNote={photoNote}
             riskCount={risks.length}
             onRisks={() => {
               setReportOpen(false);
@@ -326,6 +337,8 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
               setReportOpen(false);
               navigation.navigate('Profile', { editHousehold: true });
             }}
+            notChecked={notChecked}
+            onRerun={() => analyse({ openReport: true })} // the card's button is the confirmation
             onShowSetup={(key) => {
               setReportOpen(false);
               setSetupFocus(key);
@@ -678,22 +691,24 @@ function ReportOverlay({
   evaluation: e,
   changes,
   changesOpen,
-  photoNote,
   riskCount,
   onRisks,
   onClose,
   onEditProfile,
   onShowSetup,
+  notChecked,
+  onRerun,
 }: {
   evaluation: Evaluation;
   changes?: RunChanges;
   changesOpen: boolean;
-  photoNote: string | null; // the photos couldn't be read (blank, dark, not a room)
   riskCount: number;
   onRisks: () => void;
   onClose: () => void;
   onEditProfile: () => void;
   onShowSetup: (key: string) => void;
+  notChecked: string | null; // why the photos weren't checked, or null when they were
+  onRerun: () => void;
 }) {
   // Slides up from the bottom of the map card; slides back down before closing.
   const slide = useRef(new Animated.Value(0)).current;
@@ -746,7 +761,13 @@ function ReportOverlay({
               <Text style={styles.verdictLine}>{e.verdictLine}</Text>
             </View>
           </View>
-          {!!photoNote && <Text style={styles.photoWarn}>{photoNote}</Text>}
+          {!!notChecked && (
+            <View style={styles.rerunCard}>
+              <Text style={styles.rerunTitle}>Your photos haven’t been checked yet</Text>
+              <Text style={styles.rerunTxt}>{notChecked}</Text>
+              <PrimaryButton label="Re-run analysis" onPress={() => dismiss(onRerun)} style={{ marginTop: 12 }} />
+            </View>
+          )}
 
           {!!changes && <WhatsNew changes={changes} initiallyOpen={changesOpen} />}
 
@@ -1080,6 +1101,9 @@ const styles = StyleSheet.create({
   verdictMark: { fontFamily: fonts.bold, fontSize: 17, color: '#fff' },
   verdictTitle: { fontFamily: fonts.bold, fontSize: 18, lineHeight: 23, color: colors.text, marginTop: 5 },
   verdictLine: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.text, marginTop: 4 },
+  rerunCard: { backgroundColor: '#fff', borderRadius: 16, borderWidth: 1.5, borderColor: colors.orange, padding: 16, marginTop: 6, marginBottom: 6 },
+  rerunTitle: { fontFamily: fonts.bold, fontSize: 16, color: colors.text },
+  rerunTxt: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.text, marginTop: 4 },
   photoWarn: { fontFamily: fonts.medium, fontSize: 13, lineHeight: 18, color: colors.orangeDeep, marginTop: 6, marginBottom: 4 },
   reportRow: { backgroundColor: colors.bg, borderRadius: 12, padding: 12, marginTop: 8 },
   reportRowHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
