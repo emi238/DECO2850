@@ -48,6 +48,16 @@ export const colors = {
   good: '#5FAe7f',
   ok: '#FBAB4B',
   bad: '#E4572E',
+
+  // Results screens (Figma "PawSpace Results" variables). No alarm red for a band.
+  stateGood: '#2F6B48',
+  stateGoodTint: '#E3F2E8',
+  stateWork: '#8A4B06',
+  stateWorkTint: '#FFE7CE',
+  statePlan: '#9A3F1F',
+  statePlanTint: '#FCE3D6',
+  stateUnknown: '#6E655C',
+  stateUnknownTint: '#EFEFEF',
 } as const;
 
 export type Severity = 'low' | 'medium' | 'high';

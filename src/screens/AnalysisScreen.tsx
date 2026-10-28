@@ -34,6 +34,7 @@ import { colors, fonts } from '../theme';
 import { useSession, useCurrentSpace } from '../store/session';
 import { runAssessment } from '../ai/assess';
 import { withPhotoData } from '../capture/upload';
+import { ResultsOverview, type StartHere } from '../components/results/Overview';
 import {
   evaluate,
   isTagEntry,
@@ -67,7 +68,8 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
   const [loading, setLoading] = useState(needsRun);
   const [loadDone, setLoadDone] = useState(false);
   const [riskIndex, setRiskIndex] = useState<number | null>(null);
-  const [reportOpen, setReportOpen] = useState(false);
+  // The results overview is the main view once a breed is picked; Map shows the photos.
+  const [reportOpen, setReportOpen] = useState(true);
   const [recOpen, setRecOpen] = useState(false); // Recommendations / shopping panel
   const [placing, setPlacing] = useState<Placing>(null); // marking an off-limits area
   const addTag = useSession((s) => s.addTag);
@@ -214,11 +216,106 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
     ]);
   const selectBreed = () => navigation.navigate('SelectBreed');
 
+  // ---- Results overview (Results guide step 2, Part A) ----
+  if (hasDog && reportOpen && evaluation) {
+    const e = evaluation;
+    const n = recSet.recommendations.length;
+    const openMap = () => {
+      setReportOpen(false);
+      setRecOpen(false);
+    };
+    const openList = () => {
+      setReportOpen(false);
+      setRecOpen(true); // full to-do list until step 2 Part B's screens exist
+    };
+    const map = { label: 'Map', onPress: openMap };
+    const things = (k: number) => (k === 1 ? '1 thing to sort' : `${k} things to sort`);
+    const counted = new Set(e.score.safety.counted.map((c) => c.key));
+    const gateItem =
+      e.gates.includes('escape') || e.gates.includes('toxic')
+        ? risks.find(
+            (h) =>
+              counted.has(h.object_key ?? h.title.toLowerCase()) &&
+              (e.gates.includes('escape') ? h.hazard_type === 'escape_fall' : h.hazard_type === 'toxic_ingestible' && !h.easy_fix)
+          )
+        : undefined;
+    const routineMissing = e.score.unknown.includes('routine');
+    const startHere: StartHere = notChecked
+      ? {
+          tone: 'unknown',
+          label: 'HELP ME SEE',
+          heading: notChecked.title,
+          body: notChecked.body,
+          primary: notChecked.action
+            ? { label: notChecked.button, onPress: notChecked.action === 'retake' ? () => navigation.navigate('Capture') : () => analyse({ openReport: true }) }
+            : { label: 'See what to sort', onPress: openList },
+          secondary: notChecked.action ? { label: 'See what to sort', onPress: openList } : undefined,
+        }
+      : e.gates.length
+        ? {
+            tone: 'plan',
+            label: 'DO FIRST',
+            heading: gateItem?.title ?? (e.gates[0] === 'energy' ? 'Plan daily walks and play' : 'Make the room safe first'),
+            body: [gateItem?.recommendation, n > 1 ? `Then ${things(n - 1).replace(' to sort', '')} to sort.` : ''].filter(Boolean).join(' '),
+            primary: {
+              label: 'Show me how',
+              onPress: () => {
+                setReportOpen(false);
+                if (gateItem) setRiskIndex(risks.findIndex((r) => r.id === gateItem.id));
+                else setRecOpen(true);
+              },
+            },
+            secondary: map,
+          }
+        : routineMissing
+          ? {
+              tone: 'unknown',
+              label: 'HELP ME SEE',
+              heading: 'Answer a few quick questions',
+              body: 'Tell me about your days so I know we’ll keep up: how active you are, daily walks and time alone.',
+              primary: { label: 'Update profile', onPress: () => navigation.navigate('Profile', { editHousehold: true }) },
+              secondary: { label: 'See what to sort', onPress: openList },
+            }
+          : n > 0
+            ? {
+                tone: 'work',
+                label: 'START HERE',
+                heading: things(n),
+                body: e.changes.slice(0, 3).join(' '),
+                primary: { label: 'See what to do', onPress: openList },
+                secondary: map,
+              }
+            : {
+                tone: 'good',
+                label: 'ALL SET',
+                heading: 'Nothing to sort',
+                body: 'Have a look at My favourite spots for where a bed and bowls could go.',
+                primary: { label: 'See setup ideas', onPress: openMap },
+              };
+    const photosOff = e.labels.safety === 'Not checked yet';
+    return (
+      <View style={{ flex: 1 }}>
+        <ResultsOverview
+          evaluation={e}
+          title={title}
+          photo={frames[0]}
+          startHere={startHere}
+          needUnknown={{ safety: photosOff, room: e.labels.room === 'Not checked yet', energy: e.score.energy.undecided }}
+          onBack={goHome}
+          onBreed={selectBreed}
+          onNeed={openList}
+          onProfile={() => navigation.navigate('Profile', { editHousehold: true })}
+          aboveStart={space.lastChanges ? <WhatsNew changes={space.lastChanges} initiallyOpen={whatsNewOpen} /> : null}
+        />
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.root, { backgroundColor: hasDog ? colors.bg2 : colors.bg }]}>
       <SafeAreaView edges={['top']} style={styles.header}>
         <TopBar
-          onBack={goHome}
+          onBack={hasDog ? () => setReportOpen(true) : goHome} // map → back to the overview
           right={
             hasDog ? (
               <Pressable style={styles.breedPill} onPress={selectBreed}>

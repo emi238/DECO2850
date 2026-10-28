@@ -105,3 +105,11 @@ export function TrashIcon({ size = 20, color = colors.text }: P) {
     </Svg>
   );
 }
+
+// Icons from the Figma icon pack (assets/icons, 24px, 2px stroke), recoloured.
+import { SvgXml } from 'react-native-svg';
+import { PACK_ICONS, type PackIconName } from './packIcons';
+
+export function PackIcon({ name, size = 24, color = colors.text }: { name: PackIconName; size?: number; color?: string }) {
+  return <SvgXml xml={PACK_ICONS[name].replace(/stroke="black"/g, `stroke="${color}"`)} width={size} height={size} />;
+}

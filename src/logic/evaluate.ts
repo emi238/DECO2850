@@ -70,6 +70,7 @@ export interface Evaluation {
   labels: Record<SubScore, string>; // the chip on each report row
   lines: Record<SubScore, string>; // the dog's first-person line
   roomChips: string[]; // openness, retreat spot and clear path, as plain words (empty if unknown)
+  verdictTone: 'good' | 'work' | 'plan' | 'unknown'; // colour set for the headline
   verdictLabel: string; // small plain label above the headline (app voice)
   verdictTitle: string; // the headline, spoken by the dog
   verdictLine: string;
@@ -140,6 +141,7 @@ export function evaluate(space: Space, household: Questionnaire, dogOverride?: R
     },
     roomChips: room && photosChecked ? [OPENNESS_WORD[room.openness], RETREAT_WORD[room.retreat_spot], PATH_WORD[room.clear_path]] : [],
     // The dog speaks the headline; a small plain label above it keeps the result clear.
+    verdictTone: stillChecking ? 'unknown' : ({ good: 'good', adequate: 'work', poor: 'plan' } as const)[verdict],
     verdictLabel: stillChecking
       ? 'STILL CHECKING'
       : { poor: 'NOT QUITE READY YET', adequate: 'NEARLY READY', good: `READY FOR A ${dog.name.toUpperCase()}` }[verdict],
