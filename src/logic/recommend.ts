@@ -195,3 +195,176 @@ export function buildRecommendations(evaluation: Evaluation | null, result: Asse
 
   return { recommendations, shopping };
 }
+
+// ---------------------------------------------------------------------------
+// One ordered to-do list for the results screens (Results guide step 2, B1).
+// Built from the same data as above; every item appears once, numbered 1..n in
+// list order (spots and protect items aren't numbered). Pure logic.
+
+export type TodoGroup = 'do_first' | 'worth_doing' | 'nice_extra' | 'spot' | 'protect';
+export type TodoNeed = 'safety' | 'energy' | 'room' | 'household' | 'noise' | 'setup';
+
+export interface TodoItem {
+  id: string;
+  group: TodoGroup;
+  need: TodoNeed;
+  title: string;
+  whatToDo: string; // app voice
+  why?: string; // why it matters (dog voice when the model wrote it that way)
+  frame_index?: number; // photo it's on; undefined = no photo
+  x?: number;
+  y?: number;
+  product?: string; // a general shopping idea, if any
+  offLimits?: boolean;
+  tagged?: boolean; // the owner's own valuable / fragile item
+  number?: number;
+}
+
+export const TODO_GROUPS: TodoGroup[] = ['do_first', 'worth_doing', 'nice_extra', 'spot', 'protect'];
+const SEV_GROUP: Record<Severity, TodoGroup> = { high: 'do_first', medium: 'worth_doing', low: 'nice_extra' };
+
+export function buildTodo(evaluation: Evaluation | null, result: Assessment | null): TodoItem[] {
+  const items: TodoItem[] = [];
+  const gateFirst: TodoItem[] = [];
+  const gates = evaluation?.gates ?? [];
+
+  for (const h of (result?.hazards ?? []).filter((x) => x.scope === 'object' && x.hazard_type !== 'other')) {
+    const loc = h.location;
+    const where = loc ? { frame_index: loc.frame_index, x: loc.x, y: loc.y } : {};
+    const tagged = h.source === 'user_tag';
+    const item: TodoItem = {
+      id: `hz-${h.id}`,
+      group: tagged ? 'protect' : SEV_GROUP[h.severity],
+      need: tagged ? 'setup' : h.hazard_type === 'clutter' ? 'room' : 'safety',
+      title: h.title,
+      whatToDo: h.recommendation || h.why_it_matters,
+      why: h.why_it_matters || undefined,
+      ...where,
+      product: planFor(h).item,
+      tagged,
+    };
+    const isGate =
+      !tagged &&
+      ((gates.includes('escape') && h.hazard_type === 'escape_fall') || (gates.includes('toxic') && h.hazard_type === 'toxic_ingestible' && !h.easy_fix));
+    if (isGate) gateFirst.push({ ...item, group: 'do_first' });
+    else items.push(item);
+  }
+
+  if (evaluation) {
+    const { bands, score } = evaluation;
+    const room = result?.room_assessment;
+    const roomKnown = !!room && !score.unknown.includes('photos') && !score.unknown.includes('room');
+    const spot = (result?.dog_spots ?? []).find((d) => d.purpose === 'bed');
+    if (bands.energy !== 'good' && !score.energy.undecided) {
+      items.push({
+        id: 'dog-exercise',
+        group: bands.energy === 'poor' || gates.includes('energy') ? 'do_first' : 'worth_doing',
+        need: 'energy',
+        title: 'Plan daily walks and play',
+        whatToDo: `${evaluation.dog.name} would be happiest with daily walks, play and company. Puzzle toys help on busy days.`,
+        product: 'Puzzle feeder',
+      });
+    }
+    if (bands.noise === 'poor') {
+      items.push({
+        id: 'dog-noise',
+        group: 'worth_doing',
+        need: 'noise',
+        title: 'Soften sound near shared walls',
+        whatToDo: 'Soft furnishings and calm training near shared walls help keep the peace.',
+        product: 'Acoustic foam panels',
+      });
+    }
+    if (roomKnown && bands.room !== 'good') {
+      items.push({
+        id: 'dog-space',
+        group: bands.room === 'poor' ? 'worth_doing' : 'nice_extra',
+        need: 'room',
+        title: bands.room === 'poor' ? 'Clear some floor to play on' : 'A little more open floor',
+        whatToDo: 'Clear a walkway and a clutter-free patch of floor so there’s room to move and settle.',
+        product: 'Storage basket',
+      });
+    }
+    if (roomKnown && room!.retreat_spot !== 'present' && !spot) {
+      items.push({
+        id: 'dog-zone',
+        group: 'nice_extra',
+        need: 'room',
+        title: 'Make a cosy corner for a bed',
+        whatToDo: 'One quiet corner away from foot traffic gives a dog a place of their own.',
+        product: 'Dog bed',
+      });
+    }
+  }
+
+  (result?.off_limit_suggestions ?? []).forEach((o, i) =>
+    items.push({
+      id: `zone-${i}`,
+      group: 'worth_doing',
+      need: 'setup',
+      title: `Keep the dog out of ${ZONE_NAME[o.zone]}`,
+      whatToDo: o.reason,
+      frame_index: o.frame_index,
+      x: o.x,
+      y: o.y,
+      product: 'Pet safety gate',
+      offLimits: true,
+    })
+  );
+  (result?.safety_additions ?? []).forEach((a, i) =>
+    items.push({
+      id: `add-${i}`,
+      group: 'worth_doing',
+      need: 'setup',
+      title: a.detail.replace(/^\w/, (c) => c.toUpperCase()),
+      whatToDo: a.reason,
+      frame_index: a.frame_index,
+      x: a.x,
+      y: a.y,
+      product: ADDITION_ITEM[a.type].item || undefined,
+      offLimits: ADDITION_ITEM[a.type].offLimits,
+    })
+  );
+  (result?.dog_spots ?? []).forEach((d, i) =>
+    items.push({
+      id: `spot-${i}`,
+      group: 'spot',
+      need: 'setup',
+      title: SPOT_TITLE[d.purpose],
+      whatToDo: d.reason,
+      frame_index: d.frame_index,
+      x: d.x,
+      y: d.y,
+      product: SPOT_ITEM[d.purpose],
+    })
+  );
+
+  const ordered = [...gateFirst, ...TODO_GROUPS.flatMap((g) => items.filter((it) => it.group === g))];
+  let n = 0;
+  return ordered.map((it) => (it.group === 'spot' || it.group === 'protect' ? it : { ...it, number: ++n }));
+}
+
+const SPOT_TITLE: Record<DogSpot['purpose'], string> = {
+  bed: 'Dog bed spot',
+  crate: 'Crate spot',
+  food_water: 'Food and water spot',
+  play: 'Play area',
+};
+
+// Shopping ideas, one per product, each tied to the first item that needs it.
+export function todoShopping(items: TodoItem[]): { product: string; forTitle: string; itemId: string }[] {
+  const seen = new Set<string>();
+  const out: { product: string; forTitle: string; itemId: string }[] = [];
+  for (const it of items) {
+    const key = it.product?.trim().toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push({ product: it.product!, forTitle: it.title, itemId: it.id });
+  }
+  return out;
+}
+
+// "{n} things to sort" counts only the to-dos (not spots or things to protect).
+export function todoCount(items: TodoItem[]): number {
+  return items.filter((it) => it.group === 'do_first' || it.group === 'worth_doing' || it.group === 'nice_extra').length;
+}

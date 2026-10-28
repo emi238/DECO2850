@@ -47,7 +47,7 @@ import {
   type SetupItem,
 } from '../logic/evaluate';
 import { diffRuns, hasChanges, type RunChanges } from '../logic/changes';
-import { buildRecommendations, type RecommendationSet } from '../logic/recommend';
+import { buildRecommendations, buildTodo, todoCount, type RecommendationSet } from '../logic/recommend';
 import type { Frame, Hazard, Tag } from '../types';
 import type { ScreenProps } from '../navigation';
 
@@ -135,6 +135,14 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
   }, [route.params?.run]);
   useEffect(() => () => void runRef.current++, []);
 
+  // Item detail → "Keep the dog out of here": switch to the map and place an off-limits tag.
+  useEffect(() => {
+    if (!route.params?.place) return;
+    setReportOpen(false);
+    setPlacing({ area: route.params.place });
+    navigation.setParams({ place: undefined });
+  }, [route.params?.place, navigation]);
+
   // Coming back from Select breed → show the report once the analysis is done.
   useEffect(() => {
     if (route.params?.report && !loading) {
@@ -219,15 +227,10 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
   // ---- Results overview (Results guide step 2, Part A) ----
   if (hasDog && reportOpen && evaluation) {
     const e = evaluation;
-    const n = recSet.recommendations.length;
-    const openMap = () => {
-      setReportOpen(false);
-      setRecOpen(false);
-    };
-    const openList = () => {
-      setReportOpen(false);
-      setRecOpen(true); // full to-do list until step 2 Part B's screens exist
-    };
+    const todo = buildTodo(e, result);
+    const n = todoCount(todo);
+    const openMap = () => navigation.navigate('ResultsMap');
+    const openList = () => navigation.navigate('Todo');
     const map = { label: 'Map', onPress: openMap };
     const things = (k: number) => (k === 1 ? '1 thing to sort' : `${k} things to sort`);
     const counted = new Set(e.score.safety.counted.map((c) => c.key));
@@ -259,11 +262,7 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
             body: [gateItem?.recommendation, n > 1 ? `Then ${things(n - 1).replace(' to sort', '')} to sort.` : ''].filter(Boolean).join(' '),
             primary: {
               label: 'Show me how',
-              onPress: () => {
-                setReportOpen(false);
-                if (gateItem) setRiskIndex(risks.findIndex((r) => r.id === gateItem.id));
-                else setRecOpen(true);
-              },
+              onPress: () => navigation.navigate('ItemDetail', { id: gateItem ? `hz-${gateItem.id}` : todo[0]?.id ?? 'dog-exercise' }),
             },
             secondary: map,
           }
@@ -303,7 +302,7 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
           needUnknown={{ safety: photosOff, room: e.labels.room === 'Not checked yet', energy: e.score.energy.undecided }}
           onBack={goHome}
           onBreed={selectBreed}
-          onNeed={openList}
+          onNeed={(need) => navigation.navigate('Todo', { need })}
           onProfile={() => navigation.navigate('Profile', { editHousehold: true })}
           aboveStart={space.lastChanges ? <WhatsNew changes={space.lastChanges} initiallyOpen={whatsNewOpen} /> : null}
         />

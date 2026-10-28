@@ -30,7 +30,7 @@ const { ROOM_RESPONSE_SCHEMA } = require(join(out, 'src/ai/schema.js'));
 const { callGemini } = require(join(out, 'src/ai/gemini.js'));
 const { diffRuns, hasChanges } = require(join(out, 'src/logic/changes.js'));
 const { migrateHousehold } = require(join(out, 'src/logic/migrate.js'));
-const { buildRecommendations } = require(join(out, 'src/logic/recommend.js'));
+const { buildRecommendations, buildTodo, todoCount, todoShopping } = require(join(out, 'src/logic/recommend.js'));
 const P = require(join(out, 'src/capture/panorama.js'));
 
 // ---- fixtures ----
@@ -656,6 +656,32 @@ console.log('\nGemini request (fake API, no network)');
     assert.equal(S.householdFit(frenchie, sizes('small'), result()).band, 'good');
     assert.equal(S.householdFit(lab, sizes('any'), result()).band, 'good');
     assert.equal(S.householdFit(lab, sizes(undefined), result()).band, 'good');
+  });
+}
+
+// ---- One to-do list for the results screens (Results guide step 2, B1) ----
+{
+  const loc = (x) => ({ frame_index: 0, x, y: 0.5 });
+  const r = result([
+    hz({ object_key: 'cord', title: 'Cord', hazard_type: 'electrical_thermal', category: 'B', severity: 'medium', location: loc(0.2) }),
+    hz({ object_key: 'balcony', title: 'Balcony gap', hazard_type: 'escape_fall', category: 'G', severity: 'high', location: loc(0.8) }),
+    hz({ object_key: 'vase', title: 'Vase', source: 'user_tag', hazard_type: 'fragile_valuable', category: 'D', severity: 'low', location: loc(0.5) }),
+  ], { dog_spots: [{ purpose: 'bed', reason: 'Quiet corner', frame_index: 0, x: 0.1, y: 0.9 }] });
+  const ev = { gates: ['escape'], bands: { safety: 'poor', energy: 'good', room: 'good', household: 'good', noise: 'good' }, score: { unknown: [], energy: { undecided: false } }, dog: { name: 'Lab' } };
+  const items = buildTodo(ev, r);
+  check('to-do list: the gate item comes first, then groups in order', () => {
+    assert.deepEqual(items.map((i) => i.title), ['Balcony gap', 'Cord', 'Dog bed spot', 'Vase']);
+    assert.deepEqual(items.map((i) => i.group), ['do_first', 'worth_doing', 'spot', 'protect']);
+  });
+  check('to-do list: numbers 1..n skip spots and things to protect; tags read as protect', () => {
+    assert.deepEqual(items.map((i) => i.number ?? null), [1, 2, null, null]);
+    assert.equal(items.find((i) => i.title === 'Vase').tagged, true);
+    assert.equal(todoCount(items), 2);
+  });
+  check('to-do list: shopping ideas are unique and tied to an item', () => {
+    const shop = todoShopping(items);
+    assert.equal(new Set(shop.map((s) => s.product)).size, shop.length);
+    assert.ok(shop.every((s) => items.some((i) => i.id === s.itemId)));
   });
 }
 

@@ -24,6 +24,9 @@ import CaptureScreen from './src/screens/CaptureScreen';
 import TaggingScreen from './src/screens/TaggingScreen';
 import SpaceSavedScreen from './src/screens/SpaceSavedScreen';
 import AnalysisScreen from './src/screens/AnalysisScreen';
+import TodoScreen from './src/screens/TodoScreen';
+import ItemDetailScreen from './src/screens/ItemDetailScreen';
+import ResultsMapScreen from './src/screens/ResultsMapScreen';
 import SelectBreedScreen from './src/screens/SelectBreedScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -70,6 +73,9 @@ export default function App() {
               <Stack.Screen name="Tagging" component={TaggingScreen} />
               <Stack.Screen name="SpaceSaved" component={SpaceSavedScreen} />
               <Stack.Screen name="Analysis" component={AnalysisScreen} />
+              <Stack.Screen name="Todo" component={TodoScreen} />
+              <Stack.Screen name="ItemDetail" component={ItemDetailScreen} />
+              <Stack.Screen name="ResultsMap" component={ResultsMapScreen} />
               <Stack.Screen name="SelectBreed" component={SelectBreedScreen} />
             </Stack.Navigator>
           </NavigationContainer>
