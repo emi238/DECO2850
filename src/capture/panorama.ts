@@ -15,8 +15,8 @@ export interface Crop {
 // two overlapping halves. A normal 4:3 landscape photo stays whole.
 export const PANORAMA_RATIO = 2;
 export const WIDE_RATIO = 1.4;
-const SLICE_ASPECT = 4 / 3; // each slice is a standard landscape photo shape
-const OVERLAP = 0.25; // each slice shares a quarter with the next, so nothing falls between
+const SLICE_ASPECT = 0.7; // about the shape of the app's portrait photo cards
+const OVERLAP = 0.15; // neighbouring slices share a little, so nothing falls between them
 export const MAX_SLICES = 6;
 
 export function isPanorama(width: number, height: number): boolean {
@@ -34,22 +34,16 @@ export function panoramaSlices(width: number, height: number): Crop[] {
   const W = Math.floor(width);
   const H = Math.floor(height);
   if (!needsSplit(W, H)) return [{ originX: 0, originY: 0, width: W, height: H }];
-  if (!isPanorama(W, H)) {
-    // Wide photo: two halves sharing a quarter of each, edge to edge.
-    const half = Math.ceil(W / (2 - OVERLAP));
-    return [
-      { originX: 0, originY: 0, width: half, height: H },
-      { originX: W - half, originY: 0, width: half, height: H },
-    ];
-  }
 
+  // Slices shaped like the app's portrait photo cards, so each one shows almost all
+  // of itself on screen; neighbours overlap a little so nothing falls between them,
+  // and the first starts at the left edge and the last ends at the right edge.
   let sliceW = Math.min(W, Math.round(H * SLICE_ASPECT));
   const step = sliceW * (1 - OVERLAP);
   const count = Math.min(MAX_SLICES, Math.max(2, Math.ceil((W - sliceW) / step) + 1));
-  // A very long panorama hits the slice limit: widen the slices so they still overlap.
+  // Many slices needed (a long panorama): widen them so they still cover end to end.
   sliceW = Math.max(sliceW, Math.ceil(W / (count - (count - 1) * OVERLAP)));
-  // Spread the slices evenly so the first starts at the left edge and the last ends at the right.
-  const gap = count > 1 ? (W - sliceW) / (count - 1) : 0;
+  const gap = (W - sliceW) / (count - 1);
   return Array.from({ length: count }, (_, i) => ({
     originX: Math.round(i * gap),
     originY: 0,

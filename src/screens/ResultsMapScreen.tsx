@@ -2,8 +2,8 @@
 // The user's photos full screen with a pin on every item; a cream bottom card shows
 // the selected item, See details and Next pin. Owner-placed off-limits areas keep ✕.
 
-import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, Image, useWindowDimensions } from 'react-native';
+import React, { useMemo, useRef, useState } from 'react';
+import { View, Text, StyleSheet, Pressable, Image, PanResponder, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PackIcon } from '../components/icons';
@@ -36,6 +36,17 @@ export default function ResultsMapScreen({ navigation, route }: ScreenProps<'Res
   const frames = space?.capture.frames ?? [];
   const frame = frames[page];
   const img = useFrameImageSize(frame);
+  // Drag sideways to see the rest of a photo wider than the screen (hooks before any return).
+  const [drag, setDrag] = useState<{ key: string; x: number } | null>(null);
+  const dragFrom = useRef(0);
+  const live = useRef({ key: '', offset: 0 });
+  const pan = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_e, g) => Math.abs(g.dx) > 8 && Math.abs(g.dx) > Math.abs(g.dy),
+      onPanResponderGrant: () => (dragFrom.current = live.current.offset),
+      onPanResponderMove: (_e, g) => setDrag({ key: live.current.key, x: dragFrom.current + g.dx }),
+    })
+  ).current;
   if (!space || !frame) return null;
 
   const onPage = pinned.filter((i) => i.frame_index === page);
@@ -49,7 +60,11 @@ export default function ResultsMapScreen({ navigation, route }: ScreenProps<'Res
   const focus = sel && sel.frame_index === page ? sel : null;
   const ox = focus ? Math.min(0, Math.max(W - dw, W / 2 - focus.x! * dw)) : (W - dw) / 2;
   const oy = focus ? Math.min(0, Math.max(H - dh, (H - sheetH) / 2 - focus.y! * dh)) : (H - dh) / 2;
-  const toView = (x: number, y: number) => ({ x: ox + x * dw, y: oy + y * dh });
+  // Drag sideways to see the rest of a photo wider than the screen.
+  const key = `${page}:${focus?.id ?? ''}`;
+  const left = Math.min(0, Math.max(W - dw, ox + (drag?.key === key ? drag.x : 0)));
+  const toView = (x: number, y: number) => ({ x: left + x * dw, y: oy + y * dh });
+  live.current = { key, offset: drag?.key === key ? drag.x : 0 };
   const offLimits = space.tags.filter((t) => t.offLimits && t.frame === page);
   const nextPin = () => {
     if (!pinned.length) return;
@@ -61,7 +76,9 @@ export default function ResultsMapScreen({ navigation, route }: ScreenProps<'Res
 
   return (
     <View style={styles.root}>
-      <Image source={{ uri: frame.uri }} style={{ position: 'absolute', left: ox, top: oy, width: dw, height: dh }} />
+      <View style={StyleSheet.absoluteFill} {...pan.panHandlers}>
+        <Image source={{ uri: frame.uri }} style={{ position: 'absolute', left, top: oy, width: dw, height: dh }} />
+      </View>
       {Array.from({ length: 10 }, (_, i) => (
         <View key={i} pointerEvents="none" style={[styles.fade, { height: (insets.top + 130) * (1 - i / 10), backgroundColor: 'rgba(0,0,0,0.045)' }]} />
       ))}

@@ -179,10 +179,11 @@ see the photos, so the rules treat Safety and the room as **unknown** (§4.8), n
 **Where the photos come from** (`CaptureScreen.tsx`, `src/capture/`): camera shots (tap the
 shutter; a rule-of-thirds grid helps line them up), **hold and sweep** (hold the shutter
 and turn: the gyroscope takes a photo every 30° of turn, up to 360°; real phone only),
-uploaded photos, or frames sampled from a video. An uploaded **wide photo** (wider than
-1.4:1, e.g. 16:9) is cut into two overlapping halves, and a **panorama** (wider than 2:1)
-into 2 to 6 overlapping 4:3 slices, left to right (`panorama.ts`), so the photo cards
-(which are portrait) show the whole room and the pins land on normal-shaped frames. At most 10 frames are kept.
+uploaded photos, or frames sampled from a video. An uploaded photo wider than 1.4:1
+(a 16:9 photo or a panorama) is cut, left to right, into 2 to 6 slices shaped like the
+app's portrait photo cards (about 0.7:1), overlapping by 15% and running edge to edge
+(`panorama.ts`), so every part of the room shows on a card and pins land on
+normal-shaped frames. The photo map can also be dragged sideways. At most 10 frames are kept.
 
 One request with three parts in a single `user` turn (`gemini.ts → callGemini`):
 

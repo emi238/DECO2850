@@ -695,17 +695,18 @@ console.log('\nGemini request (fake API, no network)');
     assert.deepEqual(P.panoramaSlices(4032, 3024), [{ originX: 0, originY: 0, width: 4032, height: 3024 }]);
     assert.equal(P.panoramaSlices(1600, 1200).length, 1); // 4:3 landscape stays whole
   });
-  check('a wide (16:9) photo is cut into two overlapping halves, edge to edge', () => {
+  check('a wide (16:9) photo is cut into overlapping portrait-shaped slices, edge to edge', () => {
     const crops = P.panoramaSlices(1920, 1080);
-    assert.equal(crops.length, 2);
+    assert.equal(crops.length, 3);
+    assert.ok(crops.every((c) => c.width / c.height < 0.8));
     assert.ok(covers(crops, 1920));
-    assert.equal(P.panoramaSlices(1408, 768).length, 2); // the demo room photos
+    assert.ok(covers(P.panoramaSlices(1408, 768), 1408)); // the demo room photos
   });
-  check('an iPhone panorama becomes several overlapping 4:3 slices, edge to edge', () => {
+  check('an iPhone panorama becomes several overlapping slices, edge to edge', () => {
     const crops = P.panoramaSlices(12000, 3000);
     assert.ok(crops.length >= 3 && crops.length <= P.MAX_SLICES);
     assert.ok(covers(crops, 12000));
-    assert.ok(crops.every((c) => c.height === 3000 && c.width >= 4000));
+    assert.ok(crops.every((c) => c.height === 3000));
   });
   check('a very long panorama is capped at the slice limit and still overlaps', () => {
     const crops = P.panoramaSlices(40000, 3000);

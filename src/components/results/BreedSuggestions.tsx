@@ -2,8 +2,8 @@
 // Suggestions grouped by fit; tapping one opens a preview, and only "See how I'd
 // feel in your room" picks it (so a tap never re-runs the analysis by accident).
 
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Image, Modal } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, Image, Modal, Animated, Easing } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PackIcon } from '../icons';
 import { colors, fonts } from '../../theme';
@@ -36,6 +36,36 @@ function Photo({ breed, size }: { breed: BreedProfile; size: number }) {
   return (
     <View style={{ width: size, height: size, borderRadius: 14, overflow: 'hidden', backgroundColor: colors.peach }}>
       <Image source={breed.sitting} style={{ width: size, height: size }} resizeMode={breed.cutout ? 'contain' : 'cover'} />
+    </View>
+  );
+}
+
+// Three dots that bounce one after another while the suggestions load.
+function LoadingDots() {
+  const dots = useRef([0, 1, 2].map(() => new Animated.Value(0))).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.stagger(
+        160,
+        dots.map((d) =>
+          Animated.sequence([
+            Animated.timing(d, { toValue: 1, duration: 300, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+            Animated.timing(d, { toValue: 0, duration: 300, easing: Easing.in(Easing.quad), useNativeDriver: true }),
+          ])
+        )
+      )
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [dots]);
+  return (
+    <View style={{ flexDirection: 'row', gap: 8, height: 24, alignItems: 'flex-end' }}>
+      {dots.map((d, i) => (
+        <Animated.View
+          key={i}
+          style={[styles.dot, { opacity: d.interpolate({ inputRange: [0, 1], outputRange: [0.35, 1] }), transform: [{ translateY: d.interpolate({ inputRange: [0, 1], outputRange: [0, -10] }) }] }]}
+        />
+      ))}
     </View>
   );
 }
@@ -86,7 +116,8 @@ export function BreedSuggestions({
           {loading ? (
             <View style={styles.loading}>
               <Image source={require('../../../assets/images/loading-dog.png')} style={{ width: 80, height: 80 }} resizeMode="contain" />
-              <Text style={R.body}>Finding dogs who’d love your room…</Text>
+              <Text style={R.body}>Finding dogs who’d love your room</Text>
+              <LoadingDots />
             </View>
           ) : (
             GROUPS.map((g) => {
@@ -174,6 +205,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.cream },
   body: { padding: 24, gap: 18, paddingBottom: 40 },
   topBar: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.orange },
   loading: { alignItems: 'center', gap: 10, paddingVertical: 40 },
   count: { fontFamily: fonts.regular, fontSize: 13, color: colors.textFaint },
   card: { flexDirection: 'row', gap: 14, backgroundColor: '#fff', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(36,30,24,0.10)', paddingVertical: 12, paddingHorizontal: 14 },
