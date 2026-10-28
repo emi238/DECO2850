@@ -58,8 +58,8 @@ How to choose:
 
 Tone and rules:
 - Plain, warm, non-judgemental English. NEVER use numbers, scores, percentages or rankings in the text.
-- "reason": one sentence (max 18 words) on why it suits this specific home.
-- "watch_out": one sentence (max 14 words) on the main thing to plan for.
+- "reason": one sentence (max 18 words) in the dog's own voice ("I…") on why it would love this home, such as "I'm happy with short walks and a cosy corner."
+- "watch_out": one sentence (max 14 words), a friendly plan in the dog's own voice, such as "Keep me cool in summer." (the app adds "To plan for:").
 - Do not claim certainty about an individual dog; breed only explains part of behaviour.
 
 Return ONLY JSON in exactly this shape:
@@ -74,24 +74,24 @@ function fitFromVerdict(v: Band): Fit {
 // Rule-based wording, used on its own when AI is unavailable.
 function ruleSuggestion(space: Space, household: Questionnaire, b: BreedProfile): BreedSuggestion {
   const e = evaluate(space, household, { name: b.name, size: b.size, energy: b.energy, noise: b.noise, happy: b.happy, cutout: b.cutout, breed: b })!;
-  const energyTxt = { good: 'Its exercise needs fit your routine', adequate: 'Doable with a daily exercise plan', poor: 'Likely more exercise than your routine allows' }[e.bands.energy];
-  const noiseTxt = { good: 'no noise concerns', adequate: 'some barking to manage', poor: 'may be loud for close neighbours' }[e.bands.noise];
+  const energyTxt = { good: 'My exercise needs fit your days', adequate: "I'd be happy with a daily walk-and-play plan", poor: "I'd need more walks and play than your days have now" }[e.bands.energy];
+  const noiseTxt = { good: "and I'm pretty quiet", adequate: 'and I might bark now and then', poor: "and I can be chatty for close neighbours" }[e.bands.noise];
   const concerns = e.score.household.concerns.map((c) => c.id);
   const withPlan = household.alone_plan === 'walker' || household.alone_plan === 'daycare';
   const watch =
     household.hours_alone === 'over_8' && !withPlan
-      ? 'It would be alone a long time, plan a walker or daycare.'
+      ? 'Long days alone get lonely, so a walker helps.'
       : concerns.some((c) => c.startsWith('kids'))
-      ? 'Supervise it around small children and give it a quiet retreat.'
+      ? 'Little ones and I need supervising at first.'
       : concerns.includes('pet_chase')
-      ? 'Introduce it to your other pets slowly, it may want to chase.'
+      ? "I might chase your other pets, so let's meet slowly."
       : concerns.some((c) => c.startsWith('first_dog'))
-      ? 'A lot to take on for a first dog, consider training classes.'
+      ? 'A training class would help us both.'
       : e.bands.safety !== 'good'
-      ? 'Move flagged hazards out of reach first.'
+      ? 'Move the things on your list up out of my reach.'
       : household.outdoor_access === 'none' && b.energy !== 'low'
-      ? 'Plan daily walks, there is no outdoor space.'
-      : 'Give it a quiet corner of its own.';
+      ? "There's no yard, so I'd need daily walks."
+      : "I'd love a quiet corner of my own.";
   return { breed: b, fit: fitFromVerdict(e.verdict), reason: `${energyTxt}, ${noiseTxt}.`, watchOut: watch };
 }
 

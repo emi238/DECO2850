@@ -433,8 +433,8 @@ How to choose:
 
 Tone and rules:
 - Plain, warm, non-judgemental English. NEVER use numbers, scores, percentages or rankings in the text.
-- "reason": one sentence (max 18 words) on why it suits this specific home.
-- "watch_out": one sentence (max 14 words) on the main thing to plan for.
+- "reason": one sentence (max 18 words) in the dog's own voice ("I…") on why it would love this home, such as "I'm happy with short walks and a cosy corner."
+- "watch_out": one sentence (max 14 words), a friendly plan in the dog's own voice, such as "Keep me cool in summer." (the app adds "To plan for:").
 - Do not claim certainty about an individual dog; breed only explains part of behaviour.
 
 Return ONLY JSON in exactly this shape:

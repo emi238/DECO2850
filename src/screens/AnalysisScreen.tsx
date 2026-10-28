@@ -37,6 +37,7 @@ import { withPhotoData } from '../capture/upload';
 import { ResultsOverview, type StartHere } from '../components/results/Overview';
 import { GuideSheet } from '../components/GuideSheet';
 import { RecheckSheet, SinceCard } from '../components/results/Recheck';
+import { NoDogYet } from '../components/results/NoDogYet';
 import { SCAN_GUIDE } from './CaptureScreen';
 import {
   evaluate,
@@ -245,6 +246,19 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
     ]);
   const selectBreed = () => navigation.navigate('SelectBreed');
 
+  // ---- No dog chosen yet: "Who's moving in?" (Results guide step 5, B1) ----
+  if (!hasPet) {
+    return (
+      <NoDogYet
+        title={title}
+        photo={frames[0]}
+        onBack={goHome}
+        onHelpChoose={() => navigation.navigate('SelectBreed', { mode: 'explore' })}
+        onInMind={() => navigation.navigate('SelectBreed', { mode: 'in_mind' })}
+      />
+    );
+  }
+
   // ---- Results overview (Results guide step 2, Part A) ----
   if (hasDog && reportOpen && evaluation) {
     const e = evaluation;
@@ -342,7 +356,7 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
           startHere={startHere}
           needUnknown={{ safety: photosOff, room: e.labels.room === 'Not checked yet', energy: e.score.energy.undecided }}
           onBack={goHome}
-          onBreed={selectBreed}
+          onBreed={() => navigation.navigate('SelectBreed', { mode: space.mode === 'explore' ? 'explore' : 'in_mind' })}
           onNeed={(need) => navigation.navigate('Todo', { need })}
           onProfile={() => navigation.navigate('Profile', { editHousehold: true })}
           aboveStart={space.lastChanges && hasChanges(space.lastChanges) ? <SinceCard changes={space.lastChanges} onSee={() => navigation.navigate('WhatChanged')} /> : null}

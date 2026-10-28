@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { TopBar, Segmented, PrimaryButton } from '../components/kit';
 import { OptionSheet } from '../components/OptionSheet';
 import { colors, fonts } from '../theme';
+import { BreedSuggestions } from '../components/results/BreedSuggestions';
 import { useSession, useCurrentSpace } from '../store/session';
 import { ENERGY_OPTIONS, MIXED_ID, SIZE_OPTIONS, findBreed, useBreedCatalogue, type BreedProfile, type Energy, type SizeClass } from '../logic/breeds';
 import { suggestBreeds, type SuggestionResult } from '../ai/breedSuggest';
@@ -20,7 +21,7 @@ import type { ScreenProps } from '../navigation';
 
 type Tab = 'in_mind' | 'explore';
 
-export default function SelectBreedScreen({ navigation }: ScreenProps<'SelectBreed'>) {
+export default function SelectBreedScreen({ navigation, route }: ScreenProps<'SelectBreed'>) {
   const space = useCurrentSpace();
   const household = useSession((s) => s.household);
   const setPet = useSession((s) => s.setPet);
@@ -30,7 +31,9 @@ export default function SelectBreedScreen({ navigation }: ScreenProps<'SelectBre
   const current = space?.pet ?? null;
   const currentBreed = findBreed(current?.breed);
 
-  const [tab, setTab] = useState<Tab>(space?.mode === 'explore' ? 'explore' : 'in_mind');
+  // B1's options open one mode each (Results guide step 5); the old tabs only show without one.
+  const fixedMode = route.params?.mode;
+  const [tab, setTab] = useState<Tab>(fixedMode ?? (space?.mode === 'explore' ? 'explore' : 'in_mind'));
   const [breedId, setBreedId] = useState<string | null>(currentBreed?.id ?? (current?.breed ? MIXED_ID : null));
   const [energy, setEnergy] = useState<Energy | null>(current?.energy ?? currentBreed?.energy ?? null);
   const [size, setSize] = useState<SizeClass | null>(current?.size ?? currentBreed?.size ?? null);
@@ -100,6 +103,22 @@ export default function SelectBreedScreen({ navigation }: ScreenProps<'SelectBre
   };
 
 
+  // B2 · Dogs who'd love it here (+ B3 preview).
+  if (tab === 'explore' && fixedMode === 'explore') {
+    return (
+      <BreedSuggestions
+        spaceName={space?.label || space?.name || 'Your room'}
+        loading={thinking || !suggested}
+        source={suggested?.source}
+        note={suggested?.note}
+        suggestions={suggested?.suggestions ?? []}
+        onBack={() => navigation.goBack()}
+        onSearch={() => navigation.replace('SelectBreed', { mode: 'in_mind' })}
+        onChoose={chooseSuggested}
+      />
+    );
+  }
+
   return (
     <View style={styles.root}>
       <SafeAreaView edges={['top']} style={{ flex: 1 }}>
@@ -110,7 +129,7 @@ export default function SelectBreedScreen({ navigation }: ScreenProps<'SelectBre
         </View>
 
         <View style={styles.card}>
-          <Segmented
+          {!fixedMode && <Segmented
             value={tab}
             onChange={setTab}
             options={[
@@ -121,7 +140,7 @@ export default function SelectBreedScreen({ navigation }: ScreenProps<'SelectBre
             activeColor={colors.orange}
             style={styles.tabs}
             textStyle={styles.tabTxt}
-          />
+          />}
 
           {tab === 'in_mind' ? (
             <ScrollView contentContainerStyle={{ paddingBottom: 30 }} showsVerticalScrollIndicator={false}>

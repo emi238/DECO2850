@@ -23,7 +23,7 @@ export type RootStackParamList = {
   Todo: { need?: TodoNeed } | undefined;
   ItemDetail: { id: string; need?: TodoNeed };
   ResultsMap: { id?: string; need?: TodoNeed } | undefined;
-  SelectBreed: undefined;
+  SelectBreed: { mode?: 'explore' | 'in_mind' } | undefined; // explore = suggestions (B2)
 };
 
 export type ScreenProps<T extends keyof RootStackParamList> = NativeStackScreenProps<
