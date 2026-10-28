@@ -35,6 +35,8 @@ import { useSession, useCurrentSpace } from '../store/session';
 import { runAssessment } from '../ai/assess';
 import { withPhotoData } from '../capture/upload';
 import { ResultsOverview, type StartHere } from '../components/results/Overview';
+import { GuideSheet } from '../components/GuideSheet';
+import { SCAN_GUIDE } from './CaptureScreen';
 import {
   evaluate,
   isTagEntry,
@@ -70,6 +72,7 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
   const [riskIndex, setRiskIndex] = useState<number | null>(null);
   // The results overview is the main view once a breed is picked; Map shows the photos.
   const [reportOpen, setReportOpen] = useState(true);
+  const [tipsOpen, setTipsOpen] = useState(false); // "Photo tips" (scanning guide)
   const [recOpen, setRecOpen] = useState(false); // Recommendations / shopping panel
   const [placing, setPlacing] = useState<Placing>(null); // marking an off-limits area
   const addTag = useSession((s) => s.addTag);
@@ -243,17 +246,37 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
           )
         : undefined;
     const routineMissing = e.score.unknown.includes('routine');
-    const startHere: StartHere = notChecked
+    // Special states (Results guide step 3), first that applies: example → photos → routine.
+    const example = space.resultSource === 'mock';
+    const unclear = !example && result?.photo_check?.usable === false;
+    const routineLeft = (['owner_activity', 'exercise_time', 'hours_alone'] as const).filter((k) => household[k] == null).length;
+    const startHere: StartHere = !result
       ? {
           tone: 'unknown',
           label: 'HELP ME SEE',
-          heading: notChecked.title,
-          body: notChecked.body,
-          primary: notChecked.action
-            ? { label: notChecked.button, onPress: notChecked.action === 'retake' ? () => navigation.navigate('Capture') : () => analyse({ openReport: true }) }
-            : { label: 'See what to sort', onPress: openList },
-          secondary: notChecked.action ? { label: 'See what to sort', onPress: openList } : undefined,
+          heading: 'Let’s check your room',
+          body: 'We haven’t looked at your photos yet. It only takes a moment.',
+          primary: { label: 'Check my room', onPress: () => analyse({ openReport: true }) },
         }
+      : example
+        ? {
+            tone: 'unknown',
+            label: 'HELP ME SEE',
+            heading: 'Try the analysis again',
+            body: 'It only takes a moment. If it’s still busy, try again a bit later.',
+            ...(space.resultNote
+              ? { primary: { label: 'Try again', onPress: () => analyse({ openReport: true }) }, secondary: { label: 'See what to sort', onPress: openList } }
+              : { primary: { label: 'See what to sort', onPress: openList } }), // AI turned off: nothing to retry
+          }
+        : unclear
+          ? {
+              tone: 'unknown',
+              label: 'HELP ME SEE',
+              heading: 'Retake your photos',
+              body: result.photo_check?.note || 'We couldn’t quite see the room. Try again with the lights on.',
+              primary: { label: 'Retake photos', onPress: () => navigation.navigate('Capture') },
+              secondary: { label: 'Photo tips', onPress: () => setTipsOpen(true) },
+            }
       : e.gates.length
         ? {
             tone: 'plan',
@@ -270,9 +293,9 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
           ? {
               tone: 'unknown',
               label: 'HELP ME SEE',
-              heading: 'Answer a few quick questions',
+              heading: routineLeft === 1 ? 'Answer 1 quick question' : `Answer ${routineLeft || 'a few'} quick questions`,
               body: 'Tell me about your days so I know we’ll keep up: how active you are, daily walks and time alone.',
-              primary: { label: 'Update profile', onPress: () => navigation.navigate('Profile', { editHousehold: true }) },
+              primary: { label: 'Answer now', onPress: () => navigation.navigate('Profile', { editHousehold: true, focus: 'routine' }) },
               secondary: { label: 'See what to sort', onPress: openList },
             }
           : n > 0
@@ -305,7 +328,18 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
           onNeed={(need) => navigation.navigate('Todo', { need })}
           onProfile={() => navigation.navigate('Profile', { editHousehold: true })}
           aboveStart={space.lastChanges ? <WhatsNew changes={space.lastChanges} initiallyOpen={whatsNewOpen} /> : null}
+          notice={
+            example
+              ? {
+                  title: 'This is an example result, not your room',
+                  body: `${
+                    !space.resultNote ? 'Real AI is turned off' : /quota/i.test(space.resultNote) ? 'The free AI limit is used up for today' : /busy/i.test(space.resultNote) ? 'The AI was busy' : 'The AI couldn’t be reached'
+                  }, so you’re seeing an example. Your photos and answers are saved.`,
+                }
+              : null
+          }
         />
+        <GuideSheet visible={tipsOpen} heading="How to scan" steps={SCAN_GUIDE} doneLabel="Got it" onClose={() => setTipsOpen(false)} />
       </View>
     );
   }

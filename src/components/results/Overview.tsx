@@ -54,6 +54,7 @@ export function ResultsOverview({
   onNeed,
   onProfile,
   aboveStart,
+  notice,
 }: {
   evaluation: Evaluation;
   title: string;
@@ -65,6 +66,7 @@ export function ResultsOverview({
   onNeed: (need: SubScore) => void;
   onProfile: () => void;
   aboveStart?: React.ReactNode; // notices that sit above Start here (e.g. Since last time)
+  notice?: { title: string; body: string } | null; // e.g. "This is an example result, not your room"
 }) {
   const insets = useSafeAreaInsets();
   const tone = TONE[e.verdictTone];
@@ -107,7 +109,16 @@ export function ResultsOverview({
 
       {/* ---- cream sheet ---- */}
       <View style={styles.sheet}>
-        <Text style={styles.verdictLine}>{e.verdictLine}</Text>
+        {notice && (
+          <View style={styles.notice}>
+            <PackIcon name="info-circle" size={20} />
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={styles.noticeTitle}>{notice.title}</Text>
+              <Text style={styles.nudgeTxt}>{notice.body}</Text>
+            </View>
+          </View>
+        )}
+        <Text style={[styles.verdictLine, notice && { paddingRight: 0 }]}>{e.verdictLine}</Text>
 
         {aboveStart}
 
@@ -218,6 +229,8 @@ const styles = StyleSheet.create({
   roomChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   roomChip: { backgroundColor: colors.track, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
   roomChipTxt: { fontFamily: fonts.medium, fontSize: 12, lineHeight: 16, color: colors.textMuted },
+  notice: { flexDirection: 'row', gap: 10, backgroundColor: '#fff', borderRadius: 18, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.textFaint, padding: 14, marginRight: 110 },
+  noticeTitle: { fontFamily: fonts.semibold, fontSize: 15, lineHeight: 21, color: colors.text },
   nudge: { backgroundColor: '#fff', borderRadius: 18, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.orange, padding: 16, gap: 6 },
   nudgeTxt: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.text },
   nudgeLink: { flexDirection: 'row', alignItems: 'center', gap: 2, alignSelf: 'flex-start' },

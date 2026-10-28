@@ -29,10 +29,19 @@ export default function ProfileScreen({ navigation, route }: ScreenProps<'Profil
   // Opened from Home's "Has your living situation changed?": scroll to the questionnaire.
   const scrollRef = useRef<ScrollView>(null);
   const scrolled = useRef(false);
+  // focus: 'routine' (from the results "Answer now") lands on the routine questions.
+  const householdY = useRef(0);
+  const cardY = useRef(0);
   const onHouseholdLayout = (y: number) => {
-    if (!openHousehold || scrolled.current) return;
+    householdY.current = y;
+    if (!openHousehold || scrolled.current || route.params?.focus === 'routine') return;
     scrolled.current = true;
     requestAnimationFrame(() => scrollRef.current?.scrollTo({ y: Math.max(0, y - 8), animated: true }));
+  };
+  const onRoutineLayout = (y: number) => {
+    if (route.params?.focus !== 'routine' || scrolled.current) return;
+    scrolled.current = true;
+    setTimeout(() => scrollRef.current?.scrollTo({ y: Math.max(0, cardY.current + y - 12), animated: true }), 50);
   };
   const [name, setName] = useState(profile.name);
   const [email, setEmail] = useState(profile.email);
@@ -101,8 +110,8 @@ export default function ProfileScreen({ navigation, route }: ScreenProps<'Profil
                 <EditIcon size={22} color={editHousehold ? colors.orange : colors.text} />
               </Pressable>
             </View>
-            <View style={styles.card}>
-              <HouseholdForm value={draft} onChange={(p) => setDraft((d) => ({ ...d, ...p }))} disabled={!editHousehold} compact />
+            <View style={styles.card} onLayout={(e) => (cardY.current = e.nativeEvent.layout.y)}>
+              <HouseholdForm value={draft} onChange={(p) => setDraft((d) => ({ ...d, ...p }))} disabled={!editHousehold} compact onRoutineLayout={onRoutineLayout} />
             </View>
 
             <PrimaryButton label="Save changes" onPress={save} disabled={!dirty} style={styles.save} />

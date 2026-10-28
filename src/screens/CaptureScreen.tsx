@@ -42,7 +42,7 @@ const SWEEP_FULL = 360;
 const SWEEP_FAST = 1.2; // rad/s
 
 // "How to scan": shown the first time someone opens Capture, and from the link.
-const SCAN_GUIDE: GuideStep[] = [
+export const SCAN_GUIDE: GuideStep[] = [
   {
     art: <ScanCornerArt />,
     title: 'Start from a corner',

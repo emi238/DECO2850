@@ -80,6 +80,7 @@ export function HouseholdForm({
   compact,
   blank,
   only,
+  onRoutineLayout,
 }: {
   value: Questionnaire;
   onChange: (patch: Partial<Questionnaire>) => void;
@@ -88,6 +89,7 @@ export function HouseholdForm({
   only?: readonly FormQuestion[]; // show just these questions (a follow-up shows with its parent)
 
   compact?: boolean; // tighter spacing between questions inside the Profile card
+  onRoutineLayout?: (y: number) => void; // where the routine questions start (Profile's "Answer now")
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const show = (k: FormQuestion) => !only || only.includes(k);
@@ -227,7 +229,7 @@ export function HouseholdForm({
       )}
 
       {show('hours_alone') && (
-      <View style={{ marginBottom: gap }}>
+      <View style={{ marginBottom: gap }} onLayout={(e) => onRoutineLayout?.(e.nativeEvent.layout.y)}>
         <SectionLabel style={label}>On a typical day, how long would the dog be home alone?</SectionLabel>
         <Segmented
           disabled={disabled}

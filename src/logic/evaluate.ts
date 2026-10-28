@@ -150,7 +150,11 @@ export function evaluate(space: Space, household: Questionnaire, dogOverride?: R
       : currentOwner
         ? { poor: "Let's make our home even better", adequate: 'A few tweaks for me?', good: 'I love it here!' }[verdict]
         : { poor: "Let's get it ready together", adequate: 'Almost ready for me!', good: "I'd love it here!" }[verdict],
-    verdictLine: verdictLine(verdict, dog.name, gates, changes.length, unknown),
+    verdictLine: verdictLine(verdict, dog.name, gates, changes.length, unknown).replace(
+      UNKNOWN_TEXT.photos,
+      // An example result (AI busy or off) needs a re-try, not new photos.
+      space.resultSource === 'mock' ? 'try the analysis again so we can check your photos' : UNKNOWN_TEXT.photos
+    ),
     changes,
     setup: suggestedSetup(result),
     nudges: s.nudges,
