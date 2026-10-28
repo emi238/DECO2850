@@ -33,12 +33,14 @@ export function NoDogYet({
   onBack,
   onHelpChoose,
   onInMind,
+  onDelete,
 }: {
   title: string;
   photo?: Frame;
   onBack: () => void;
   onHelpChoose: () => void;
   onInMind: () => void;
+  onDelete: () => void;
 }) {
   const insets = useSafeAreaInsets();
   return (
@@ -61,6 +63,9 @@ export function NoDogYet({
         <Text style={styles.body}>Pick a dog to see how they’d feel in this room, or let us suggest a few who’d love it here.</Text>
         <Option icon="star-01" primary title="Help me choose" body="Suggestions that suit this room and your days." onPress={onHelpChoose} />
         <Option icon="search-md" title="I have a dog in mind" body="Search breeds, or tell us about a mixed breed." onPress={onInMind} />
+        <Pressable onPress={onDelete} style={styles.delete} hitSlop={8} accessibilityLabel="Delete this scan">
+          <Text style={styles.deleteTxt}>Delete this scan</Text>
+        </Pressable>
       </View>
     </ScrollView>
   );
@@ -77,6 +82,8 @@ const styles = StyleSheet.create({
   artImg: { position: 'absolute', width: 220 * 1.0171, height: 116 * 1.286, left: -220 * 0.0386, top: -116 * 0.0202 },
   heading: { fontFamily: fonts.bold, fontSize: 20, lineHeight: 26, color: colors.text },
   body: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 21, color: colors.textMuted, textAlign: 'center' },
+  delete: { alignSelf: 'center', paddingVertical: 8, marginTop: 6 },
+  deleteTxt: { fontFamily: fonts.medium, fontSize: 13, color: colors.statePlan, textDecorationLine: 'underline' },
   option: { alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', gap: 14, borderRadius: 20, padding: 16 },
   optionWhite: { backgroundColor: '#fff', borderWidth: 1, borderColor: 'rgba(36,30,24,0.10)' },
   optionIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
