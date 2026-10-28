@@ -20,6 +20,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { Gyroscope } from 'expo-sensors';
 
 import { TopBar, PrimaryButton } from '../components/kit';
@@ -116,7 +117,15 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
     try {
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.4, base64: true, skipProcessing: true });
       if (photo?.uri) {
-        framesRef.current = [...framesRef.current, { uri: photo.uri, base64: photo.base64, mime: 'image/jpeg' }];
+        // Re-encode the raw shot so no embedded metadata (location, device, time)
+        // reaches the saved file or the AI. Same size and quality; on failure the
+        // original shot is kept.
+        let frame: Frame = { uri: photo.uri, base64: photo.base64, mime: 'image/jpeg' };
+        try {
+          const r = await manipulateAsync(photo.uri, [], { base64: true, compress: 0.4, format: SaveFormat.JPEG });
+          if (r.base64) frame = { uri: r.uri, base64: r.base64, mime: 'image/jpeg' };
+        } catch {}
+        framesRef.current = [...framesRef.current, frame];
         setCaptured([...framesRef.current]);
         setSource('camera');
       }
