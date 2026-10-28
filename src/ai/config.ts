@@ -45,6 +45,10 @@ export const AI_CONFIG = {
 
   // Per-attempt timeout (ms) before we retry once, then fall back.
   TIMEOUT_MS: 30000,
+  // The room check sends every photo; each one adds thinking time for the model,
+  // so its limit grows per photo (30s + 15s per photo, up to 2.5 minutes).
+  TIMEOUT_PER_FRAME_MS: 15000,
+  TIMEOUT_MAX_MS: 150000,
 };
 
 // Real AI is only attempted when explicitly enabled AND a key (or proxy) exists.
