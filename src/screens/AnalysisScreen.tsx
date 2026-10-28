@@ -36,6 +36,7 @@ import { runAssessment } from '../ai/assess';
 import { withPhotoData } from '../capture/upload';
 import { ResultsOverview, type StartHere } from '../components/results/Overview';
 import { GuideSheet } from '../components/GuideSheet';
+import { RecheckSheet, SinceCard } from '../components/results/Recheck';
 import { SCAN_GUIDE } from './CaptureScreen';
 import {
   evaluate,
@@ -123,7 +124,10 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
         setLoading(false);
         // Re-run: open the report straight away so the updated result is visible.
         setWhatsNewOpen(!!opts?.openReport);
-        if (opts?.openReport) setReportOpen(true);
+        if (opts?.openReport) {
+          setReportOpen(true);
+          navigation.navigate('WhatChanged'); // R4 / R4b, then back to the updated results
+        }
       }, 350);
     }, wait);
   };
@@ -137,6 +141,20 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [route.params?.run]);
   useEffect(() => () => void runRef.current++, []);
+
+  // Re-check: open the sheet (from the to-do list), or re-run and compare (from Capture).
+  const [recheckOpen, setRecheckOpen] = useState(false);
+  useEffect(() => {
+    if (route.params?.recheck) {
+      setRecheckOpen(true);
+      navigation.setParams({ recheck: undefined });
+    }
+    if (route.params?.compare) {
+      navigation.setParams({ compare: undefined });
+      analyse({ openReport: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route.params?.recheck, route.params?.compare]);
 
   // Item detail → "Keep the dog out of here": switch to the map and place an off-limits tag.
   useEffect(() => {
@@ -327,7 +345,8 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
           onBreed={selectBreed}
           onNeed={(need) => navigation.navigate('Todo', { need })}
           onProfile={() => navigation.navigate('Profile', { editHousehold: true })}
-          aboveStart={space.lastChanges ? <WhatsNew changes={space.lastChanges} initiallyOpen={whatsNewOpen} /> : null}
+          aboveStart={space.lastChanges && hasChanges(space.lastChanges) ? <SinceCard changes={space.lastChanges} onSee={() => navigation.navigate('WhatChanged')} /> : null}
+          onRecheck={() => setRecheckOpen(true)}
           notice={
             example
               ? {
@@ -338,6 +357,19 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
                 }
               : null
           }
+        />
+        <RecheckSheet
+          visible={recheckOpen}
+          canReuse={frames.length > 0}
+          onClose={() => setRecheckOpen(false)}
+          onRetake={() => {
+            setRecheckOpen(false);
+            navigation.navigate('Capture', { recheck: true });
+          }}
+          onReuse={() => {
+            setRecheckOpen(false);
+            analyse({ openReport: true });
+          }}
         />
         <GuideSheet visible={tipsOpen} heading="How to scan" steps={SCAN_GUIDE} doneLabel="Got it" onClose={() => setTipsOpen(false)} />
       </View>

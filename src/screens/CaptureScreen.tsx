@@ -229,6 +229,12 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
       createdRef.current = true;
     }
     const cur = useSession.getState().current();
+    if (route.params?.recheck) {
+      // Re-check: new photos for the same space; tags stay, then straight to the comparison.
+      setFrames(framesRef.current);
+      navigation.popTo('Analysis', { compare: true });
+      return;
+    }
     if (cur && cur.capture.frames !== framesRef.current) {
       // New photos: tags and results pinned to the old ones no longer line up.
       useSession.getState().patchSpace({ tags: [], result: null });

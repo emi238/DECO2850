@@ -27,6 +27,7 @@ import AnalysisScreen from './src/screens/AnalysisScreen';
 import TodoScreen from './src/screens/TodoScreen';
 import ItemDetailScreen from './src/screens/ItemDetailScreen';
 import ResultsMapScreen from './src/screens/ResultsMapScreen';
+import WhatChangedScreen from './src/screens/WhatChangedScreen';
 import SelectBreedScreen from './src/screens/SelectBreedScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -76,6 +77,7 @@ export default function App() {
               <Stack.Screen name="Todo" component={TodoScreen} />
               <Stack.Screen name="ItemDetail" component={ItemDetailScreen} />
               <Stack.Screen name="ResultsMap" component={ResultsMapScreen} />
+              <Stack.Screen name="WhatChanged" component={WhatChangedScreen} />
               <Stack.Screen name="SelectBreed" component={SelectBreedScreen} />
             </Stack.Navigator>
           </NavigationContainer>

@@ -105,6 +105,14 @@ export default function TodoScreen({ navigation, route }: ScreenProps<'Todo'>) {
             );
           })}
 
+          {photosChecked && shown.length > 0 && (
+            <Pressable style={styles.recheck} onPress={() => navigation.popTo('Analysis', { recheck: true })}>
+              <PackIcon name="refresh-cw-01" size={20} />
+              <Text style={[R.btnTxt, { flex: 1 }]}>Done some of these? Re-check my room</Text>
+              <PackIcon name="chevron-right" size={18} color={colors.textFaint} />
+            </Pressable>
+          )}
+
           {shopping.length > 0 && (
             <View style={styles.shop}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -142,6 +150,7 @@ const styles = StyleSheet.create({
   filterOn: { backgroundColor: colors.text, borderColor: colors.text },
   filterTxt: { fontFamily: fonts.medium, fontSize: 13, lineHeight: 18, color: colors.text },
   count: { fontFamily: fonts.regular, fontSize: 13, color: colors.textFaint },
+  recheck: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.stateGoodTint, borderRadius: 18, padding: 14 },
   shop: { backgroundColor: '#fff', borderRadius: 20, borderWidth: 1, borderColor: 'rgba(36,30,24,0.10)', padding: 16, gap: 12 },
   product: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   productImg: { width: 44, height: 44, borderRadius: 10 },

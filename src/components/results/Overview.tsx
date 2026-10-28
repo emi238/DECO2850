@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PackIcon } from '../icons';
 import { PawTile } from '../kit';
+import { RecheckPill } from './Recheck';
 import type { PackIconName } from '../packIcons';
 import { colors, fonts } from '../../theme';
 import { REPORT_ROWS, type Evaluation } from '../../logic/evaluate';
@@ -55,6 +56,7 @@ export function ResultsOverview({
   onProfile,
   aboveStart,
   notice,
+  onRecheck,
 }: {
   evaluation: Evaluation;
   title: string;
@@ -66,6 +68,7 @@ export function ResultsOverview({
   onNeed: (need: SubScore) => void;
   onProfile: () => void;
   aboveStart?: React.ReactNode; // notices that sit above Start here (e.g. Since last time)
+  onRecheck?: () => void; // the Re-check pill (Results guide step 4)
   notice?: { title: string; body: string } | null; // e.g. "This is an example result, not your room"
 }) {
   const insets = useSafeAreaInsets();
@@ -81,7 +84,9 @@ export function ResultsOverview({
         <View style={{ paddingTop: insets.top + 6, paddingHorizontal: 22 }}>
           <View style={styles.topRow}>
             <PawTile size={40} />
-            <Pressable style={styles.breedPill} onPress={onBreed} accessibilityLabel="Change breed">
+            <View style={{ flex: 1 }} />
+            {onRecheck && <RecheckPill onPress={onRecheck} />}
+            <Pressable style={[styles.breedPill, { marginLeft: 8 }]} onPress={onBreed} accessibilityLabel="Change breed">
               <Text style={styles.breedTxt} numberOfLines={1}>{e.dog.name}</Text>
               <PackIcon name="edit-02" size={16} />
             </Pressable>
