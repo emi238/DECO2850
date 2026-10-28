@@ -97,12 +97,18 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
     setReportOpen(false);
     const started = Date.now();
     const cur = useSession.getState().current();
+    // Whatever goes wrong below, the loading screen must still end (it used to hang).
+    try {
     if (cur) {
       const household = useSession.getState().household;
       // What the user saw last time: saved after the previous run (so edited answers
       // and tags count as changes too), or worked out now for older spaces.
       const before = opts?.openReport ? cur.runSnapshot ?? runSnapshot(cur, household) : null;
-      const frames = await withPhotoData(cur.capture.frames);
+      // Re-reading photos is capped at 20s; past that, use the frames as they are.
+      const frames = await Promise.race([
+        withPhotoData(cur.capture.frames),
+        new Promise<typeof cur.capture.frames>((res) => setTimeout(() => res(cur.capture.frames), 20000)),
+      ]);
       if (id !== runRef.current) return;
       const r = await runAssessment({ ...cur, capture: { ...cur.capture, frames }, questionnaire: { ...household } });
       if (id !== runRef.current) return;
@@ -116,6 +122,9 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
           lastChanges: before ? diffRuns(before, snap, new Date().toISOString()) : undefined,
         });
       }
+    }
+    } catch (e) {
+      if (typeof __DEV__ !== 'undefined' && __DEV__) console.warn('[analyse] failed:', e instanceof Error ? e.message : e);
     }
     const wait = Math.max(0, MIN_LOADING_MS - (Date.now() - started));
     setTimeout(() => {
