@@ -57,6 +57,7 @@ export function ResultsOverview({
   aboveStart,
   notice,
   onRecheck,
+  onDelete,
 }: {
   evaluation: Evaluation;
   title: string;
@@ -68,6 +69,7 @@ export function ResultsOverview({
   onNeed: (need: SubScore) => void;
   onProfile: () => void;
   aboveStart?: React.ReactNode; // notices that sit above Start here (e.g. Since last time)
+  onDelete: () => void; // remove this scan, its photos and results (privacy)
   onRecheck?: () => void; // the Re-check pill (Results guide step 4)
   notice?: { title: string; body: string } | null; // e.g. "This is an example result, not your room"
 }) {
@@ -191,6 +193,9 @@ export function ResultsOverview({
           Every dog is different, and breed is only part of the story. We spot what we can from your photos, so give the
           room a once-over yourself too.
         </Text>
+        <Pressable onPress={onDelete} style={styles.delete} hitSlop={8} accessibilityLabel="Delete this scan">
+          <Text style={styles.deleteTxt}>Delete this scan</Text>
+        </Pressable>
       </View>
     </ScrollView>
   );
@@ -240,5 +245,7 @@ const styles = StyleSheet.create({
   nudgeTxt: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.text },
   nudgeLink: { flexDirection: 'row', alignItems: 'center', gap: 2, alignSelf: 'flex-start' },
   nudgeLinkTxt: { fontFamily: fonts.medium, fontSize: 12, lineHeight: 16, color: colors.orangeDeep },
+  delete: { alignSelf: 'center', paddingVertical: 8 },
+  deleteTxt: { fontFamily: fonts.medium, fontSize: 13, color: colors.statePlan, textDecorationLine: 'underline' },
   disclaimer: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.textFaint },
 });

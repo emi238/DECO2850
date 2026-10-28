@@ -251,6 +251,7 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
         title={title}
         photo={frames[0]}
         onBack={goHome}
+        onDelete={deleteSpace}
         onHelpChoose={() => navigation.navigate('SelectBreed', { mode: 'explore' })}
         onInMind={() => navigation.navigate('SelectBreed', { mode: 'in_mind' })}
       />
@@ -354,6 +355,7 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
           startHere={startHere}
           needUnknown={{ safety: photosOff, room: e.labels.room === 'Not checked yet', energy: e.score.energy.undecided }}
           onBack={goHome}
+          onDelete={deleteSpace}
           onBreed={() => navigation.navigate('SelectBreed', { mode: space.mode === 'explore' ? 'explore' : 'in_mind' })}
           onNeed={(need) => navigation.navigate('Todo', { need })}
           onProfile={() => navigation.navigate('Profile', { editHousehold: true })}
