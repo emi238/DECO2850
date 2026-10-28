@@ -113,7 +113,7 @@ export default function SelectBreedScreen({ navigation, route }: ScreenProps<'Se
         note={suggested?.note}
         suggestions={suggested?.suggestions ?? []}
         onBack={() => navigation.goBack()}
-        onSearch={() => navigation.replace('SelectBreed', { mode: 'in_mind' })}
+        onSearch={() => navigation.push('SelectBreed', { mode: 'in_mind' })} // Back returns to the suggestions
         onChoose={chooseSuggested}
       />
     );
