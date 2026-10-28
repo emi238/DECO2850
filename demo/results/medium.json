@@ -22,38 +22,39 @@
       "other_pets": [
         "cat"
       ],
-      "existing_pets": []
+      "existing_pets": [],
+      "size_preference": "medium"
     }
   },
   "source": "ai",
   "note": null,
   "suggestions": [
     {
-      "name": "Labrador Retriever",
-      "size": "large",
-      "energy": "moderate",
-      "noise": "quiet",
-      "fit": "good",
-      "reason": "Great moderate family dog that thrives with older children and regular daily exercise.",
-      "watch_out": "Plan careful introductions and clear boundaries around your resident cat."
-    },
-    {
-      "name": "Cavalier King Charles Spaniel",
-      "size": "small",
+      "name": "English Cocker Spaniel",
+      "size": "medium",
       "energy": "moderate",
       "noise": "moderate",
       "fit": "good",
-      "reason": "Gentle and affectionate companion that fits very well into a family home.",
-      "watch_out": "Monitor initial interactions with your cat until both pets feel secure."
+      "reason": "Gentle and eager to please, this dog fits your moderate exercise and family routine.",
+      "watch_out": "Introduce carefully to your cat and supervise early interactions around the home."
     },
     {
-      "name": "Coton de Tulear",
-      "size": "small",
+      "name": "Field Spaniel",
+      "size": "medium",
       "energy": "moderate",
-      "noise": "quiet",
+      "noise": "moderate",
       "fit": "good",
-      "reason": "Playful and sweet small dog that easily adapts to your household routine.",
-      "watch_out": "Introduce gradually to your cat to foster a peaceful relationship."
+      "reason": "Trainable and friendly, this breed matches your daily exercise routine and family setup.",
+      "watch_out": "Plan slow, supervised introductions with your resident cat from day one."
+    },
+    {
+      "name": "Standard Schnauzer",
+      "size": "medium",
+      "energy": "moderate",
+      "noise": "moderate",
+      "fit": "good",
+      "reason": "Smart and adaptable, it fits well into a home with minimal time spent alone.",
+      "watch_out": "Manage potential chase instincts with your cat using clear boundaries."
     },
     {
       "name": "Barbet",
@@ -61,35 +62,17 @@
       "energy": "moderate",
       "noise": "moderate",
       "fit": "good",
-      "reason": "Friendly and eager to please medium breed that suits older children.",
-      "watch_out": "Supervise early meetings with your cat to ensure safety."
+      "reason": "Patient and companionable, this dog suits a lively home with older children well.",
+      "watch_out": "Maintain consistent grooming and ensure gradual introductions to your family cat."
     },
     {
-      "name": "French Bulldog",
-      "size": "small",
-      "energy": "low",
-      "noise": "moderate",
-      "fit": "good",
-      "reason": "Calm and affectionate companion suited for a comfortable house with older kids.",
-      "watch_out": "Keep initial cat meetings controlled and brief at first."
-    },
-    {
-      "name": "Bohemian Shepherd",
+      "name": "Eurasier",
       "size": "medium",
       "energy": "moderate",
       "noise": "moderate",
       "fit": "good",
-      "reason": "Intelligent and trainable medium dog well suited to a family household.",
-      "watch_out": "Plan slow cat introductions to establish calm cohabitation."
-    },
-    {
-      "name": "Clumber Spaniel",
-      "size": "large",
-      "energy": "moderate",
-      "noise": "quiet",
-      "fit": "could_work",
-      "reason": "Easygoing large companion that fits seamlessly into your moderate daily activity.",
-      "watch_out": "Allow your cat time and safe space to adjust gradually."
+      "reason": "Calm and even-tempered, it easily fits a household with older children and courtyard space.",
+      "watch_out": "Provide gentle, supervised exposure to your cat during the settling period."
     },
     {
       "name": "Bulldog",
@@ -97,8 +80,64 @@
       "energy": "moderate",
       "noise": "quiet",
       "fit": "could_work",
-      "reason": "Quiet and gentle medium dog that matches your moderate activity routine.",
-      "watch_out": "Supervise interactions with your cat during the adjustment period."
+      "reason": "Quiet and peaceful, this low-key dog adapts smoothly to your family's daily rhythm.",
+      "watch_out": "Keep daily walks relaxed to avoid overheating in warmer weather."
+    },
+    {
+      "name": "French Bulldog",
+      "size": "small",
+      "energy": "low",
+      "noise": "moderate",
+      "fit": "could_work",
+      "reason": "Though smaller than preferred, its companionable nature fits your home atmosphere perfectly.",
+      "watch_out": "Offered as a smaller option due to its great fit for your household."
+    },
+    {
+      "name": "Basset Hound",
+      "size": "medium",
+      "energy": "low",
+      "noise": "vocal",
+      "fit": "could_work",
+      "reason": "Laid-back and affectionate, this breed fits your moderate activity and family setting well.",
+      "watch_out": "Manage potential baying to keep close neighbours happy."
     }
-  ]
+  ],
+  "room_check": {
+    "breed": "English Cocker Spaniel",
+    "source": "ai",
+    "fallback": null,
+    "verdict": "Almost ready for me!",
+    "line": "It can work with a few changes. They're listed below, most important first.",
+    "bands": {
+      "safety": "poor",
+      "energy": "good",
+      "room": "good",
+      "household": "good",
+      "noise": "good"
+    },
+    "labels": {
+      "safety": "A few fixes first",
+      "energy": "Well matched",
+      "room": "Plenty of room",
+      "household": "Fits right in",
+      "noise": "All good"
+    },
+    "photo_check": {
+      "usable": true,
+      "issue": "none",
+      "note": ""
+    },
+    "summary": "Bright open-plan living area and kitchen with wood flooring, a central area rug, and sliding glass doors opening to a private outdoor patio.",
+    "hazards": [
+      "Sliding glass patio door (medium)",
+      "Pothos plant on shelf (medium)",
+      "Small toys on living room rug (medium)",
+      "Cat food bowls on floor (low)"
+    ],
+    "what_to_change": [
+      "Move the pothos plant off the low shelf to prevent accidental ingestion.",
+      "Place small toy pieces into covered storage bins when not in use.",
+      "Elevate cat food bowls onto a higher counter away from the dog."
+    ]
+  }
 }

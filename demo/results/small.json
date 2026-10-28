@@ -20,7 +20,8 @@
       "allergies": true,
       "has_other_pets": false,
       "other_pets": [],
-      "existing_pets": []
+      "existing_pets": [],
+      "size_preference": "small"
     }
   },
   "source": "ai",
@@ -32,8 +33,8 @@
       "energy": "low",
       "noise": "moderate",
       "fit": "good",
-      "reason": "Small and low energy, this calm companion fits apartment living and a gentle daily routine.",
-      "watch_out": "Plan for regular coat care and grooming to manage potential allergy triggers."
+      "reason": "Low exercise needs and easygoing nature make them great for apartment living and new owners.",
+      "watch_out": "Plan for regular grooming and occasional check-ins during longer stretches alone at home."
     },
     {
       "name": "Coton de Tulear",
@@ -41,62 +42,101 @@
       "energy": "moderate",
       "noise": "quiet",
       "fit": "good",
-      "reason": "Quiet and easy to train, this small companion suits first-time owners in quiet apartments.",
-      "watch_out": "Daily brushing and coat care are key for managing dander and allergies."
+      "reason": "Quiet, gentle, and eager to please, fitting well into a calm apartment with allergy sufferers.",
+      "watch_out": "Daily coat care is essential to keep dander low and prevent fur tangles."
     },
     {
-      "name": "Cirneco dell’Etna",
+      "name": "American Hairless Terrier",
       "size": "small",
       "energy": "moderate",
-      "noise": "quiet",
-      "fit": "could_work",
-      "reason": "Small, quiet, and highly trainable, this breed adapts well to compact apartment spaces.",
-      "watch_out": "Keep up with regular grooming sessions to manage dander and coat health."
+      "noise": "moderate",
+      "fit": "good",
+      "reason": "Eager to learn and non-shedding, making them ideal for a new owner with allergies.",
+      "watch_out": "Skin care and weather protection are necessary since they lack a protective coat."
     },
     {
-      "name": "Pug",
+      "name": "Chinese Crested",
       "size": "small",
       "energy": "moderate",
-      "noise": "quiet",
+      "noise": "moderate",
       "fit": "could_work",
-      "reason": "An easygoing, quiet small companion that thrives in a calm home with short walks.",
-      "watch_out": "Frequent brushing is essential to control shedding and keep dander levels low."
+      "reason": "Quietly affectionate and very low-shedding, suited to a tranquil apartment setting and new owners.",
+      "watch_out": "Regular skin care routines are important to maintain health and keep allergies managed."
     },
     {
-      "name": "Bulldog",
-      "size": "medium",
-      "energy": "moderate",
-      "noise": "quiet",
-      "fit": "could_work",
-      "reason": "A calm, quiet medium-sized dog that suits a lower-activity lifestyle and attached walls.",
-      "watch_out": "Routine fold cleaning and brushing help control dander for allergy sufferers."
-    },
-    {
-      "name": "English Toy Spaniel",
+      "name": "Lhasa Apso",
       "size": "small",
       "energy": "moderate",
-      "noise": "quiet",
+      "noise": "moderate",
       "fit": "could_work",
-      "reason": "Quiet and gentle, this small dog copes well with apartment living and moderate alone time.",
-      "watch_out": "Plan on frequent coat maintenance to manage dander and indoor shedding."
+      "reason": "Independent and low-shedding, handling quiet apartment downtime well while keeping allergy symptoms reduced.",
+      "watch_out": "Consistent grooming is required to prevent matting and manage potential allergy triggers."
     },
     {
-      "name": "Japanese Chin",
+      "name": "Maltese",
       "size": "small",
       "energy": "moderate",
-      "noise": "quiet",
+      "noise": "moderate",
       "fit": "could_work",
-      "reason": "A peaceful small dog that appreciates a quiet apartment and light daily exercise.",
-      "watch_out": "Regular brushing helps keep shedding controlled and minimizes potential dander."
+      "reason": "Compact, sweet-tempered, and low-shedding, making them a cozy match for a smaller apartment.",
+      "watch_out": "Frequent grooming is essential to keep their coat clean and reduce indoor allergens."
     },
     {
-      "name": "Pekingese",
+      "name": "Biewer Terrier",
       "size": "small",
       "energy": "moderate",
-      "noise": "quiet",
+      "noise": "moderate",
       "fit": "could_work",
-      "reason": "Low-exercise and quiet, this small breed suits a peaceful home with short walks.",
-      "watch_out": "Consistent grooming is important to manage hair loss and dander buildup."
+      "reason": "Charming and low-shedding, fitting neatly into a peaceful home setting with minimal space needed.",
+      "watch_out": "Daily brushing is needed to maintain their coat and keep household dander low."
+    },
+    {
+      "name": "Cavalier King Charles Spaniel",
+      "size": "small",
+      "energy": "moderate",
+      "noise": "moderate",
+      "fit": "could_work",
+      "reason": "Gentle, trainable, and adaptable, making them a comforting companion for a new owner.",
+      "watch_out": "Regular coat grooming helps manage light shedding for household allergy sufferers."
     }
-  ]
+  ],
+  "room_check": {
+    "breed": "French Bulldog",
+    "source": "ai",
+    "fallback": null,
+    "verdict": "Almost ready for me!",
+    "line": "It can work. Start with this: secure the spot where a dog could get out or fall.",
+    "bands": {
+      "safety": "poor",
+      "energy": "adequate",
+      "room": "good",
+      "household": "good",
+      "noise": "adequate"
+    },
+    "labels": {
+      "safety": "A few fixes first",
+      "energy": "Needs a plan",
+      "room": "Plenty of room",
+      "household": "Fits right in",
+      "noise": "Some barking"
+    },
+    "photo_check": {
+      "usable": true,
+      "issue": "none",
+      "note": ""
+    },
+    "summary": "A compact apartment living room with timber flooring, an area rug, a couch, a low coffee table, and sliding door access to a balcony.",
+    "hazards": [
+      "Balcony door and railing gaps (high)",
+      "Peace lily plant near sofa (high)",
+      "Exposed cords and power strip (high)",
+      "Lit candle on coffee table (medium)",
+      "Potted plant next to TV stand (medium)"
+    ],
+    "what_to_change": [
+      "Fit removable safety netting or acrylic guards along the balcony railing.",
+      "Move floor plants, including the peace lily, onto high stands or shelves.",
+      "Tidy and enclose power cables near the TV in a cord management box."
+    ]
+  }
 }
