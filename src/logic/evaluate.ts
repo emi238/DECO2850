@@ -159,7 +159,7 @@ const GATE_TEXT: Record<Gate, string> = {
 };
 
 const UNKNOWN_TEXT: Record<Unknown, string> = {
-  photos: 're-run the analysis so we can check your photos',
+  photos: 'try the analysis again so we can check your photos',
   room: "re-run the analysis so we can check the room's layout",
   routine: 'answer the routine questions in your profile',
 };

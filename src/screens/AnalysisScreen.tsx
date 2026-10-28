@@ -148,14 +148,21 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
       ? result.photo_check.note || 'We couldn’t see a room in these photos, so nothing was checked. Retake them with the lights on.'
       : null;
   const bannerNote = photoNote ?? space?.resultNote;
-  // The report always says what to do when the photos weren't really checked:
-  // no result yet, or the built-in sample because the AI was busy or unreachable.
-  const notChecked: string | null = !result
-    ? 'This room hasn’t been analysed yet. Tap Re-run analysis to check your photos.'
-    : photoNote
-      ? `${photoNote} Then tap Re-run analysis.`
-      : space?.resultSource === 'mock'
-        ? `${/busy/i.test(space.resultNote ?? '') ? 'Google’s AI was busy' : 'The AI couldn’t be reached'}, so this report is a sample, not your photos. Tap Re-run analysis to check your room.`
+  // The report always opens with one clear next step when the photos weren't really
+  // checked (wording from the Results guide, step 3 "Special states").
+  const notChecked: NotChecked | null = !result
+    ? { title: 'Let’s check your room', body: 'We haven’t looked at your photos yet. It only takes a moment.', action: 'rerun', button: 'Check my room' }
+    : space?.resultSource === 'mock'
+      ? space.resultNote
+        ? {
+            title: 'This is an example result, not your room',
+            body: `${/quota/i.test(space.resultNote) ? 'The free AI limit is used up for today' : /busy/i.test(space.resultNote) ? 'The AI was busy' : 'The AI couldn’t be reached'}, so you’re seeing an example. Your photos and answers are saved.`,
+            action: 'rerun',
+            button: 'Try again',
+          }
+        : { title: 'This is an example result, not your room', body: 'Real AI is turned off, so you’re seeing an example. Your photos and answers are saved.', action: null }
+      : photoNote
+        ? { title: 'Retake your photos', body: result.photo_check?.note || 'We couldn’t quite see the room. Try again with the lights on.', action: 'retake', button: 'Retake photos' }
         : null;
   const evaluation = useMemo(() => (space ? evaluate(space, household) : null), [space, household]);
 
@@ -339,6 +346,10 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
             }}
             notChecked={notChecked}
             onRerun={() => analyse({ openReport: true })} // the card's button is the confirmation
+            onRetake={() => {
+              setReportOpen(false);
+              navigation.navigate('Capture'); // same space: new photos replace the old ones
+            }}
             onShowSetup={(key) => {
               setReportOpen(false);
               setSetupFocus(key);
@@ -685,6 +696,10 @@ function DogAvatar({ evaluation, top, onPress }: { evaluation: Evaluation; top: 
 
 const BAND_COLOR: Record<Band, string> = { poor: '#E4572E', adequate: colors.orange, good: '#5FAE7F' };
 const BAND_MARK: Record<Band, string> = { poor: '✕', adequate: '!', good: '✓' };
+type NotChecked =
+  | { title: string; body: string; action: 'rerun' | 'retake'; button: string }
+  | { title: string; body: string; action: null };
+
 const BAND_TINT: Record<Band, string> = { poor: '#FBE3DC', adequate: colors.peach, good: '#E3F2E8' };
 
 function ReportOverlay({
@@ -698,6 +713,7 @@ function ReportOverlay({
   onShowSetup,
   notChecked,
   onRerun,
+  onRetake,
 }: {
   evaluation: Evaluation;
   changes?: RunChanges;
@@ -707,8 +723,9 @@ function ReportOverlay({
   onClose: () => void;
   onEditProfile: () => void;
   onShowSetup: (key: string) => void;
-  notChecked: string | null; // why the photos weren't checked, or null when they were
+  notChecked: NotChecked | null; // what to do when the photos weren't checked
   onRerun: () => void;
+  onRetake: () => void;
 }) {
   // Slides up from the bottom of the map card; slides back down before closing.
   const slide = useRef(new Animated.Value(0)).current;
@@ -763,9 +780,15 @@ function ReportOverlay({
           </View>
           {!!notChecked && (
             <View style={styles.rerunCard}>
-              <Text style={styles.rerunTitle}>Your photos haven’t been checked yet</Text>
-              <Text style={styles.rerunTxt}>{notChecked}</Text>
-              <PrimaryButton label="Re-run analysis" onPress={() => dismiss(onRerun)} style={{ marginTop: 12 }} />
+              <Text style={styles.rerunTitle}>{notChecked.title}</Text>
+              <Text style={styles.rerunTxt}>{notChecked.body}</Text>
+              {notChecked.action && (
+                <PrimaryButton
+                  label={notChecked.button}
+                  onPress={() => dismiss(notChecked.action === 'retake' ? onRetake : onRerun)}
+                  style={{ marginTop: 12 }}
+                />
+              )}
             </View>
           )}
 
@@ -1101,7 +1124,7 @@ const styles = StyleSheet.create({
   verdictMark: { fontFamily: fonts.bold, fontSize: 17, color: '#fff' },
   verdictTitle: { fontFamily: fonts.bold, fontSize: 18, lineHeight: 23, color: colors.text, marginTop: 5 },
   verdictLine: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.text, marginTop: 4 },
-  rerunCard: { backgroundColor: '#fff', borderRadius: 16, borderWidth: 1.5, borderColor: colors.orange, padding: 16, marginTop: 6, marginBottom: 6 },
+  rerunCard: { backgroundColor: '#fff', borderRadius: 16, borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.textFaint, padding: 16, marginTop: 6, marginBottom: 6 },
   rerunTitle: { fontFamily: fonts.bold, fontSize: 16, color: colors.text },
   rerunTxt: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.text, marginTop: 4 },
   photoWarn: { fontFamily: fonts.medium, fontSize: 13, lineHeight: 18, color: colors.orangeDeep, marginTop: 6, marginBottom: 4 },
