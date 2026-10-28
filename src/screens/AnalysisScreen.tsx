@@ -125,10 +125,8 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
         setLoading(false);
         // Re-run: open the report straight away so the updated result is visible.
         setWhatsNewOpen(!!opts?.openReport);
-        if (opts?.openReport) {
-          setReportOpen(true);
-          navigation.navigate('WhatChanged'); // R4 / R4b, then back to the updated results
-        }
+        setReportOpen(true); // results overview after every run
+        if (opts?.openReport) navigation.navigate('WhatChanged'); // R4 / R4b, then back to the updated results
       }, 350);
     }, wait);
   };

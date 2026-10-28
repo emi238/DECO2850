@@ -68,7 +68,7 @@ export function NoDogYet({
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.cream },
-  header: { height: 220, paddingHorizontal: 22, backgroundColor: colors.text, overflow: 'hidden' },
+  header: { height: 250, paddingHorizontal: 22, backgroundColor: colors.text, overflow: 'hidden' },
   space: { fontFamily: fonts.bold, fontSize: 20, lineHeight: 26, color: '#fff', marginTop: 12 },
   spaceSub: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: colors.cream },
   sheet: { backgroundColor: colors.cream, borderTopLeftRadius: 28, borderTopRightRadius: 28, marginTop: -28, paddingHorizontal: 24, paddingTop: 28, gap: 14, alignItems: 'center' },
