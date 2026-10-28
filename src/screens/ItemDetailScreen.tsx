@@ -48,8 +48,10 @@ export default function ItemDetailScreen({ navigation, route }: ScreenProps<'Ite
             </View>
           </PhotoCrop>
         ) : (
-          <View style={[styles.tintHeader, { height: 200 + insets.top, backgroundColor: g.tint }]}>
-            {needIcon ? <PackIcon name={needIcon} size={48} /> : <Pin item={item} size={56} />}
+          // No exact spot (e.g. daily walks): the room's first photo as a backdrop, no pin.
+          <View style={{ height: PHOTO_H, backgroundColor: g.tint }}>
+            {frames[0] && <Image source={{ uri: frames[0].uri }} style={StyleSheet.absoluteFill} resizeMode="cover" />}
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.25)' }]} />
           </View>
         )}
         <View style={[styles.topControls, { top: insets.top + 8 }]}>
@@ -106,18 +108,18 @@ export default function ItemDetailScreen({ navigation, route }: ScreenProps<'Ite
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-        <Pressable style={[R.btnSecondary, { opacity: index > 0 ? 1 : 0.4 }]} disabled={index === 0} onPress={() => setIndex(index - 1)}>
+        <Pressable style={[R.btnSecondary, styles.side, { opacity: index > 0 ? 1 : 0.4 }]} disabled={index === 0} onPress={() => setIndex(index - 1)}>
           <PackIcon name="chevron-left" size={16} />
           <Text style={R.btnTxt}>Prev</Text>
         </Pressable>
         {hasPhoto ? (
-          <Pressable style={[R.btnPrimary, { flex: 1 }]} onPress={() => navigation.navigate('ResultsMap', { id: item.id })}>
-            <Text style={R.btnTxt}>Show on my photo</Text>
+          <Pressable style={[R.btnPrimary, { flex: 1, paddingHorizontal: 10 }]} onPress={() => navigation.navigate('ResultsMap', { id: item.id })}>
+            <Text style={[R.btnTxt, { textAlign: 'center' }]} numberOfLines={1} adjustsFontSizeToFit>Show on my photo</Text>
           </Pressable>
         ) : (
           <View style={{ flex: 1 }} />
         )}
-        <Pressable style={[R.btnSecondary, { opacity: index < items.length - 1 ? 1 : 0.4 }]} disabled={index >= items.length - 1} onPress={() => setIndex(index + 1)}>
+        <Pressable style={[R.btnSecondary, styles.side, { opacity: index < items.length - 1 ? 1 : 0.4 }]} disabled={index >= items.length - 1} onPress={() => setIndex(index + 1)}>
           <Text style={R.btnTxt}>Next</Text>
           <PackIcon name="chevron-right" size={16} />
         </Pressable>
@@ -140,5 +142,6 @@ const styles = StyleSheet.create({
   product: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(36,30,24,0.10)', padding: 12 },
   productImg: { width: 56, height: 56, borderRadius: 10 },
   productName: { fontFamily: fonts.medium, fontSize: 15, lineHeight: 21, color: colors.text },
-  footer: { position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', gap: 10, paddingHorizontal: 18, paddingTop: 12, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: 'rgba(36,30,24,0.08)' },
+  side: { paddingHorizontal: 14, width: 96 },
+  footer: { position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 18, paddingTop: 12, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: 'rgba(36,30,24,0.08)' },
 });
