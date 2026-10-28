@@ -23,7 +23,7 @@ export function SwipeUpNav({
   onHelp?: () => void;
   defaultOpen?: boolean;
   keepOpen?: boolean; // e.g. while the Home tour points at the Help button
-  helpRef?: React.Ref<View>;
+  helpRef?: React.Ref<React.ComponentRef<typeof View>>;
 }) {
   const insets = useSafeAreaInsets();
   const [open, setOpen] = useState(defaultOpen);

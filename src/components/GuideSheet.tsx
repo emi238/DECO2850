@@ -45,7 +45,7 @@ export function GuideSheet({
   const insets = useSafeAreaInsets();
   const pageW = width; // one step per screen width; each step pads itself
   const [index, setIndex] = useState(0);
-  const pager = useRef<ScrollView>(null);
+  const pager = useRef<React.ComponentRef<typeof ScrollView>>(null);
 
   // Always open on the first step.
   useEffect(() => {

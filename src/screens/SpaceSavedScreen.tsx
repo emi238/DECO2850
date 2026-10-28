@@ -17,7 +17,7 @@ const LABELS = ['Living Room', 'Kitchen', 'Bedroom'];
 export default function SpaceSavedScreen({ navigation }: ScreenProps<'SpaceSaved'>) {
   const space = useCurrentSpace();
   const patchSpace = useSession((s) => s.patchSpace);
-  const nameRef = useRef<TextInput>(null);
+  const nameRef = useRef<React.ComponentRef<typeof TextInput>>(null);
   const { width } = useWindowDimensions();
   const cardW = width - 44;
   const { height } = useWindowDimensions();

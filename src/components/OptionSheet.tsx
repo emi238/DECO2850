@@ -101,7 +101,7 @@ export function OptionSheet<T extends string>({
                 </View>
               </Pressable>
             )}
-            ListFooterComponent={footer ? <>{footer(query.trim())}</> : null}
+            ListFooterComponent={footer ? <>{footer(query.trim())}</> : undefined}
           />
         </SafeAreaView>
       </KeyboardAvoidingView>

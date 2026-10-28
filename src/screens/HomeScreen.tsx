@@ -109,14 +109,14 @@ export default function HomeScreen({ navigation, route }: ScreenProps<'Home'>) {
   const [tourStep, setTourStep] = useState<number | null>(null); // null = not showing
   const [tourBox, setTourBox] = useState<Box | null>(null);
   const touring = tourStep !== null;
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
   const refs = {
-    profile: useRef<View>(null),
-    upload: useRef<View>(null),
-    featured: useRef<View>(null),
-    browse: useRef<View>(null),
-    changed: useRef<View>(null),
-    help: useRef<View>(null),
+    profile: useRef<React.ComponentRef<typeof View>>(null),
+    upload: useRef<React.ComponentRef<typeof View>>(null),
+    featured: useRef<React.ComponentRef<typeof View>>(null),
+    browse: useRef<React.ComponentRef<typeof View>>(null),
+    changed: useRef<React.ComponentRef<typeof View>>(null),
+    help: useRef<React.ComponentRef<typeof View>>(null),
   };
   const contentY = useRef<Partial<Record<TourKey, number>>>({}); // where each part sits in the scroll
   const onPartLayout = (key: TourKey) => (e: { nativeEvent: { layout: { y: number } } }) => {

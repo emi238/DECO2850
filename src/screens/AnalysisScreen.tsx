@@ -606,7 +606,7 @@ function PhotoMap({
   const [page, setPage] = useState(0);
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => setPage(Math.round(e.nativeEvent.contentOffset.x / width));
   // When a risk is picked (pin tap or the sheet's < >), jump to the photo it's on.
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
   const selectedFrame = risks.find((r) => r.id === selectedId)?.location?.frame_index;
   useEffect(() => {
     if (selectedFrame == null) return;

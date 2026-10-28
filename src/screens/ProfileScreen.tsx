@@ -27,7 +27,7 @@ export default function ProfileScreen({ navigation, route }: ScreenProps<'Profil
   const openHousehold = !!route.params?.editHousehold;
   const [editHousehold, setEditHousehold] = useState(openHousehold);
   // Opened from Home's "Has your living situation changed?": scroll to the questionnaire.
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
   const scrolled = useRef(false);
   // focus: 'routine' (from the results "Answer now") lands on the routine questions.
   const householdY = useRef(0);

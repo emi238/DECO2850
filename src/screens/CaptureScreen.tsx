@@ -99,7 +99,7 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
   const cardW = width - 44;
   const itemW = Math.round(cardW * 0.7);
   const itemH = Math.round(itemW * 1.45);
-  const reviewRef = useRef<ScrollView>(null);
+  const reviewRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
 
   const toReview = (frames: Frame[]) => {
     framesRef.current = frames;
