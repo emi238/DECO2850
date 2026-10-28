@@ -38,6 +38,7 @@ import { ResultsOverview, type StartHere } from '../components/results/Overview'
 import { GuideSheet } from '../components/GuideSheet';
 import { RecheckSheet, SinceCard } from '../components/results/Recheck';
 import { NoDogYet } from '../components/results/NoDogYet';
+import { AiConsentSheet } from '../components/AiConsentSheet';
 import { SCAN_GUIDE } from './CaptureScreen';
 import {
   evaluate,
@@ -141,6 +142,11 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
   }, [route.params?.run]);
   useEffect(() => () => void runRef.current++, []);
 
+  // Every re-check or retry sends photos again, so ask for consent each time first.
+  const [consentOpen, setConsentOpen] = useState(false);
+  const askThenAnalyse = () => setConsentOpen(true);
+  const setAiConsent = useSession((st) => st.setAiConsent);
+
   // Re-check: open the sheet (from the to-do list), or re-run and compare (from Capture).
   const [recheckOpen, setRecheckOpen] = useState(false);
   useEffect(() => {
@@ -150,7 +156,7 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
     }
     if (route.params?.compare) {
       navigation.setParams({ compare: undefined });
-      analyse({ openReport: true });
+      askThenAnalyse();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [route.params?.recheck, route.params?.compare]);
@@ -226,7 +232,7 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
   const reanalyse = () =>
     Alert.alert('Re-analyse this space?', 'Runs the analysis again with your latest household answers and tags.', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Re-analyse', onPress: () => analyse({ openReport: true }) },
+      { text: 'Re-analyse', onPress: () => askThenAnalyse() },
     ]);
   const goHome = () => navigation.popTo('Home');
   const deleteSpace = () =>
@@ -287,7 +293,7 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
           label: 'HELP ME SEE',
           heading: 'Let’s check your room',
           body: 'We haven’t looked at your photos yet. It only takes a moment.',
-          primary: { label: 'Check my room', onPress: () => analyse({ openReport: true }) },
+          primary: { label: 'Check my room', onPress: () => askThenAnalyse() },
         }
       : example
         ? {
@@ -296,7 +302,7 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
             heading: 'Try the analysis again',
             body: 'It only takes a moment. If it’s still busy, try again a bit later.',
             ...(space.resultNote
-              ? { primary: { label: 'Try again', onPress: () => analyse({ openReport: true }) }, secondary: { label: 'See what to sort', onPress: openList } }
+              ? { primary: { label: 'Try again', onPress: () => askThenAnalyse() }, secondary: { label: 'See what to sort', onPress: openList } }
               : { primary: { label: 'See what to sort', onPress: openList } }), // AI turned off: nothing to retry
           }
         : unclear
@@ -372,6 +378,19 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
               : null
           }
         />
+        <AiConsentSheet
+          visible={consentOpen}
+          onAllow={() => {
+            setAiConsent(true);
+            setConsentOpen(false);
+            analyse({ openReport: true });
+          }}
+          onDecline={() => {
+            setAiConsent(false);
+            setConsentOpen(false);
+            analyse({ openReport: true });
+          }}
+        />
         <RecheckSheet
           visible={recheckOpen}
           canReuse={frames.length > 0}
@@ -382,7 +401,7 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
           }}
           onReuse={() => {
             setRecheckOpen(false);
-            analyse({ openReport: true });
+            askThenAnalyse();
           }}
         />
         <GuideSheet visible={tipsOpen} heading="How to scan" steps={SCAN_GUIDE} doneLabel="Got it" onClose={() => setTipsOpen(false)} />
@@ -521,7 +540,7 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
               navigation.navigate('Profile', { editHousehold: true });
             }}
             notChecked={notChecked}
-            onRerun={() => analyse({ openReport: true })} // the card's button is the confirmation
+            onRerun={() => askThenAnalyse()} // the card's button is the confirmation
             onRetake={() => {
               setReportOpen(false);
               navigation.navigate('Capture'); // same space: new photos replace the old ones
