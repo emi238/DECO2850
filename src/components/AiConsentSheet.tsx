@@ -1,4 +1,4 @@
-// "Before we check your room": a one-time consent sheet shown before any photo or
+// "Before we check your room": a consent sheet shown before every scan's analysis, shown before any photo or
 // answer is sent to the AI (Google Gemini). Opting out keeps everything on the
 // phone and uses the built-in example result. The choice can be changed in Profile.
 

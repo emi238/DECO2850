@@ -33,13 +33,11 @@ export default function SpaceSavedScreen({ navigation }: ScreenProps<'SpaceSaved
 
   if (!space) return <View style={styles.root} />;
 
-  // Ask once, right before anything could be sent to the AI.
-  const aiConsent = useSession((st) => st.aiConsent);
   const setAiConsent = useSession((st) => st.setAiConsent);
   const [consentOpen, setConsentOpen] = useState(false);
   const startAnalysis = () => {
-    if (aiConsent === null) return setConsentOpen(true);
-    goAnalysis();
+    // Ask every time, right before this scan's photos could be sent (privacy).
+    setConsentOpen(true);
   };
   const goAnalysis = () => {
     // Opens the space; the analysis itself waits until a breed is picked there.
