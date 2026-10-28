@@ -119,22 +119,17 @@ answers asks for a big dog (see findings).
 
 ---
 
-## In-app test run (27 Oct 2026, iPhone 17 Simulator)
+## In-app test run (30 Oct 2026, paid API, fresh account)
 
-Each household was entered in Profile → Household Questionnaire, checked against
-`scenarios.json` straight from the app's saved data (all 15 answers matched every
-time), then its photo (`demo/images/<id>.jpg`) was uploaded as a new scan and run
-through **Explore breeds for my space** and the room check.
+All data deleted, then a new account ("Mia") went through all 10 onboarding steps by
+hand; the Nguyens' and Sam and Priya's answers were then set and checked against
+`scenarios.json` (all match). Each photo uploaded as a new scan (3 slices, edge to edge).
 
-| Household | Breed list in the app | Room check |
-|---|---|---|
-| Small (Mia) | Google busy → **rules fallback**: Broholmer, Neapolitan Mastiff, Pyrenean Mastiff, French Bulldog… | **Real AI**, French Bulldog: *Good fit with a few changes*. Found the balcony railing gaps (escape), peace lily (toxic), power board and cords, lit candle; suggested balcony netting, cord cover, dog bed spot. |
-| Medium (Nguyens) | **Real AI**: Labrador, Cavalier, Barbet, Coton de Tulear, French Bulldog (good); Bohemian Shepherd, Bulldog, Clumber Spaniel (could work). Every watch-out mentions the cat. | Not completed: Google's daily quota ran out, so the app showed its sample assessment. |
-| Large (Sam and Priya) | **Real AI**: Border Collie, Labrador, Australian Shepherd, Barbet, Australian Cattle Dog, Airedale (good); French Bulldog, Basset Hound (could work). | **Real AI**, Labrador: ✓ *Good fit*. Found the open bifold doors (check yard fence), houseplants, slippery timber; spotted the existing dog bed; suggested a non-slip runner. |
-
-Re-run the medium room check once the quota resets (`node scripts/demo-scenarios.mjs
-medium --breed Barbet`, or in the app). The free key's daily quota is enough for
-roughly one full household per sitting when Google is busy.
+| Household | "Dogs who'd love it here" (real AI) | Picked | Result |
+|---|---|---|---|
+| Small (Mia) | Great match: French Bulldog, Coton de Tulear, American Hairless Terrier; Could work: Chinese Crested +4 | French Bulldog | NEARLY READY, DO FIRST: balcony railing gaps. 6 items: peace lily, power strip and cords, lit candle, balcony railing, chair near railing, sliding door |
+| Medium (Nguyens) | Great match: Field Spaniel, English Cocker Spaniel, Barbet, Standard Schnauzer +2; every plan mentions the cat | Field Spaniel | NEARLY READY, 7 things to sort: sliding door, pothos, small toys, kitchen bin, cat bed; keep out of the kitchen with a pressure-fit gate |
+| Large (Sam and Priya) | Great match: Labrador, Bracco Italiano, Bernese Mountain Dog, Boxer +1, all large | Labrador | READY FOR A LABRADOR RETRIEVER, 5 things: bi-fold door, plants, mug on table, slippery floor; existing dog bed spotted |
 
 ## Findings from these runs
 
