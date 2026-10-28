@@ -115,14 +115,15 @@ export default function CaptureScreen({ navigation, route }: ScreenProps<'Captur
     busy.current = true;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     try {
-      const photo = await cameraRef.current.takePictureAsync({ quality: 0.4, base64: true, skipProcessing: true });
+      const photo = await cameraRef.current.takePictureAsync({ quality: 0.6, skipProcessing: true });
       if (photo?.uri) {
         // Re-encode the raw shot so no embedded metadata (location, device, time)
-        // reaches the saved file or the AI. Same size and quality; on failure the
-        // original shot is kept.
-        let frame: Frame = { uri: photo.uri, base64: photo.base64, mime: 'image/jpeg' };
+        // reaches the saved file or the AI, and shrink it to 1024px wide like
+        // uploads (full-size phone photos made the AI request slow enough to time
+        // out). If that fails, the analysis re-reads the photo at 1024px later.
+        let frame: Frame = { uri: photo.uri, mime: 'image/jpeg' };
         try {
-          const r = await manipulateAsync(photo.uri, [], { base64: true, compress: 0.4, format: SaveFormat.JPEG });
+          const r = await manipulateAsync(photo.uri, [{ resize: { width: 1024 } }], { base64: true, compress: 0.6, format: SaveFormat.JPEG });
           if (r.base64) frame = { uri: r.uri, base64: r.base64, mime: 'image/jpeg' };
         } catch {}
         framesRef.current = [...framesRef.current, frame];
