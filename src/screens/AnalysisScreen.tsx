@@ -145,7 +145,7 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
   // The model couldn't see a room in the photos: say so, in place of the usual note.
   const photoNote =
     result?.photo_check?.usable === false
-      ? result.photo_check.note || 'We couldn’t see a room in these photos, so nothing was checked. Retake them with the lights on.'
+      ? result.photo_check.note || 'We couldn’t quite see the room. Try again with the lights on, and we’ll take another look.'
       : null;
   const bannerNote = photoNote ?? space?.resultNote;
   // The report always opens with one clear next step when the photos weren't really
@@ -271,7 +271,7 @@ export default function AnalysisScreen({ navigation, route }: ScreenProps<'Analy
         )}
         {!hasPet && (
           <View style={styles.pickPrompt}>
-            <Text style={styles.pickTitle}>Choose a dog breed to run analysis!</Text>
+            <Text style={styles.pickTitle}>Pick a dog to see how they’d feel here!</Text>
             <Text style={styles.pickBody}>
               Pick a breed yourself, or answer a few quick questions to get suggestions, the analysis runs as soon as you select one or hit the re-run button anytime to re-analyse.
             </Text>
@@ -625,7 +625,7 @@ function RiskSheet({
     <View style={styles.sheetWrap}>
       <BlurView intensity={40} tint="light" style={styles.sheet}>
         <View style={styles.sheetHead}>
-          <Text style={styles.sheetTitle}>Potential Risks!</Text>
+          <Text style={styles.sheetTitle}>Things to sort</Text>
           <View style={styles.sheetCtrls}>
             <Pressable onPress={onPrev} hitSlop={10} disabled={total < 2}>
               <ChevronIcon size={18} dir="left" weight={3} />
@@ -652,7 +652,7 @@ function RiskSheet({
             )}
           </View>
           <Text style={styles.riskBody}>{hazard.why_it_matters}</Text>
-          <Text style={styles.riskLabel}>What might help</Text>
+          <Text style={styles.riskLabel}>What to do</Text>
           <Text style={styles.riskBody}>{hazard.recommendation}</Text>
           <Text style={styles.disclosure}>
             {index + 1} of {total} · Hazard flagging is a best-effort extra layer, not a full safety sweep.
@@ -695,7 +695,7 @@ function DogAvatar({ evaluation, top, onPress }: { evaluation: Evaluation; top: 
 // sub-score (logic v2, most heavily weighted first), and any profile nudges.
 
 const BAND_COLOR: Record<Band, string> = { poor: '#E4572E', adequate: colors.orange, good: '#5FAE7F' };
-const BAND_MARK: Record<Band, string> = { poor: '✕', adequate: '!', good: '✓' };
+const BAND_MARK: Record<Band, string> = { poor: '○', adequate: '◐', good: '✓' };
 type NotChecked =
   | { title: string; body: string; action: 'rerun' | 'retake'; button: string }
   | { title: string; body: string; action: null };
@@ -796,7 +796,7 @@ function ReportOverlay({
 
           {e.changes.length > 0 && (
             <View style={styles.reportRow}>
-              <Text style={styles.reportRowTitle}>What to change</Text>
+              <Text style={styles.reportRowTitle}>Start here</Text>
               {e.changes.map((c, i) => (
                 <View key={i} style={styles.changeItem}>
                   <Text style={styles.reportLine}>•</Text>
@@ -862,12 +862,12 @@ function ReportOverlay({
 
           {riskCount > 0 && (
             <Pressable style={styles.reportBtn} onPress={() => dismiss(onRisks)}>
-              <Text style={styles.reportBtnTxt}>See what’s flagged in this room</Text>
+              <Text style={styles.reportBtnTxt}>See everything to sort</Text>
             </Pressable>
           )}
           <Text style={styles.disclosure}>
-            Breed only explains part of an individual dog’s behaviour, every dog is different. Room measurements are
-            estimated from your photos.
+            Every dog is different, and breed is only part of the story. We spot what we can from your photos, so give
+            the room a once-over yourself too.
           </Text>
         </ScrollView>
       </BlurView>
@@ -884,17 +884,17 @@ function WhatsNew({ changes: c, initiallyOpen }: { changes: RunChanges; initiall
     : when.toLocaleString(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
   const any = hasChanges(c);
   const groups: { label: string; mark: string; color: string; items: string[] }[] = [
-    { label: 'Newly flagged', mark: '+', color: '#E4572E', items: c.added },
-    { label: 'No longer flagged', mark: '−', color: '#5FAE7F', items: c.removed },
-    { label: 'Changed', mark: '~', color: colors.orangeDeep, items: c.changed.map((x) => `${x.title}: ${x.from} → ${x.to}`) },
-    { label: 'New suggestions', mark: '+', color: colors.text, items: c.setupAdded },
-    { label: 'Suggestions removed', mark: '−', color: colors.textMuted, items: c.setupRemoved },
+    { label: 'New things to sort', mark: '+', color: '#E4572E', items: c.added },
+    { label: 'Sorted!', mark: '−', color: '#5FAE7F', items: c.removed },
+    { label: 'Updated', mark: '~', color: colors.orangeDeep, items: c.changed.map((x) => `${x.title}: ${x.from} → ${x.to}`) },
+    { label: 'New ideas', mark: '+', color: colors.text, items: c.setupAdded },
+    { label: 'No longer needed', mark: '−', color: colors.textMuted, items: c.setupRemoved },
   ];
   return (
     <View style={[styles.reportRow, styles.whatsNew]}>
       <Pressable onPress={() => setOpen((o) => !o)} hitSlop={6} style={styles.whatsNewHead} accessibilityRole="button">
         <View style={{ flex: 1 }}>
-          <Text style={styles.reportRowTitle}>What’s new since your last run</Text>
+          <Text style={styles.reportRowTitle}>Since last time</Text>
           {!!time && <Text style={styles.whatsNewTime}>Re-run {time}</Text>}
         </View>
         <View style={{ transform: [{ rotate: open ? '90deg' : '0deg' }] }}>
@@ -904,13 +904,13 @@ function WhatsNew({ changes: c, initiallyOpen }: { changes: RunChanges; initiall
       {open &&
         (!any ? (
           <Text style={[styles.reportLine, { marginTop: 6 }]}>
-            No changes. To see a different result, update your profile answers or tags, or capture new photos.
+            Nothing’s changed yet. Move a few things, then retake your photos to see your progress.
           </Text>
         ) : (
           <View style={{ marginTop: 4 }}>
             {!!c.verdict && (
               <Text style={[styles.reportLine, { marginTop: 4 }]}>
-                <Text style={{ fontFamily: fonts.semibold }}>Verdict: </Text>
+                <Text style={{ fontFamily: fonts.semibold }}>Overall: </Text>
                 {c.verdict.from} → {c.verdict.to}
               </Text>
             )}
@@ -943,7 +943,7 @@ function WhatsNew({ changes: c, initiallyOpen }: { changes: RunChanges; initiall
 // Recommendations + shopping list (spec §6.3 / §8), from the top-left tab.
 
 const SEV_COLOR: Record<Hazard['severity'], string> = { high: '#E4572E', medium: colors.orange, low: '#5FAE7F' };
-const SEV_LABEL: Record<Hazard['severity'], string> = { high: 'Priority', medium: 'Worth doing', low: 'Nice to have' };
+const SEV_LABEL: Record<Hazard['severity'], string> = { high: 'Do first', medium: 'Worth doing', low: 'Nice extra' };
 
 function RecommendPanel({
   recSet,
@@ -998,14 +998,14 @@ function RecommendPanel({
                   <Text style={styles.recDetail}>{r.detail}</Text>
                   {r.offLimits && (
                     <Pressable style={styles.recFenceBtn} onPress={() => onFenceOff(r.area)}>
-                      <Text style={styles.recFenceTxt}>✕  Mark this area off-limits</Text>
+                      <Text style={styles.recFenceTxt}>Keep the dog out of here</Text>
                     </Pressable>
                   )}
                 </View>
               ))
             )
           ) : shopping.length === 0 ? (
-            <Text style={styles.recEmpty}>Nothing to buy, no hazards or gaps found for your dog.</Text>
+            <Text style={styles.recEmpty}>Nothing to buy. Your space has what a dog needs.</Text>
           ) : (
             <>
               {shopping.map((s) => (
@@ -1016,7 +1016,7 @@ function RecommendPanel({
                   </View>
                   {s.offLimits && (
                     <Pressable style={styles.shopTagBtn} onPress={() => onFenceOff(s.area || s.item)}>
-                      <Text style={styles.shopTagTxt}>Fence off</Text>
+                      <Text style={styles.shopTagTxt}>Keep out</Text>
                     </Pressable>
                   )}
                 </View>
@@ -1034,9 +1034,9 @@ function RecommendPanel({
 }
 
 const SETUP_GROUPS: { kind: SetupItem['kind']; label: string }[] = [
-  { kind: 'keep_out', label: 'Keep the dog out' },
-  { kind: 'dog_spot', label: 'Good spots for the dog' },
-  { kind: 'add', label: 'Safety to add' },
+  { kind: 'keep_out', label: 'Keep me out of' },
+  { kind: 'dog_spot', label: 'My favourite spots' },
+  { kind: 'add', label: 'Handy additions' },
 ];
 
 function ReportRow({ heading, tag, band, line, chips }: { heading: string; tag: string; band: Band; line: string; chips?: string[] }) {

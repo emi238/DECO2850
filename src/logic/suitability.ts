@@ -355,13 +355,13 @@ export function crossCheck(q: Questionnaire, result: Assessment | null, energyUn
   const dogs = q.existing_pets.filter((p) => /dog/i.test(p.species)).length;
   if (s) {
     if (s.existing_pets === 'cat' && !(q.other_pets ?? []).includes('cat'))
-      nudges.push({ id: 'cat', text: 'We spotted signs of a cat in your photos. Add it to your profile?' });
+      nudges.push({ id: 'cat', text: 'Did we spot a cat? Add it to your profile for a better match.' });
     if (s.existing_pets === 'dog' && dogs === 0)
-      nudges.push({ id: 'dog', text: 'We spotted signs of a dog in your photos. Add it to your profile?' });
+      nudges.push({ id: 'dog', text: 'Did we spot a dog? Add it to your profile for a better match.' });
     if (s.existing_pets === 'multiple' && dogs === 0 && q.has_other_pets !== true)
-      nudges.push({ id: 'pets', text: 'We spotted signs of pets in your photos. Add them to your profile?' });
+      nudges.push({ id: 'pets', text: 'Did we spot other pets? Add them to your profile for a better match.' });
     if (s.children === 'yes' && q.children_at_home !== 'young' && q.children_at_home !== 'older')
-      nudges.push({ id: 'children', text: 'We spotted signs of children in your photos. Update your profile?' });
+      nudges.push({ id: 'children', text: 'Did we spot little ones’ things? Update your profile for a better match.' });
     if (s.dwelling_cue !== 'unknown' && s.dwelling_cue !== q.dwelling)
       nudges.push({
         id: 'dwelling',
@@ -377,7 +377,7 @@ export function crossCheck(q: Questionnaire, result: Assessment | null, energyUn
   if (energyUnknown.length)
     nudges.push({
       id: 'answer_more',
-      text: 'Answer the new questions in your profile (activity, exercise, time alone) for a more accurate result.',
+      text: 'A few quick questions about your routine (activity, walks, time alone) will make this more accurate.',
     });
   return nudges;
 }

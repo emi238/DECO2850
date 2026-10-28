@@ -46,7 +46,7 @@ export function FindingCard({
       {!!hazard.recommendation && (
         <View style={[styles.fix, { borderLeftColor: sev }]}>
           <Text style={styles.fixTxt}>
-            <Text style={styles.lead}>Fix  </Text>
+            <Text style={styles.lead}>What to do  </Text>
             {hazard.recommendation}
           </Text>
         </View>

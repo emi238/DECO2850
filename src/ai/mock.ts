@@ -92,7 +92,7 @@ export function generateMockAssessment(session: Space): Assessment {
   const assessment = normaliseAssessment(
     {
       space_summary:
-        'A single room captured across several frames. (Sample assessment: turn on the real model for photo-based hazard detection.)',
+        'A single room captured across several frames. (Example result: turn on the real model to check your photos.)',
       confidence: 'low',
       hazards: findings,
       escape_routes: [],
@@ -102,7 +102,7 @@ export function generateMockAssessment(session: Space): Assessment {
       detected_signals: { existing_pets: 'unknown', children: 'unknown', dwelling_cue: 'unknown', outdoor_access_cue: 'unknown' },
       improvements,
       notes:
-        'This sample assessment is based on your household answers and tags rather than the photos. Add a Gemini API key (see src/ai/config.ts) for real photo analysis.',
+        'This example result is based on your household answers and tags rather than the photos. Add a Gemini API key (see src/ai/config.ts) for real photo analysis.',
     },
     session
   );

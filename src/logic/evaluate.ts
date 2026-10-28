@@ -70,7 +70,8 @@ export interface Evaluation {
   labels: Record<SubScore, string>; // the chip on each report row
   lines: Record<SubScore, string>; // the dog's first-person line
   roomChips: string[]; // openness, retreat spot and clear path, as plain words (empty if unknown)
-  verdictTitle: string;
+  verdictLabel: string; // small plain label above the headline (app voice)
+  verdictTitle: string; // the headline, spoken by the dog
   verdictLine: string;
   changes: string[]; // "What to change"
   setup: SetupItem[]; // "Suggested setup": keep-out areas, dog spots, safety additions
@@ -109,6 +110,8 @@ export function evaluate(space: Space, household: Questionnaire, dogOverride?: R
   const mood: Evaluation['mood'] = verdict === 'poor' ? 'sad' : verdict === 'adequate' ? 'neutral' : 'happy';
   const room = result?.room_assessment;
   const changes = whatToChange(space, s);
+  // "Still checking": a middling result held back only by missing information.
+  const stillChecking = verdict === 'adequate' && unknown.length > 0 && !gates.length;
 
   return {
     dog,
@@ -120,26 +123,31 @@ export function evaluate(space: Space, household: Questionnaire, dogOverride?: R
     mood,
     speech: speechFor(mood, bands),
     labels: {
-      safety: !photosChecked ? 'Not checked' : { poor: 'Not safe yet', adequate: counted ? `Move ${thingCount(counted)}` : 'Mostly safe', good: 'Safe' }[bands.safety],
-      energy: s.energy.undecided ? 'Not enough info' : { poor: 'Hard to keep up', adequate: 'Needs a plan', good: 'Well matched' }[bands.energy],
-      room: !room ? 'Not checked' : { poor: 'Too tight', adequate: 'Enough room', good: 'Plenty of room' }[bands.room],
-      household: { poor: 'Tricky fit', adequate: 'Some care needed', good: 'Suits your home' }[bands.household],
-      noise: { poor: 'Likely issue', adequate: 'Some barking', good: 'No problem' }[bands.noise],
+      safety: !photosChecked ? 'Not checked yet' : { poor: 'A few fixes first', adequate: counted ? `Move ${thingCount(counted)}` : 'A little work', good: 'All good' }[bands.safety],
+      energy: s.energy.undecided ? 'Tell us more' : { poor: 'Needs a bigger plan', adequate: 'Needs a plan', good: 'Well matched' }[bands.energy],
+      room: !room ? 'Not checked yet' : { poor: 'A bit snug', adequate: 'Enough room', good: 'Plenty of room' }[bands.room],
+      household: { poor: 'Needs a plan', adequate: 'A little care', good: 'Fits right in' }[bands.household],
+      noise: { poor: 'Needs a plan', adequate: 'Some barking', good: 'All good' }[bands.noise],
     },
     lines: {
       safety: photosChecked
         ? safetyLine(bands.safety, counted, gates)
-        : "We couldn't check the photos this time, so we don't know what's within my reach yet.",
+        : "I couldn't see the room this time, so I don't know what's in reach yet.",
       energy: energyLine(bands.energy, s.energy),
       room: roomLine(bands.room, room),
       household: householdLine(s.household.concerns),
       noise: NOISE_LINE[bands.noise],
     },
     roomChips: room && photosChecked ? [OPENNESS_WORD[room.openness], RETREAT_WORD[room.retreat_spot], PATH_WORD[room.clear_path]] : [],
-    verdictTitle:
-      verdict === 'adequate' && unknown.length && !gates.length
-        ? 'Could be a good fit'
-        : { poor: 'Not a good fit yet', adequate: 'Good fit with a few changes', good: 'Good fit' }[verdict],
+    // The dog speaks the headline; a small plain label above it keeps the result clear.
+    verdictLabel: stillChecking
+      ? 'STILL CHECKING'
+      : { poor: 'NOT QUITE READY YET', adequate: 'NEARLY READY', good: `READY FOR A ${dog.name.toUpperCase()}` }[verdict],
+    verdictTitle: stillChecking
+      ? 'Help me see a bit more'
+      : currentOwner
+        ? { poor: "Let's make our home even better", adequate: 'A few tweaks for me?', good: 'I love it here!' }[verdict]
+        : { poor: "Let's get it ready together", adequate: 'Almost ready for me!', good: "I'd love it here!" }[verdict],
     verdictLine: verdictLine(verdict, dog.name, gates, changes.length, unknown),
     changes,
     setup: suggestedSetup(result),
@@ -153,15 +161,15 @@ function thingCount(n: number): string {
 }
 
 const GATE_TEXT: Record<Gate, string> = {
-  escape: 'make the escape or fall risk safe',
-  toxic: 'move or lock away the toxic item',
-  energy: 'plan more exercise and company for a high-energy dog',
+  escape: 'secure the spot where a dog could get out or fall',
+  toxic: 'move the toxic item somewhere locked or up high',
+  energy: 'plan daily exercise and company for an energetic dog',
 };
 
 const UNKNOWN_TEXT: Record<Unknown, string> = {
-  photos: 'try the analysis again so we can check your photos',
-  room: "re-run the analysis so we can check the room's layout",
-  routine: 'answer the routine questions in your profile',
+  photos: 'retake the photos so we can see the room',
+  room: 're-run the analysis so we can check the layout',
+  routine: 'answer a few routine questions in your profile',
 };
 
 function joinAnd(items: string[]): string {
@@ -170,15 +178,15 @@ function joinAnd(items: string[]): string {
 
 // One plain sentence under the verdict.
 function verdictLine(v: Band, dogName: string, gates: Gate[], changes: number, unknown: Unknown[]): string {
-  if (v === 'good') return changes ? `This room suits a ${dogName} well. A few small changes are listed below.` : `This room suits a ${dogName} well.`;
+  if (v === 'good') return changes ? `Your space suits a ${dogName} well. A few small extras are below if you'd like them.` : `Your space already suits a ${dogName} well.`;
   const todo = joinAnd(unknown.map((u) => UNKNOWN_TEXT[u]));
   if (gates.length) {
     return v === 'adequate'
-      ? `It can work, but first: ${GATE_TEXT[gates[0]]}.`
-      : `Not yet. First: ${GATE_TEXT[gates[0]]}, then see the changes below.`;
+      ? `It can work. Start with this: ${GATE_TEXT[gates[0]]}.`
+      : `There's some work to do first. Start with this: ${GATE_TEXT[gates[0]]}.`;
   }
-  if (v === 'adequate') return unknown.length ? `To be sure, ${todo}.` : 'It can work with a few changes, listed below.';
-  return unknown.length ? `Not yet, see the changes below. To be sure, ${todo}.` : 'Not yet, the main changes are listed below.';
+  if (v === 'adequate') return unknown.length ? `We need a little more to be sure: ${todo}.` : "It can work with a few changes. They're listed below, most important first.";
+  return unknown.length ? `A few changes would help. To be sure, ${todo}.` : 'A few bigger changes would make this work. Start with the first one below.';
 }
 
 const ZONE_WORD: Record<string, string> = {
@@ -286,38 +294,38 @@ function whatToChange(space: Space, s: SuitabilityResult): string[] {
 
 // Kept short: the speech bubble fits about 28 characters on one line.
 function speechFor(mood: Evaluation['mood'], bands: Bands): string {
-  if (mood === 'happy') return 'I can run around here, yay!';
-  if (mood === 'neutral') return bands.safety === 'good' ? 'I could get comfy here!' : 'Tidy a few things for me!';
-  if (bands.energy === 'poor') return "I'd need more of your time!";
-  return bands.room === 'poor' ? 'I need space to run!' : 'A few things here worry me…';
+  if (mood === 'happy') return "I'd love it here!";
+  if (mood === 'neutral') return bands.safety === 'good' ? 'I could get comfy here!' : 'Almost ready for me!';
+  if (bands.energy === 'poor') return "I'd love more time with you!";
+  return bands.room === 'poor' ? 'A bit more room for me?' : "Let's get it ready together";
 }
 
 function safetyLine(b: Band, counted: number, gates: Gate[]): string {
-  if (b === 'good') return 'Nothing risky within my reach, nice and safe.';
-  if (gates.includes('escape')) return 'There’s a way I could get out or fall here, please make that safe first.';
-  if (gates.includes('toxic')) return 'Something toxic is within my reach and isn’t easy to move, please lock it away first.';
-  const what = counted <= 1 ? 'a hazard' : counted === 2 ? 'a couple of hazards' : 'several hazards';
+  if (b === 'good') return 'Nothing here I can get into. I feel safe!';
+  if (gates.includes('escape')) return 'I might find a way out or take a tumble here. Could we make that spot safe first?';
+  if (gates.includes('toxic')) return "Something here could make me sick. Could it go somewhere I can't reach?";
+  const what = counted <= 1 ? 'one thing' : counted === 2 ? 'a couple of things' : 'a few things';
   return b === 'poor'
-    ? `Quite hazardous for me: ${what} within paw and mouth reach.`
-    : `Mostly safe, just ${what} to move out of my reach.`;
+    ? `There ${counted <= 1 ? 'is' : 'are'} ${what} I could get into. Let's move them first.`
+    : `Almost there, just ${what} to move up out of my reach.`;
 }
 
 const DRIVER_TEXT: Record<EnergyResult['drivers'][number], string> = {
-  alone: 'long days on my own would be hard',
-  exercise: "I'd need more walks and play than planned",
-  activity: "I'd need a more active routine",
-  outdoor: "with no outdoor space I'd need lots of walks",
+  alone: 'long days alone would get lonely',
+  exercise: 'a few more walks and play',
+  activity: 'a more active routine together',
+  outdoor: "lots of walks, since there's no yard",
 };
 
 function energyLine(b: Band, e: EnergyResult): string {
-  if (b === 'good') return 'My exercise needs fit your routine nicely.';
-  if (e.undecided) return 'Tell us more about your routine in your profile so we can check my exercise needs.';
+  if (b === 'good') return 'My exercise needs fit your days nicely.';
+  if (e.undecided) return "Tell me a bit about your routine so I know we'll keep up.";
   const why = e.drivers.slice(0, 2).map((d) => DRIVER_TEXT[d]);
   if (!why.length) {
-    return b === 'poor' ? "I'd need more exercise and company than this routine gives." : 'Doable, with daily walks and play built into your routine.';
+    return b === 'poor' ? "I'd need more walks, play and company than this routine has right now." : 'Doable, with daily walks and play built in.';
   }
   const list = why.join(', and ');
-  return b === 'poor' ? `I'd struggle here: ${list}.` : `We'd need a plan: ${list}.`;
+  return b === 'poor' ? `I'd need more from our days: ${list}.` : `We'd just need a plan: ${list}.`;
 }
 
 const OPENNESS_WORD = { open: 'Open layout', moderate: 'Some open floor', cramped: 'Cramped layout' } as const;
@@ -337,18 +345,18 @@ function roomLine(b: Band, room: RoomAssessment | undefined): string {
     if (room.retreat_spot === 'absent') return "There's room, but nowhere quiet for my bed.";
     return 'Enough room to settle, a little more open floor would help me move.';
   }
-  if (room.openness !== 'cramped' && room.clear_path === 'poor') return "I'd keep bumping into furniture here, a clearer path through would help.";
-  return 'This room feels tight for me right now, moving a few things could open it right up.';
+  if (room.openness !== 'cramped' && room.clear_path === 'poor') return "I'd keep bumping into furniture. A clearer path would help me get around.";
+  return "It's a bit snug for me right now. Clearing some floor would open it right up.";
 }
 
 const CONCERN_TEXT: Record<string, string> = {
-  kids_bouncy_no_retreat: "I could be too boisterous for little ones, and there's nowhere for me to take a break.",
-  kids_bouncy: "I could be a bit boisterous around little ones, so I'd need supervising.",
-  kids_no_retreat: "I'd need a quiet spot to get away from little ones.",
-  other_dogs: 'I might not get along easily with your other dog at first.',
-  first_dog_energy: "I'm a lot of work for a first dog.",
-  first_dog_stubborn: 'I can be stubborn, which is hard for a first dog.',
-  busy_sensitive: 'A busy home could stress me out.',
+  kids_bouncy_no_retreat: "I can be bouncy around little ones, and I'd need a quiet spot to take a break.",
+  kids_bouncy: 'I can be bouncy around little ones, so keep an eye on us at first.',
+  kids_no_retreat: "I'd love a quiet spot to rest away from little ones.",
+  other_dogs: "I'd need slow, gentle introductions to your other dog.",
+  first_dog_energy: "I've got lots of energy, so a training class would help us both.",
+  first_dog_stubborn: 'I can be a bit stubborn. Patient training will win me over.',
+  busy_sensitive: "I'd need a calm corner to recharge in a busy home.",
   size_bigger: "I'm bigger than the size of dog you said you'd like.",
   size_smaller: "I'm smaller than the size of dog you said you'd like.",
 };
@@ -359,36 +367,36 @@ function concernText(c: Concern): string {
   if (c.id === 'pet_chase') {
     const nouns = (c.pets ?? []).map((p) => PET_NOUN[p] ?? 'pets');
     const list = nouns.length > 1 ? `${nouns.slice(0, -1).join(', ')} and ${nouns[nouns.length - 1]}` : nouns[0] ?? 'pets';
-    return `I might want to chase your ${list}, so introductions need care.`;
+    return `I might want to chase your ${list}, so let's meet slowly.`;
   }
   return CONCERN_TEXT[c.id];
 }
 
 function householdLine(concerns: Concern[]): string {
-  if (!concerns.length) return "I'd fit right in with your household.";
+  if (!concerns.length) return "I'd fit right in with everyone at home.";
   return concerns.slice(0, 2).map(concernText).join(' ');
 }
 
 const NOISE_LINE: Record<Band, string> = {
-  good: "Barking shouldn't be a problem for the neighbours here.",
-  adequate: 'Should be fine with the neighbours, most of the time.',
-  poor: 'I might be a bit loud for close neighbours, consider a quieter breed for this building.',
+  good: "Your neighbours won't hear much from me.",
+  adequate: 'I might bark now and then, but it should be fine.',
+  poor: 'I can be chatty, and your neighbours are close. Calm training will help keep the peace.',
 };
 
 // ---- Shared by the report and "What's new" ----
 
 // The report rows, in order (most heavily weighted first).
 export const REPORT_ROWS: { key: SubScore; heading: string }[] = [
-  { key: 'safety', heading: 'Safety' },
-  { key: 'energy', heading: 'Exercise & routine' },
+  { key: 'safety', heading: 'Staying safe' },
+  { key: 'energy', heading: 'Exercise & company' },
   { key: 'room', heading: 'Room to move' },
-  { key: 'household', heading: 'Your household' },
+  { key: 'household', heading: 'Fitting in at home' },
   { key: 'noise', heading: 'Neighbours' },
 ];
 
 // The chip on each risk card.
-export const SEVERITY_WORD: Record<Hazard['severity'], string> = { high: 'Needs attention', medium: 'Worth fixing', low: 'Minor' };
-export const TAG_WORD = 'Be careful';
+export const SEVERITY_WORD: Record<Hazard['severity'], string> = { high: 'Do first', medium: 'Worth doing', low: 'Nice extra' };
+export const TAG_WORD = 'Protect this';
 
 // Items the user tagged (Valuable / Fragile) are things to protect, not hazards.
 // New results mark them source "user_tag"; for results saved before logic v2, fall

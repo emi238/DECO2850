@@ -145,7 +145,7 @@ export function buildRecommendations(evaluation: Evaluation | null, result: Asse
       const tight = bands.room === 'poor';
       recommendations.push({
         id: 'dog-space',
-        title: tight ? `Open up more floor for ${dog}` : `A little more open floor for ${dog}`,
+        title: tight ? 'Clear some floor to play on' : 'A little more open floor',
         detail: `${dog} is a ${evaluation.effective} dog for space purposes${
           evaluation.dog.energy === 'high' ? ' with high energy' : ''
         }. Clearing a walkway and a clutter-free zone gives room to move and settle.`,
@@ -158,7 +158,7 @@ export function buildRecommendations(evaluation: Evaluation | null, result: Asse
     if (roomKnown && room.retreat_spot !== 'present') {
       recommendations.push({
         id: 'dog-zone',
-        title: `Give ${dog} a spot of their own`,
+        title: 'Make a cosy corner for a bed',
         detail: `${dog} needs one quiet corner away from foot traffic to call their own.`,
         severity: 'low',
         area: 'Resting corner',
@@ -169,8 +169,8 @@ export function buildRecommendations(evaluation: Evaluation | null, result: Asse
     if (bands.energy !== 'good' && !score.energy.undecided) {
       recommendations.push({
         id: 'dog-exercise',
-        title: `Plan daily activity for ${dog}`,
-        detail: `${dog} needs more exercise and company than the current routine gives. Regular walks plus indoor enrichment keep them settled.`,
+        title: 'Plan daily walks and play',
+        detail: `${dog} would be happiest with daily walks, play and company. Puzzle toys help on busy days.`,
         severity: bands.energy === 'poor' ? 'high' : 'medium',
         area: 'Enrichment',
       });

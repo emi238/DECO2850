@@ -26,15 +26,15 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 function friendlyFailure(err: unknown): string {
   const msg = (err instanceof Error ? err.message : String(err)) || '';
   if (/429|quota|rate/i.test(msg)) {
-    return 'The free AI quota is used up for now, so this is a sample assessment. The free tier resets later today.';
+    return 'The free AI quota is used up for now, so this is an example result, not your room. The free tier resets later today.';
   }
   if (/503|unavailable|overload|high demand/i.test(msg)) {
-    return 'The AI model was briefly busy, so this is a sample assessment. Tap “Start over” and try again in a moment.';
+    return 'The AI model was briefly busy, so this is an example result, not your room. Tap “Start over” and try again in a moment.';
   }
   if (/tim-?out|abort|network|fetch/i.test(msg)) {
-    return 'The AI could not be reached (network/timeout), so this is a sample assessment.';
+    return 'The AI could not be reached (network/timeout), so this is an example result, not your room.';
   }
-  return 'The AI call did not complete, so this is a sample assessment.';
+  return 'The AI call did not complete, so this is an example result, not your room.';
 }
 
 const MAX_ATTEMPTS = 3; // initial try + 2 retries (PRD F5.5), with backoff
@@ -77,7 +77,7 @@ export async function runAssessment(session: Space): Promise<AssessResult> {
       assessment: generateMockAssessment(session),
       source: 'mock',
       fallbackReason:
-        'Real AI is on, but these photos are no longer loaded (the app was restarted), so this is a sample assessment. Capture the room again to use the model.',
+        'Real AI is on, but these photos are no longer loaded (the app was restarted), so this is an example result, not your room. Capture the room again to use the model.',
     };
   }
 

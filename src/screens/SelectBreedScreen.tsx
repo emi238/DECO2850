@@ -299,7 +299,7 @@ function BreedFacts({ breed }: { breed: BreedProfile }) {
   );
 }
 
-const FIT_LABEL = { good: 'Good fit', could_work: 'Could work', tricky: 'Tricky fit' } as const;
+const FIT_LABEL = { good: 'Great match', could_work: 'Could work', tricky: 'Needs more planning' } as const;
 
 function Dropdown({ value, placeholder, onPress, disabled }: { value: string; placeholder: string; onPress: () => void; disabled?: boolean }) {
   return (
